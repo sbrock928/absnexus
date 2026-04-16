@@ -71,3 +71,23 @@ export interface DagVersion {
   created_at: string;
   is_current: boolean;
 }
+
+export interface AuditLogEntry {
+  id: number;
+  user_id: number;
+  user_display_name: string;
+  entity_type: string;
+  entity_id: number;
+  action: string;
+  changes: Record<string, unknown> | null;
+  description: string | null;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLogEntry[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
