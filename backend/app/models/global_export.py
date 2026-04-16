@@ -36,14 +36,27 @@ class GlobalExportColumn(Base):
     prorate_class_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
 
-class DealExportMapping(Base):
-    __tablename__ = "deal_export_mapping"
-    __table_args__ = (
-        UniqueConstraint("deal_id", "template_id", "column_id", name="uq_deal_mapping"),
-    )
+class DealExportRow(Base):
+    """One CSV output row — multiple rows per distribution node per deal per template."""
+    __tablename__ = "deal_export_row"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     deal_id: Mapped[int] = mapped_column(Integer, ForeignKey("deal.id"), nullable=False)
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("global_export_template.id"), nullable=False)
-    column_id: Mapped[int] = mapped_column(Integer, ForeignKey("global_export_column.id"), nullable=False)
     node_id: Mapped[int] = mapped_column(Integer, ForeignKey("dag_node.id"), nullable=False)
+    row_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    identifier_group: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class DealExportCell(Base):
+    """Per-cell value definition within an export row."""
+    __tablename__ = "deal_export_cell"
+    __table_args__ = (
+        UniqueConstraint("row_id", "column_id", name="uq_export_cell"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    row_id: Mapped[int] = mapped_column(Integer, ForeignKey("deal_export_row.id"), nullable=False)
+    column_id: Mapped[int] = mapped_column(Integer, ForeignKey("global_export_column.id"), nullable=False)
+    value_source: Mapped[str] = mapped_column(String(20), nullable=False)  # node|variable|formula|literal|run_meta|deal_meta
+    source_ref: Mapped[str] = mapped_column(String(500), nullable=False)  # node key, variable name, formula, literal value, or meta field

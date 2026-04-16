@@ -1,4 +1,4 @@
-"""Global export service — templates, mappings, CSV generation."""
+"""Global export service — templates, row configs, CSV generation."""
 import csv
 import hashlib
 import io
@@ -8,13 +8,16 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core import settings
+from app.formulas.engine import FormulaEngine
 from app.global_export.dao import GlobalExportDAO
 from app.models.dag import DagNode
 from app.models.deal import Deal
-from app.models.global_export import GlobalExportColumn, DealExportMapping
-from app.models.processing import ProcessingRun, ExecutionStep
+from app.models.global_export import GlobalExportColumn, DealExportRow, DealExportCell
+from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.schemas.global_export import (
-    DealMappingResponse,
+    DealExportConfigResponse,
+    DealExportRowResponse,
+    DealExportCellResponse,
     GlobalTemplateResponse,
     TemplateWithColumnsResponse,
     GlobalColumnResponse,
@@ -27,18 +30,14 @@ class GlobalExportService:
         self.db = db
         self.dao = GlobalExportDAO(db)
         self.tranche_dao = TrancheDAO(db)
+        self.formula_engine = FormulaEngine()
 
     # ── Templates ──
 
     def list_templates(self) -> list[GlobalTemplateResponse]:
         templates = self.dao.list_templates()
-        cols_counts: dict[int, int] = {}
-        for t in templates:
-            cols_counts[t.id] = len(self.dao.list_columns(t.id))
         return [
-            GlobalTemplateResponse(
-                id=t.id, name=t.name, description=t.description,
-            )
+            GlobalTemplateResponse(id=t.id, name=t.name, description=t.description)
             for t in templates
         ]
 
@@ -52,36 +51,47 @@ class GlobalExportService:
             columns=[GlobalColumnResponse.model_validate(c) for c in cols],
         )
 
-    # ── Deal mappings ──
+    # ── Deal export config ──
 
-    def get_deal_mappings(self, deal_id: int, template_id: int) -> list[DealMappingResponse]:
-        mappings = self.dao.list_deal_mappings(deal_id, template_id)
-        result = []
-        for m in mappings:
-            col = self.dao.get_column(m.column_id)
-            node = self.db.query(DagNode).filter(DagNode.id == m.node_id).first()
-            result.append(DealMappingResponse(
-                id=m.id,
-                column_id=m.column_id,
-                node_id=m.node_id,
-                header_label=col.header_label if col else None,
+    def get_deal_config(self, deal_id: int, template_id: int) -> DealExportConfigResponse:
+        """Get full export row config for a deal+template."""
+        rows = self.dao.list_deal_rows(deal_id, template_id)
+        row_responses = []
+        for row in rows:
+            cells = self.dao.list_cells_for_row(row.id)
+            node = self.db.query(DagNode).filter(DagNode.id == row.node_id).first()
+            row_responses.append(DealExportRowResponse(
+                id=row.id,
+                node_id=row.node_id,
                 node_key=node.key if node else None,
                 node_name=node.name if node else None,
+                row_order=row.row_order,
+                identifier_group=row.identifier_group,
+                cells=[
+                    DealExportCellResponse(
+                        id=c.id,
+                        column_id=c.column_id,
+                        value_source=c.value_source,
+                        source_ref=c.source_ref,
+                    )
+                    for c in cells
+                ],
             ))
-        return result
+        return DealExportConfigResponse(rows=row_responses)
 
-    def save_deal_mappings(
+    def save_deal_config(
         self,
         deal_id: int,
         template_id: int,
-        mappings: list[dict[str, int]],
-    ) -> list[DealExportMapping]:
-        return self.dao.save_deal_mappings(deal_id, template_id, mappings)
+        rows_data: list[dict],
+    ) -> DealExportConfigResponse:
+        self.dao.save_deal_config(deal_id, template_id, rows_data)
+        return self.get_deal_config(deal_id, template_id)
 
     # ── CSV generation ──
 
     def generate_csv(self, run: ProcessingRun, template_id: int) -> tuple[str, str]:
-        """Generate CSV for a run using a global template + deal mappings."""
+        """Generate CSV for a run using global template + deal row config."""
         if run.status not in ("executed", "completed"):
             raise ValueError(f"Cannot export: run status is '{run.status}'.")
 
@@ -89,11 +99,8 @@ class GlobalExportService:
         if not cols:
             raise ValueError("No columns configured for this template.")
 
-        # Build mapping: column_id → node_id for this deal
-        deal_mappings = self.dao.list_deal_mappings(run.deal_id, template_id)
-        col_to_node: dict[int, int] = {m.column_id: m.node_id for m in deal_mappings}
-
-        content = self._generate(run, cols, col_to_node)
+        context = self._build_context(run)
+        content = self._generate(run, cols, template_id, context)
 
         # Save file
         deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()
@@ -122,129 +129,187 @@ class GlobalExportService:
         if not cols:
             return ""
 
-        deal_mappings = self.dao.list_deal_mappings(deal_id, template_id)
-        col_to_node: dict[int, int] = {m.column_id: m.node_id for m in deal_mappings}
-
         if run_id:
             run = self.db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
             if run:
-                return self._generate(run, cols, col_to_node)
+                context = self._build_context(run)
+                return self._generate(run, cols, template_id, context)
 
-        # No run — produce sample row with placeholders
+        # Placeholder
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow([c.header_label for c in cols])
         writer.writerow([self._placeholder(c) for c in cols])
         return out.getvalue()
 
+    def _build_context(self, run: ProcessingRun) -> dict[str, Decimal]:
+        """Build full formula context from tape values + execution results."""
+        context: dict[str, Decimal] = {}
+
+        # Tape values
+        extracted = (
+            self.db.query(ExtractedValue)
+            .filter(ExtractedValue.run_id == run.id)
+            .all()
+        )
+        for ev in extracted:
+            if ev.parsed_value is not None:
+                context[ev.variable_name] = ev.parsed_value
+
+        # Execution step results (by node key)
+        steps = (
+            self.db.query(ExecutionStep)
+            .filter(ExecutionStep.run_id == run.id)
+            .all()
+        )
+        for s in steps:
+            if s.result is not None:
+                context[s.node_key] = s.result
+
+        # Tranche context
+        from app.tranches.service import TrancheService
+        tranche_ctx = TrancheService(self.db).build_tranche_context(
+            run.deal_id, run.report_period or "",
+        )
+        context.update(tranche_ctx)
+
+        return context
+
     def _generate(
         self,
         run: ProcessingRun,
         cols: list[GlobalExportColumn],
-        col_to_node: dict[int, int],
+        template_id: int,
+        context: dict[str, Decimal],
     ) -> str:
         deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()
 
-        dist_steps = (
-            self.db.query(ExecutionStep)
-            .filter(ExecutionStep.run_id == run.id, ExecutionStep.node_type == "distribution")
-            .order_by(ExecutionStep.step_order)
-            .all()
-        )
-        step_by_node: dict[int, ExecutionStep] = {s.node_id: s for s in dist_steps}
+        # Load deal export rows grouped by node
+        deal_rows = self.dao.list_deal_rows(run.deal_id, template_id)
 
-        # Determine row drivers: distinct node_ids from mappings that have execution results
-        mapped_node_ids = list({nid for nid in col_to_node.values() if nid in step_by_node})
-        if not mapped_node_ids:
-            mapped_node_ids = [s.node_id for s in dist_steps] if dist_steps else []
+        # Build cells lookup: row_id → {column_id: cell}
+        cells_by_row: dict[int, dict[int, DealExportCell]] = {}
+        for row in deal_rows:
+            cells = self.dao.list_cells_for_row(row.id)
+            cells_by_row[row.id] = {c.column_id: c for c in cells}
 
+        # Group rows by node_id, preserving order
+        from collections import OrderedDict
+        rows_by_node: OrderedDict[int, list[DealExportRow]] = OrderedDict()
+        for row in deal_rows:
+            rows_by_node.setdefault(row.node_id, []).append(row)
+
+        # If no deal rows configured, fall back to one row per distribution step
+        if not deal_rows:
+            dist_steps = (
+                self.db.query(ExecutionStep)
+                .filter(ExecutionStep.run_id == run.id, ExecutionStep.node_type == "distribution")
+                .order_by(ExecutionStep.step_order)
+                .all()
+            )
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow([c.header_label for c in cols])
+            for step in dist_steps:
+                row_values = [self._resolve_column_default(c, run, deal, step) for c in cols]
+                writer.writerow(row_values)
+            return out.getvalue()
+
+        # Generate with multi-row config
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow([c.header_label for c in cols])
 
-        for node_id in mapped_node_ids:
-            step = step_by_node.get(node_id)
-            row = [self._resolve(c, run, deal, step, col_to_node) for c in cols]
-            writer.writerow(row)
+        for node_id, node_rows in rows_by_node.items():
+            for export_row in node_rows:
+                row_cells = cells_by_row.get(export_row.id, {})
+                csv_row = []
+                for col in cols:
+                    cell = row_cells.get(col.id)
+                    if cell:
+                        csv_row.append(self._resolve_cell(cell, context, run, deal, col))
+                    else:
+                        csv_row.append(self._resolve_column_default(col, run, deal, None))
+                writer.writerow(csv_row)
 
         return out.getvalue()
 
-    def _resolve(
+    def _resolve_cell(
+        self,
+        cell: DealExportCell,
+        context: dict[str, Decimal],
+        run: ProcessingRun,
+        deal: Deal | None,
+        col: GlobalExportColumn,
+    ) -> str:
+        """Resolve a single cell value."""
+        ref = cell.source_ref
+
+        if cell.value_source == "node":
+            val = context.get(ref, Decimal("0"))
+            return self._format(val, col)
+
+        if cell.value_source == "variable":
+            val = context.get(ref, Decimal("0"))
+            return self._format(val, col)
+
+        if cell.value_source == "formula":
+            try:
+                val = self.formula_engine.execute(ref, context)
+                return self._format(val, col)
+            except Exception:
+                return "ERROR"
+
+        if cell.value_source == "literal":
+            return ref
+
+        if cell.value_source == "run_meta":
+            return self._resolve_run_meta(ref, run)
+
+        if cell.value_source == "deal_meta":
+            return self._resolve_deal_meta(ref, deal)
+
+        return ""
+
+    def _resolve_column_default(
         self,
         col: GlobalExportColumn,
         run: ProcessingRun,
         deal: Deal | None,
         step: ExecutionStep | None,
-        col_to_node: dict[int, int],
     ) -> str:
+        """Resolve a column using its template-level defaults (no DealExportCell)."""
         if col.value_type == "distribution_node":
-            node_id = col_to_node.get(col.id)
-            if node_id and step and step.node_id == node_id:
-                value = step.result or Decimal("0")
-            elif node_id:
-                # Resolve from a different step (the mapped node)
-                mapped_step = (
-                    self.db.query(ExecutionStep)
-                    .filter(ExecutionStep.run_id == run.id, ExecutionStep.node_id == node_id)
-                    .first()
-                )
-                value = mapped_step.result if mapped_step and mapped_step.result else Decimal("0")
-            else:
-                value = step.result if step and step.result else Decimal("0")
-            if col.prorate_by:
-                value = self._apply_prorate(value, col, run)
-            return self._format(value, col)
-
+            if step and step.result is not None:
+                return self._format(step.result, col)
+            return ""
         if col.value_type == "literal":
             return col.literal_value or ""
-
         if col.value_type == "run_meta":
-            if col.meta_field == "run_code":
-                return f"RUN-{run.id}"
-            if col.meta_field in ("payment_date", "report_period"):
-                return run.report_period or ""
-            return ""
-
+            return self._resolve_run_meta(col.meta_field or "", run)
         if col.value_type == "deal_meta":
-            if not deal:
-                return ""
-            if col.meta_field == "deal_id":
-                return deal.name.replace(" ", "_") if deal.name else f"deal_{deal.id}"
-            if col.meta_field == "deal_name":
-                return deal.name
-            if col.meta_field == "product_type":
-                return deal.product_type or ""
-            return ""
-
+            return self._resolve_deal_meta(col.meta_field or "", deal)
         return ""
 
-    def _apply_prorate(self, value: Decimal, col: GlobalExportColumn, run: ProcessingRun) -> Decimal:
-        class_label = col.prorate_class_label
-        if not class_label:
-            return value
+    @staticmethod
+    def _resolve_run_meta(field: str, run: ProcessingRun) -> str:
+        if field == "run_code":
+            return f"RUN-{run.id}"
+        if field in ("payment_date", "report_period"):
+            return run.report_period or ""
+        return ""
 
-        tranches = self.tranche_dao.list_for_deal(run.deal_id)
-        class_tranches = [t for t in tranches if t.class_label.lower() == class_label.lower()]
-
-        bal_144a = Decimal("0")
-        bal_regs = Decimal("0")
-        for t in class_tranches:
-            bal = self.tranche_dao.get_balance(t.id, run.report_period or "")
-            amount = bal.balance if bal else (t.original_balance or Decimal("0"))
-            if t.regulation_type == "144a":
-                bal_144a = amount
-            elif t.regulation_type == "regs":
-                bal_regs = amount
-
-        total = bal_144a + bal_regs
-        if total == Decimal("0"):
-            return value
-
-        if col.prorate_by == "144a":
-            return value * (bal_144a / total)
-        if col.prorate_by == "regs":
-            return value * (bal_regs / total)
-        return value
+    @staticmethod
+    def _resolve_deal_meta(field: str, deal: Deal | None) -> str:
+        if not deal:
+            return ""
+        if field == "deal_id":
+            return deal.name.replace(" ", "_") if deal.name else f"deal_{deal.id}"
+        if field == "deal_name":
+            return deal.name
+        if field == "product_type":
+            return deal.product_type or ""
+        return ""
 
     @staticmethod
     def _format(value: Decimal | None, col: GlobalExportColumn) -> str:

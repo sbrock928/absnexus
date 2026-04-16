@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.models.global_export import (
     GlobalExportTemplate,
     GlobalExportColumn,
-    DealExportMapping,
+    DealExportRow,
+    DealExportCell,
 )
 
 
@@ -70,42 +71,77 @@ class GlobalExportDAO:
         self.db.flush()
         return self.list_columns(template_id)
 
-    # ── Deal mappings ──
+    # ── Deal export rows + cells ──
 
-    def list_deal_mappings(self, deal_id: int, template_id: int) -> list[DealExportMapping]:
+    def list_deal_rows(self, deal_id: int, template_id: int) -> list[DealExportRow]:
         return (
-            self.db.query(DealExportMapping)
+            self.db.query(DealExportRow)
             .filter(
-                DealExportMapping.deal_id == deal_id,
-                DealExportMapping.template_id == template_id,
+                DealExportRow.deal_id == deal_id,
+                DealExportRow.template_id == template_id,
             )
+            .order_by(DealExportRow.node_id, DealExportRow.row_order)
             .all()
         )
 
-    def save_deal_mappings(
+    def list_cells_for_row(self, row_id: int) -> list[DealExportCell]:
+        return (
+            self.db.query(DealExportCell)
+            .filter(DealExportCell.row_id == row_id)
+            .all()
+        )
+
+    def save_deal_config(
         self,
         deal_id: int,
         template_id: int,
-        mappings: list[dict[str, int]],
-    ) -> list[DealExportMapping]:
-        """Replace all mappings for a deal+template with the provided list."""
-        # Delete existing
-        self.db.query(DealExportMapping).filter(
-            DealExportMapping.deal_id == deal_id,
-            DealExportMapping.template_id == template_id,
-        ).delete()
+        rows_data: list[dict],
+    ) -> list[DealExportRow]:
+        """Replace all export rows + cells for a deal+template.
+
+        rows_data: [
+            {
+                "node_id": int,
+                "row_order": int,
+                "identifier_group": int | None,
+                "cells": [
+                    {"column_id": int, "value_source": str, "source_ref": str},
+                    ...
+                ]
+            },
+            ...
+        ]
+        """
+        # Delete existing rows (cascades to cells via manual cleanup)
+        existing_rows = self.list_deal_rows(deal_id, template_id)
+        for row in existing_rows:
+            self.db.query(DealExportCell).filter(DealExportCell.row_id == row.id).delete()
+            self.db.delete(row)
         self.db.flush()
 
         # Insert new
         result = []
-        for m in mappings:
-            mapping = DealExportMapping(
+        for rd in rows_data:
+            row = DealExportRow(
                 deal_id=deal_id,
                 template_id=template_id,
-                column_id=m["column_id"],
-                node_id=m["node_id"],
+                node_id=rd["node_id"],
+                row_order=rd.get("row_order", 1),
+                identifier_group=rd.get("identifier_group"),
             )
-            self.db.add(mapping)
+            self.db.add(row)
             self.db.flush()
-            result.append(mapping)
+
+            for cd in rd.get("cells", []):
+                cell = DealExportCell(
+                    row_id=row.id,
+                    column_id=cd["column_id"],
+                    value_source=cd["value_source"],
+                    source_ref=cd["source_ref"],
+                )
+                self.db.add(cell)
+
+            self.db.flush()
+            result.append(row)
+
         return result

@@ -9,8 +9,8 @@ from app.global_export.service import GlobalExportService
 from app.models.deal import Deal
 from app.models.user import User
 from app.schemas.global_export import (
-    DealMappingResponse,
-    DealMappingSaveRequest,
+    DealExportConfigResponse,
+    DealExportConfigSave,
     GlobalColumnCreate,
     GlobalColumnResponse,
     GlobalColumnUpdate,
@@ -105,33 +105,43 @@ def reorder_columns(
     return GlobalExportDAO(db).reorder_columns(template_id, body.ordered_column_ids)
 
 
-# ── Deal mappings ──
+# ── Deal export config (row-level) ──
 
 @router.get(
-    "/deals/{deal_id}/export-mappings/{template_id}",
-    response_model=list[DealMappingResponse],
+    "/deals/{deal_id}/export-config/{template_id}",
+    response_model=DealExportConfigResponse,
 )
-def get_deal_mappings(
+def get_deal_config(
     deal_id: int,
     template_id: int,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return GlobalExportService(db).get_deal_mappings(deal_id, template_id)
+    return GlobalExportService(db).get_deal_config(deal_id, template_id)
 
 
 @router.put(
-    "/deals/{deal_id}/export-mappings/{template_id}",
-    response_model=list[DealMappingResponse],
+    "/deals/{deal_id}/export-config/{template_id}",
+    response_model=DealExportConfigResponse,
 )
-def save_deal_mappings(
+def save_deal_config(
     deal_id: int,
     template_id: int,
-    body: DealMappingSaveRequest,
+    body: DealExportConfigSave,
     db: Session = Depends(get_db),
     _user: User = Depends(require_role("admin", "analytics")),
     _deal: Deal = Depends(require_editable_deal),
 ):
-    mappings = [{"column_id": m.column_id, "node_id": m.node_id} for m in body.mappings]
-    saved = GlobalExportService(db).save_deal_mappings(deal_id, template_id, mappings)
-    return GlobalExportService(db).get_deal_mappings(deal_id, template_id)
+    rows_data = [
+        {
+            "node_id": r.node_id,
+            "row_order": r.row_order,
+            "identifier_group": r.identifier_group,
+            "cells": [
+                {"column_id": c.column_id, "value_source": c.value_source, "source_ref": c.source_ref}
+                for c in r.cells
+            ],
+        }
+        for r in body.rows
+    ]
+    return GlobalExportService(db).save_deal_config(deal_id, template_id, rows_data)

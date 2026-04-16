@@ -25,13 +25,40 @@ export interface TemplateWithColumns {
   columns: GlobalColumn[];
 }
 
-export interface DealMapping {
+// ── Deal export row config ──
+
+export interface DealExportCell {
   id: number;
   column_id: number;
+  value_source: string;
+  source_ref: string;
+}
+
+export interface DealExportRow {
+  id: number;
   node_id: number;
-  header_label: string | null;
   node_key: string | null;
   node_name: string | null;
+  row_order: number;
+  identifier_group: number | null;
+  cells: DealExportCell[];
+}
+
+export interface DealExportConfig {
+  rows: DealExportRow[];
+}
+
+export interface DealExportCellSave {
+  column_id: number;
+  value_source: string;
+  source_ref: string;
+}
+
+export interface DealExportRowSave {
+  node_id: number;
+  row_order: number;
+  identifier_group?: number | null;
+  cells: DealExportCellSave[];
 }
 
 // ── Templates ──
@@ -73,21 +100,21 @@ export function reorderGlobalColumns(
   });
 }
 
-// ── Deal mappings ──
+// ── Deal export config ──
 
-export function getDealMappings(
+export function getDealExportConfig(
   dealId: number,
   templateId: number,
-): Promise<DealMapping[]> {
-  return api.get<DealMapping[]>(`/deals/${dealId}/export-mappings/${templateId}`);
+): Promise<DealExportConfig> {
+  return api.get<DealExportConfig>(`/deals/${dealId}/export-config/${templateId}`);
 }
 
-export function saveDealMappings(
+export function saveDealExportConfig(
   dealId: number,
   templateId: number,
-  mappings: Array<{ column_id: number; node_id: number }>,
-): Promise<DealMapping[]> {
-  return api.put<DealMapping[]>(`/deals/${dealId}/export-mappings/${templateId}`, {
-    mappings,
+  rows: DealExportRowSave[],
+): Promise<DealExportConfig> {
+  return api.put<DealExportConfig>(`/deals/${dealId}/export-config/${templateId}`, {
+    rows,
   });
 }

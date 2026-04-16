@@ -6,10 +6,10 @@ import { api } from "../api/client";
 import {
   listTemplates,
   getTemplate,
-  getDealMappings,
+  getDealExportConfig,
   type GlobalTemplate,
   type GlobalColumn,
-  type DealMapping,
+  type DealExportRow,
 } from "../api/globalExport";
 import type { Deal, Servicer, Variable } from "../types";
 
@@ -68,7 +68,7 @@ export function DealDetailPage() {
   const [exportTemplates, setExportTemplates] = useState<GlobalTemplate[]>([]);
   const [activeExportTemplateId, setActiveExportTemplateId] = useState<number | null>(null);
   const [exportTemplateColumns, setExportTemplateColumns] = useState<GlobalColumn[]>([]);
-  const [exportDealMappings, setExportDealMappings] = useState<DealMapping[]>([]);
+  const [exportDealRows, setExportDealRows] = useState<DealExportRow[]>([]);
   const [tab, setTab] = useState("overview");
   const [showClone, setShowClone] = useState(false);
   const [error, setError] = useState("");
@@ -121,7 +121,7 @@ export function DealDetailPage() {
     getTemplate(activeExportTemplateId).then((data) => {
       setExportTemplateColumns(data.columns);
     }).catch(() => setExportTemplateColumns([]));
-    getDealMappings(Number(dealId), activeExportTemplateId).then(setExportDealMappings).catch(() => setExportDealMappings([]));
+    getDealExportConfig(Number(dealId), activeExportTemplateId).then((cfg) => setExportDealRows(cfg.rows)).catch(() => setExportDealRows([]));
   }, [dealId, activeExportTemplateId]);
 
   // Reload aliases whenever mappings change
@@ -533,55 +533,56 @@ export function DealDetailPage() {
               </Link>
             )}
           </div>
-          {exportTemplateColumns.length === 0 ? (
+          {/* Template columns summary */}
+          {exportTemplateColumns.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                COLUMNS: {exportTemplateColumns.map((c) => c.header_label).join(" | ")}
+              </div>
+            </div>
+          )}
+
+          {/* Deal export row config summary */}
+          {exportDealRows.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-title">No columns in this template</div>
+              <div className="empty-state-title">No export rows configured</div>
               <div className="empty-state-text">
-                Configure columns on the <Link to="/export-templates" style={{ color: "var(--accent-blue)" }}>Export Templates</Link> page.
+                {isEditable
+                  ? "Open the Export Config to define how each distribution maps to CSV rows."
+                  : "An analytics team member will configure the export row routing."}
               </div>
             </div>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>#</th>
-                  <th>Header</th>
-                  <th>Type</th>
-                  <th>Value / Mapping</th>
-                  <th>Format</th>
-                </tr>
-              </thead>
-              <tbody>
-                {exportTemplateColumns.map((c, idx) => {
-                  const mapping = exportDealMappings.find((m) => m.column_id === c.id);
-                  return (
-                    <tr key={c.id}>
-                      <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
-                      <td style={{ fontFamily: "monospace", fontWeight: 500 }}>{c.header_label}</td>
-                      <td>
-                        <span className={`badge ${c.value_type === "distribution_node" ? "badge-active" : "badge-system"}`} style={{ fontSize: 10 }}>
-                          {c.value_type}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                        {c.value_type === "distribution_node" && (
-                          mapping
-                            ? <code style={{ color: "var(--accent-green)" }}>{mapping.node_name} ({mapping.node_key})</code>
-                            : <span style={{ color: "var(--accent-orange)", fontStyle: "italic" }}>Not mapped</span>
-                        )}
-                        {c.value_type === "literal" && <code>{c.literal_value ?? "—"}</code>}
-                        {c.value_type === "run_meta" && <code>{c.meta_field ?? "—"}</code>}
-                        {c.value_type === "deal_meta" && <code>{c.meta_field ?? "—"}</code>}
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {c.format_type}
-                        {c.decimal_places != null && <span style={{ color: "var(--text-muted)" }}> ({c.decimal_places} dp)</span>}
-                      </td>
+            (() => {
+              // Group rows by node
+              const byNode: Record<string, typeof exportDealRows> = {};
+              for (const r of exportDealRows) {
+                const key = r.node_name ?? r.node_key ?? `node_${r.node_id}`;
+                (byNode[key] ??= []).push(r);
+              }
+              return (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Distribution Node</th>
+                      <th>Export Rows</th>
+                      <th>Cells Configured</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {Object.entries(byNode).map(([nodeName, rows]) => (
+                      <tr key={nodeName}>
+                        <td style={{ fontWeight: 500 }}>{nodeName}</td>
+                        <td>{rows.length} row{rows.length !== 1 ? "s" : ""}</td>
+                        <td style={{ color: "var(--text-muted)" }}>
+                          {rows.reduce((sum, r) => sum + r.cells.length, 0)} cells
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()
           )}
         </div>
       )}

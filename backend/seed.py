@@ -32,7 +32,7 @@ from app.models.variable_mapping import VariableMapping
 from app.models.servicer import Servicer
 from app.models.tranche import DealTranche, TrancheBalance
 from app.models.user import User
-from app.models.global_export import GlobalExportTemplate, GlobalExportColumn, DealExportMapping
+from app.models.global_export import GlobalExportTemplate, GlobalExportColumn, DealExportRow, DealExportCell
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
 from app.tranches.service import TrancheService
 
@@ -737,7 +737,8 @@ def drop_all_records(db: Session) -> None:
     """Delete all records from tables in reverse dependency order."""
     print("\n── Dropping all records ──")
     tables_to_clear = [
-        DealExportMapping,
+        DealExportCell,
+        DealExportRow,
         GlobalExportColumn,
         GlobalExportTemplate,
         ExportColumn,

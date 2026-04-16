@@ -51,23 +51,46 @@ class TemplateWithColumnsResponse(BaseModel):
     columns: list[GlobalColumnResponse]
 
 
-class DealMappingEntry(BaseModel):
-    column_id: int
-    node_id: int
-
-
-class DealMappingSaveRequest(BaseModel):
-    mappings: list[DealMappingEntry]
-
-
-class DealMappingResponse(BaseModel):
-    id: int
-    column_id: int
-    node_id: int
-    header_label: str | None = None
-    node_key: str | None = None
-    node_name: str | None = None
-
-
 class ReorderRequest(BaseModel):
     ordered_column_ids: list[int]
+
+
+# ── Deal export row config ──
+
+
+class DealExportCellResponse(BaseModel):
+    id: int
+    column_id: int
+    value_source: str
+    source_ref: str
+
+
+class DealExportRowResponse(BaseModel):
+    id: int
+    node_id: int
+    node_key: str | None
+    node_name: str | None
+    row_order: int
+    identifier_group: int | None
+    cells: list[DealExportCellResponse]
+
+
+class DealExportConfigResponse(BaseModel):
+    rows: list[DealExportRowResponse]
+
+
+class DealExportCellSave(BaseModel):
+    column_id: int
+    value_source: str
+    source_ref: str
+
+
+class DealExportRowSave(BaseModel):
+    node_id: int
+    row_order: int = 1
+    identifier_group: int | None = None
+    cells: list[DealExportCellSave]
+
+
+class DealExportConfigSave(BaseModel):
+    rows: list[DealExportRowSave]
