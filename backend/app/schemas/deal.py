@@ -1,5 +1,7 @@
 """Deal schemas."""
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -12,7 +14,7 @@ class DealCreate(BaseModel):
 class DealUpdate(BaseModel):
     name: str | None = None
     product_type: str | None = None
-    status: str | None = None
+    status: Literal["draft", "active", "archived"] | None = None
 
 
 class DealResponse(BaseModel):

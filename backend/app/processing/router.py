@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import get_current_user, require_role, require_processable_deal
+from app.models.deal import Deal
 from app.models.user import User
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.services.tape_extractor import TapeExtractor
@@ -63,6 +64,7 @@ def create_run(
     body: CreateRunRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    _deal: Deal = Depends(require_processable_deal),
 ):
     if not re.match(r"^\d{4}-\d{2}$", body.report_period):
         raise HTTPException(400, f"Invalid period format: '{body.report_period}'. Expected YYYY-MM (e.g. 2026-04).")
@@ -83,6 +85,7 @@ def upload_tape(
     run_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _deal: Deal = Depends(require_processable_deal),
 ):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
@@ -136,7 +139,7 @@ def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{deal_id}/runs/{run_id}/extract")
-def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db)):
+def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal: Deal = Depends(require_processable_deal)):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
@@ -174,7 +177,7 @@ def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db)):
 # ── Step 3: Execute DAG ──
 
 @router.post("/{deal_id}/runs/{run_id}/execute")
-def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db)):
+def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal: Deal = Depends(require_processable_deal)):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
@@ -348,6 +351,7 @@ def export_csv(
     deal_id: int, run_id: int,
     template_id: int = 1,
     db: Session = Depends(get_db),
+    _deal: Deal = Depends(require_processable_deal),
 ):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:

@@ -15,9 +15,10 @@ router = APIRouter()
 @router.get("/", response_model=list[DealResponse])
 def list_deals(
     status: str | None = None,
+    exclude_status: str | None = None,
     db: Session = Depends(get_db),
 ) -> list:
-    return DealService(db).list_all(status=status)
+    return DealService(db).list_all(status=status, exclude_status=exclude_status)
 
 
 @router.get("/{deal_id}", response_model=DealResponse)
@@ -51,7 +52,10 @@ def update_deal(
     if not deal:
         raise HTTPException(404, "Deal not found")
     changes = body.model_dump(exclude_unset=True)
-    DealService(db).update(deal, **changes)
+    try:
+        DealService(db).update(deal, **changes)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     AuditService(db).log_change(user.id, "deal", deal_id, "update", changes=changes)
     return deal
 

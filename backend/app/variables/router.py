@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.database import get_db
-from app.dependencies import require_role
+from app.dependencies import require_role, require_editable_deal
 from app.models.user import User
 from app.models.variable_mapping import VariableMapping
 from app.models.deal import Deal
@@ -92,6 +92,7 @@ def set_deal_aliases(
     aliases: list[AliasSet],
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     dao = VariableDAO(db)
     for a in aliases:

@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import require_role
+from app.dependencies import require_role, require_editable_deal
+from app.models.deal import Deal
 from app.models.user import User
 from app.schemas.tranche import (
     TrancheCreate, TrancheUpdate, TrancheResponse,
@@ -26,6 +27,7 @@ def create_tranche(
     body: TrancheCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     return TrancheDAO(db).create(deal_id=deal_id, **body.model_dump())
 
@@ -37,6 +39,7 @@ def update_tranche(
     body: TrancheUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     dao = TrancheDAO(db)
     t = dao.get(tranche_id)
@@ -52,6 +55,7 @@ def set_balance(
     body: BalanceSet,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics", "analyst")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     dao = TrancheDAO(db)
     t = dao.get(tranche_id)

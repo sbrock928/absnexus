@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import get_current_user, require_role, require_editable_deal
+from app.models.deal import Deal
 from app.export.service import PRESETS, ExportColumnService
 from app.models.export import ExportColumn
 from app.models.processing import ProcessingRun
@@ -56,10 +57,8 @@ def create_column(
     payload: ColumnCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ) -> ExportColumn:
-    deal = DealService(db).get(deal_id)
-    if deal is None:
-        raise HTTPException(status_code=404, detail="Deal not found.")
     return ExportColumnService(db).create_column(deal_id=deal_id, **payload.model_dump())
 
 
@@ -74,6 +73,9 @@ def update_column(
     col = svc.get_column(column_id)
     if col is None:
         raise HTTPException(status_code=404, detail="Column not found.")
+    deal = DealService(db).get(col.deal_id)
+    if deal and deal.status == "archived":
+        raise HTTPException(status_code=403, detail="Deal is archived. Reactivate before editing.")
     return svc.update_column(col, **payload.model_dump(exclude_unset=True))
 
 
@@ -87,6 +89,9 @@ def delete_column(
     col = svc.get_column(column_id)
     if col is None:
         raise HTTPException(status_code=404, detail="Column not found.")
+    deal = DealService(db).get(col.deal_id)
+    if deal and deal.status == "archived":
+        raise HTTPException(status_code=403, detail="Deal is archived. Reactivate before editing.")
     svc.delete_column(col)
 
 
@@ -96,6 +101,7 @@ def reorder_columns(
     payload: ReorderRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ) -> list[ExportColumn]:
     return ExportColumnService(db).reorder_columns(deal_id, payload.ordered_column_ids)
 
@@ -106,6 +112,7 @@ def copy_preset(
     payload: CopyPresetRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ) -> list[ExportColumn]:
     try:
         return ExportColumnService(db).copy_preset(deal_id, payload.preset_key)

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import get_current_user, require_role, require_editable_deal
 from app.models.user import User
 from app.models.dag import DagNode
 from app.models.deal import Deal
@@ -23,6 +23,7 @@ def save_dag(
     body: DagSaveRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     svc = DagService(db)
     version = svc.save(deal_id, body.nodes, body.edges, user.username, body.description)
@@ -50,6 +51,7 @@ def revert_dag(
     version_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     svc = DagService(db)
     version = svc.revert(deal_id, version_id, user.username)
@@ -67,6 +69,7 @@ def deactivate_node(
     deal_id: int, node_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     DagService(db).deactivate_node(node_id)
 
@@ -76,6 +79,7 @@ def reactivate_node(
     deal_id: int, node_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     DagService(db).reactivate_node(node_id)
 
@@ -103,6 +107,7 @@ def patch_node(
     body: NodePatch,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     node = db.query(DagNode).filter(DagNode.id == node_id, DagNode.deal_id == deal_id).first()
     if not node:
@@ -129,6 +134,7 @@ def update_waterfall_config(
     payload: WaterfallConfigUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     deal = DealService(db).get(deal_id)
     if deal is None:

@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import require_role, get_current_user
+from app.dependencies import require_role, require_editable_deal, get_current_user
+from app.models.deal import Deal
 from app.models.user import User
 from app.models.processing import ProcessingRun
 from app.schemas.mapping import MappingCreate, MappingUpdate, MappingResponse
@@ -32,6 +33,7 @@ def create_mapping(
     body: MappingCreate,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     return MappingDAO(db).create(deal_id=deal_id, **body.model_dump())
 
@@ -43,6 +45,7 @@ def update_mapping(
     body: MappingUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     dao = MappingDAO(db)
     m = dao.get(mapping_id)
@@ -57,6 +60,7 @@ def delete_mapping(
     mapping_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     dao = MappingDAO(db)
     m = dao.get(mapping_id)
@@ -133,6 +137,7 @@ def upload_tape(
     deal_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _deal: Deal = Depends(require_editable_deal),
 ):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         tmp.write(file.file.read())
