@@ -18,6 +18,9 @@ class ProcessingRun(Base):
     tape_file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dag_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("dag_version.id"), nullable=True)
     prior_run_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("processing_run.id"), nullable=True)
+    batch_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("batch_run.id"), nullable=True,
+    )
     mappings_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     tranche_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     export_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

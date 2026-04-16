@@ -14,6 +14,7 @@ from app.dag.router import router as dag_router
 from app.formulas.router import router as formulas_router
 from app.processing.router import router as processing_router
 from app.export.router import router as export_router
+from app.batch.router import router as batch_router
 
 
 @asynccontextmanager
@@ -47,5 +48,6 @@ def create_app() -> FastAPI:
     app.include_router(formulas_router, prefix="/api/formulas", tags=["formulas"])
     app.include_router(processing_router, prefix="/api/deals", tags=["processing"])
     app.include_router(export_router, prefix="/api", tags=["export"])
+    app.include_router(batch_router, prefix="/api", tags=["batch"])
 
     return app

@@ -11,6 +11,9 @@ import { LineagePage } from "./pages/LineagePage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { ExportBuilderPage } from "./pages/ExportBuilderPage";
 import { VariableMapPage } from "./pages/VariableMapPage";
+import { BatchProcessingPage } from "./pages/BatchProcessingPage";
+import { BatchResultsPage } from "./pages/BatchResultsPage";
+import { BatchHistoryPage } from "./pages/BatchHistoryPage";
 
 export default function App() {
   return (
@@ -26,6 +29,9 @@ export default function App() {
           <Route path="/variables" element={<VariableLibraryPage />} />
           <Route path="/variable-map" element={<VariableMapPage />} />
           <Route path="/processing" element={<ProcessingPage />} />
+          <Route path="/batch" element={<BatchProcessingPage />} />
+          <Route path="/batches" element={<BatchHistoryPage />} />
+          <Route path="/batches/:batchId" element={<BatchResultsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="/" element={<Navigate to="/deals" replace />} />
         </Route>

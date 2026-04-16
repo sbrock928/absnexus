@@ -7,6 +7,7 @@ from app.models.variable import VariableDefinition, VariableAlias
 from app.models.variable_mapping import VariableMapping
 from app.models.tranche import DealTranche, TrancheBalance
 from app.models.dag import DagNode, DagEdge, DagVersion
+from app.models.batch import BatchRun
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.models.export import ExportTemplate, ExportTemplateColumn, ExportFieldMapping, ExportColumn
 
@@ -15,6 +16,7 @@ __all__ = [
     "VariableDefinition", "VariableAlias", "VariableMapping",
     "DealTranche", "TrancheBalance",
     "DagNode", "DagEdge", "DagVersion",
+    "BatchRun",
     "ProcessingRun", "ExtractedValue", "ExecutionStep",
     "ExportTemplate", "ExportTemplateColumn", "ExportFieldMapping",
     "ExportColumn",

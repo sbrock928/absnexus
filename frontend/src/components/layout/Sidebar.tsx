@@ -20,6 +20,9 @@ export function Sidebar() {
         <NavLink to="/processing" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
           Processing
         </NavLink>
+        <NavLink to="/batch" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
+          Batch
+        </NavLink>
         <NavLink to="/audit" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
           Audit Log
         </NavLink>
