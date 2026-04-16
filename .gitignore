@@ -215,3 +215,4 @@ temp/
 *.key
 *.crt
 secrets/
+backend/app/core/__pycache__/__init__.cpython-312.pyc

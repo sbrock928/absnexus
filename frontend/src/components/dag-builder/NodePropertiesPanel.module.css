@@ -1,0 +1,177 @@
+.panel {
+  width: 280px;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--border-color);
+  padding: 16px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.typeBadge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  text-transform: capitalize;
+}
+
+.deactivatedBanner {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--accent-orange);
+  margin-bottom: 12px;
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.input {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  font-family: var(--font-sans);
+}
+
+.input:focus {
+  border-color: var(--accent-blue);
+}
+
+.textarea {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  resize: vertical;
+}
+
+.textarea:focus {
+  border-color: var(--accent-blue);
+}
+
+.formulaHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-green);
+}
+
+.sourceInfo {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.depList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.depItem {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.muted {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.divider {
+  border-top: 1px solid var(--border-color);
+  margin: 12px 0;
+}
+
+/* Save button */
+.saveBtn {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--accent-blue);
+  border-radius: 6px;
+  background: rgba(96, 165, 250, 0.1);
+  color: var(--accent-blue);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  margin-bottom: 8px;
+}
+
+.saveBtn:hover {
+  background: rgba(96, 165, 250, 0.2);
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actionBtn {
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.actionBtn:hover {
+  background: var(--bg-card-hover);
+}
+
+.deleteBtn {
+  padding: 6px;
+  border: 1px solid var(--accent-red);
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--accent-red);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.deleteBtn:hover {
+  background: rgba(248, 113, 113, 0.2);
+}

@@ -1,0 +1,48 @@
+trigger:
+  branches:
+    include:
+      - development
+
+pool:
+  vmImage: "ubuntu-latest"
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.11"
+
+  - script: |
+      cd backend
+      pip install -r requirements.txt
+    displayName: "Install deps"
+
+  - script: |
+      cd backend
+      black --check .
+    displayName: "Black format check"
+
+  - script: |
+      cd backend
+      mypy app --strict
+    displayName: "Mypy strict"
+
+  - script: |
+      cd backend
+      pylint app --fail-under=8.0
+    displayName: "Pylint >= 8.0"
+
+  - script: |
+      cd backend
+      pytest --cov=app --cov-fail-under=80 -v
+    displayName: "Pytest >= 80% coverage"
+
+  - script: |
+      cd frontend
+      npm ci
+      npx tsc --noEmit
+    displayName: "TypeScript check"
+
+  - script: |
+      cd frontend
+      npm run build
+    displayName: "Vite build"

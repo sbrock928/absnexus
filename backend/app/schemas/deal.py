@@ -1,0 +1,28 @@
+"""Deal schemas."""
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict
+
+
+class DealCreate(BaseModel):
+    name: str
+    servicer_id: int
+    product_type: str = "ABS Auto"
+
+
+class DealUpdate(BaseModel):
+    name: str | None = None
+    product_type: str | None = None
+    status: str | None = None
+
+
+class DealResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    servicer_id: int
+    product_type: str
+    status: str
+    cloned_from_id: int | None
+    created_by: str
+    created_at: datetime
+    updated_at: datetime

@@ -1,0 +1,249 @@
+import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../api/client";
+import type { Deal, Servicer } from "../types";
+
+interface ExtractedVar { variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; }
+interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
+
+const STEPS = ["Select deal", "Upload tape", "Extract", "Execute", "Export"];
+const nodeColor: Record<string, string> = { input_value: "var(--accent-green)", calculation: "var(--accent-blue)", distribution: "var(--accent-purple)", validation: "var(--accent-orange)" };
+const fmtMoney = (v: string | null) => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—";
+
+export function ProcessingPage() {
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [servicers, setServicers] = useState<Servicer[]>([]);
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [period, setPeriod] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+  const [step, setStep] = useState(0);
+  const [run, setRun] = useState<any>(null);
+  const [vars, setVars] = useState<ExtractedVar[]>([]);
+  const [steps, setSteps] = useState<ExecStep[]>([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [exportRes, setExportRes] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    Promise.all([api.get<Deal[]>("/deals/"), api.get<Servicer[]>("/servicers/")]).then(([d, s]) => { setDeals(d); setServicers(s); });
+  }, []);
+
+  const svcName = (id: number) => servicers.find((s) => s.id === id)?.name ?? "";
+
+  const reset = () => { setStep(0); setRun(null); setVars([]); setSteps([]); setSummary(null); setExportRes(null); setError(""); setSelectedDeal(null); };
+
+  const handleSelectDeal = (deal: Deal) => { setSelectedDeal(deal); setStep(1); setError(""); };
+
+  const handleUpload = async () => {
+    if (!selectedDeal || !fileRef.current?.files?.length) return;
+    setLoading(true); setError("");
+    try {
+      const newRun = await api.post<any>(`/deals/${selectedDeal.id}/runs`, { report_period: period });
+      setRun(newRun);
+      const fd = new FormData(); fd.append("file", fileRef.current.files[0]);
+      const res = await fetch(`/api/deals/${selectedDeal.id}/runs/${newRun.id}/upload`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload failed");
+      setStep(2);
+    } catch (e: any) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  const handleExtract = async () => {
+    if (!selectedDeal || !run) return;
+    setLoading(true); setError("");
+    try {
+      const data = await api.post<any>(`/deals/${selectedDeal.id}/runs/${run.id}/extract`);
+      setVars(data.values); setStep(3);
+    } catch (e: any) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  const handleExecute = async () => {
+    if (!selectedDeal || !run) return;
+    setLoading(true); setError("");
+    try {
+      const data = await api.post<any>(`/deals/${selectedDeal.id}/runs/${run.id}/execute`);
+      setSummary(data); setSteps(data.steps || []); setStep(4);
+    } catch (e: any) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  const handleExport = async () => {
+    if (!selectedDeal || !run) return;
+    setLoading(true); setError("");
+    try {
+      const data = await api.post<any>(`/deals/${selectedDeal.id}/runs/${run.id}/export?template_id=1`);
+      setExportRes(data);
+    } catch (e: any) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <div className="page-title">Monthly Processing{selectedDeal ? ` — ${period}` : ""}</div>
+          <div className="page-subtitle">{selectedDeal ? `${selectedDeal.name} · ${svcName(selectedDeal.servicer_id)}` : "Select a deal to begin"}</div>
+        </div>
+        {step > 0 && <button className="btn btn-secondary" onClick={reset}>Start over</button>}
+      </div>
+
+      {/* Stepper */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
+        {STEPS.map((s, i) => (
+          <div key={s} style={{ flex: 1, display: "flex", alignItems: "center" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: i <= step ? "var(--accent-green)" : "var(--bg-tertiary)", color: i <= step ? "#000" : "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{i + 1}</div>
+            <div style={{ fontSize: 12, marginLeft: 6, color: i <= step ? "var(--text-primary)" : "var(--text-muted)" }}>{s}</div>
+            {i < STEPS.length - 1 && <div style={{ flex: 1, height: 1, background: i < step ? "var(--accent-green)" : "var(--border)", margin: "0 8px" }} />}
+          </div>
+        ))}
+      </div>
+
+      {error && <div className="banner banner-warn" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {/* Step 0: Deal selection */}
+      {step === 0 && (
+        <div>
+          <div style={{ marginBottom: 16 }}>
+            <label className="form-label">Report period (YYYY-MM)</label>
+            <input className="input" value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-04" style={{ width: 200 }} />
+            {period && !/^\d{4}-\d{2}$/.test(period) && <div style={{ color: "var(--accent-yellow)", fontSize: 12, marginTop: 4 }}>Format must be YYYY-MM (e.g. 2026-04)</div>}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+            {deals.filter(d => d.status === "active").map((d) => (
+              <div key={d.id} className="card" style={{ cursor: "pointer" }} onClick={() => handleSelectDeal(d)}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.name}</div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{svcName(d.servicer_id)} · {d.product_type}</div>
+              </div>
+            ))}
+          </div>
+          {deals.filter(d => d.status === "active").length === 0 && <div className="empty-state"><div className="empty-state-title">No active deals</div></div>}
+        </div>
+      )}
+
+      {/* Step 1: Upload */}
+      {step === 1 && (
+        <div className="card" style={{ maxWidth: 500 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Upload servicer tape</div>
+          <div className="form-field"><label className="form-label">Excel file (.xlsx)</label><input ref={fileRef} type="file" accept=".xlsx,.xls" className="input" style={{ padding: 8 }} /></div>
+          <div className="btn-group">
+            <button className="btn btn-secondary" onClick={() => setStep(0)}>Back</button>
+            <button className="btn btn-primary" onClick={handleUpload} disabled={loading}>{loading ? "Uploading..." : "Upload & create run"}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Extract prompt */}
+      {step === 2 && (
+        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div><div style={{ fontWeight: 600 }}>Tape uploaded successfully</div><div style={{ fontSize: 13, color: "var(--text-muted)" }}>Ready to extract variables from {vars.length || "mapped"} cells</div></div>
+          <button className="btn btn-primary" onClick={handleExtract} disabled={loading}>{loading ? "Extracting..." : "Extract variables"}</button>
+        </div>
+      )}
+
+      {/* Step 3: Extraction results + execute button */}
+      {step === 3 && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontWeight: 600 }}>Variables extracted — {vars.length} mapped</div>
+            <button className="btn btn-primary" onClick={handleExecute} disabled={loading}>{loading ? "Executing..." : "Run calculations"}</button>
+          </div>
+          {vars.some((v) => v.warning) && <div className="banner banner-warn" style={{ marginBottom: 12 }}>{vars.filter((v) => v.warning).length} warning(s)</div>}
+          <table className="table">
+            <thead><tr><th>#</th><th>Variable</th><th>Source</th><th>Extracted</th><th>Prior</th><th>Change</th><th>Status</th></tr></thead>
+            <tbody>
+              {vars.map((v, i) => (
+                <tr key={i} style={v.warning ? { background: "rgba(251,191,36,0.05)" } : {}}>
+                  <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
+                  <td><code style={{ color: "var(--accent-green)" }}>{v.variable}</code></td>
+                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{v.sheet} · {v.cell}</td>
+                  <td style={{ fontFamily: "monospace" }}>{fmtMoney(v.parsed)}</td>
+                  <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{fmtMoney(v.prior)}</td>
+                  <td style={{ color: v.pct_change && Math.abs(Number(v.pct_change)) > 50 ? "var(--accent-yellow)" : "var(--text-muted)" }}>{v.pct_change ? `${Number(v.pct_change) > 0 ? "+" : ""}${v.pct_change}%` : "—"}</td>
+                  <td>{v.warning ? <span style={{ color: "var(--accent-yellow)", fontSize: 12 }}>⚠ Warning</span> : <span style={{ color: "var(--accent-green)", fontSize: 12 }}>● OK</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Step 4: Execution results + export */}
+      {step === 4 && summary && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+            <div className="card"><div style={{ color: "var(--text-muted)", fontSize: 12 }}>TOTAL DISTRIBUTION</div><div style={{ fontSize: 22, fontWeight: 600, color: "var(--accent-green)" }}>{fmtMoney(summary.total_distribution)}</div></div>
+            <div className="card"><div style={{ color: "var(--text-muted)", fontSize: 12 }}>NODES EXECUTED</div><div style={{ fontSize: 22, fontWeight: 600 }}>{steps.length}</div></div>
+            <div className="card"><div style={{ color: "var(--text-muted)", fontSize: 12 }}>VALIDATIONS</div><div style={{ fontSize: 22, fontWeight: 600, color: summary.validations_passed === summary.validations_total ? "var(--accent-green)" : "var(--accent-red)" }}>{summary.validations_passed} / {summary.validations_total} passed</div></div>
+            <div className="card"><div style={{ color: "var(--text-muted)", fontSize: 12 }}>EXPORT</div>{exportRes ? <div style={{ color: "var(--accent-green)", fontWeight: 600 }}>✓ Generated</div> : <button className="btn btn-primary btn-sm" onClick={handleExport} disabled={loading} style={{ marginTop: 4 }}>{loading ? "..." : "Export CSV"}</button>}</div>
+          </div>
+
+          {summary.errors?.length > 0 && <div className="banner" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", color: "var(--accent-red)", marginBottom: 16 }}>{summary.errors.map((e: string, i: number) => <div key={i}>{e}</div>)}</div>}
+
+          {/* Distribution outputs */}
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Distribution outputs</div>
+          <table className="table" style={{ marginBottom: 24 }}>
+            <thead><tr><th>#</th><th>Node</th><th>Formula → resolved</th><th>Export field</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+            <tbody>
+              {steps.filter((s) => s.type === "distribution").map((s) => (
+                <tr key={s.order}>
+                  <td style={{ color: "var(--text-muted)" }}>{s.order}</td>
+                  <td><span style={{ color: nodeColor.distribution }}>●</span> {s.name}</td>
+                  <td><code style={{ fontSize: 12 }}>{s.formula}</code>{s.resolved && <div style={{ fontSize: 11, color: "var(--accent-green)" }}>{s.resolved}</div>}</td>
+                  <td>{s.export_field ? <code style={{ color: "var(--accent-purple)", fontSize: 12 }}>{s.export_field}</code> : "—"}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>{fmtMoney(s.result)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Validation results */}
+          {steps.some((s) => s.type === "validation") && <>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Validation checks</div>
+            <table className="table" style={{ marginBottom: 24 }}>
+              <thead><tr><th>Check</th><th>Calculated</th><th>Tape</th><th>Difference</th><th>Tolerance</th><th>Result</th></tr></thead>
+              <tbody>
+                {steps.filter((s) => s.type === "validation").map((s) => (
+                  <tr key={s.order} style={s.passed === 0 ? { background: "rgba(248,113,113,0.05)" } : {}}>
+                    <td><span style={{ color: nodeColor.validation }}>●</span> {s.name}</td>
+                    <td style={{ fontFamily: "monospace" }}>{fmtMoney(s.result)}</td>
+                    <td style={{ fontFamily: "monospace" }}>{fmtMoney(s.comparison_value ?? null)}</td>
+                    <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtMoney(s.difference)}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>±{s.tolerance}{s.tolerance_type === "percentage" ? "%" : ""}</td>
+                    <td>{s.passed === 1 ? <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>Pass</span> : <span style={{ color: "var(--accent-red)", fontWeight: 600 }}>Fail</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>}
+
+          {/* Collapsible full trace */}
+          <details>
+            <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: 8 }}>Full execution trace ({steps.length} steps)</summary>
+            <table className="table">
+              <thead><tr><th>#</th><th>Node</th><th>Type</th><th>Stream</th><th>Formula → resolved</th><th style={{ textAlign: "right" }}>Result</th></tr></thead>
+              <tbody>
+                {steps.map((s) => (
+                  <tr key={s.order}>
+                    <td style={{ color: "var(--text-muted)" }}>{s.order}</td>
+                    <td><span style={{ color: nodeColor[s.type] }}>●</span> {s.name}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.type.replace("_", " ")}</td>
+                    <td><span className={`badge badge-${s.stream === "distribution" ? "active" : "deal"}`} style={{ fontSize: 10 }}>{s.stream}</span></td>
+                    <td>{s.formula ? <><code style={{ fontSize: 12 }}>{s.formula}</code>{s.resolved && <div style={{ fontSize: 11, color: "var(--accent-green)" }}>{s.resolved}</div>}</> : "—"}</td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>{s.result != null ? Number(s.result).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+
+          {exportRes && (
+            <div className="card" style={{ background: "rgba(74,222,128,0.05)", borderColor: "rgba(74,222,128,0.2)", marginTop: 16 }}>
+              <div style={{ fontWeight: 600, color: "var(--accent-green)", marginBottom: 4 }}>✓ CSV exported</div>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>File: {exportRes.file_path}<br />SHA-256: <code style={{ fontSize: 11 }}>{exportRes.hash?.slice(0, 24)}...</code></div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
