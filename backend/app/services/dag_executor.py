@@ -94,8 +94,11 @@ class DagExecutor:
         context.update(tranche_ctx)
         run.tranche_snapshot = json.dumps({k: str(v) for k, v in tranche_ctx.items()})
 
-        # 5. Topo-sort and execute
-        order = list(nx.topological_sort(g))
+        # 5. Topo-sort and execute — distribution stream first, then validation
+        raw_order = list(nx.topological_sort(g))
+        dist_order = [nid for nid in raw_order if node_map[nid].stream == "distribution"]
+        val_order = [nid for nid in raw_order if node_map[nid].stream == "validation"]
+        order = dist_order + val_order
         step_num = 0
 
         for node_id in order:

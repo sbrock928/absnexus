@@ -58,27 +58,6 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
     queryFn: () => api.get<Variable[]>("/variables/"),
   });
 
-  // Set default active sheet
-  useEffect(() => {
-    if (gridData && !activeSheet && gridData.sheet_names.length > 0) {
-      // If we have a focus variable, jump to its sheet
-      if (focusVariableId) {
-        const m = mappings.find((m) => m.variable_id === focusVariableId);
-        if (m) {
-          setActiveSheet(m.sheet_name);
-          setSelected({
-            sheet: m.sheet_name,
-            column: m.column_letter,
-            row: m.row_number,
-            value: lookupCellValue(m.sheet_name, m.column_letter, m.row_number),
-          });
-          return;
-        }
-      }
-      setActiveSheet(gridData.sheet_names[0]);
-    }
-  }, [gridData, activeSheet, focusVariableId, mappings]);
-
   // Helper: look up a cell value from grid data
   const lookupCellValue = useCallback(
     (sheetName: string, col: string, row: number): string | number | null => {
@@ -94,6 +73,28 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
     },
     [gridData],
   );
+
+  // Set default active sheet — runs once when grid data first loads
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current || !gridData || gridData.sheet_names.length === 0) return;
+    if (focusVariableId && mappings.length > 0) {
+      const m = mappings.find((m) => m.variable_id === focusVariableId);
+      if (m) {
+        setActiveSheet(m.sheet_name);
+        setSelected({
+          sheet: m.sheet_name,
+          column: m.column_letter,
+          row: m.row_number,
+          value: lookupCellValue(m.sheet_name, m.column_letter, m.row_number),
+        });
+        initializedRef.current = true;
+        return;
+      }
+    }
+    setActiveSheet(gridData.sheet_names[0]);
+    initializedRef.current = true;
+  }, [gridData, focusVariableId, mappings, lookupCellValue]);
 
   // Lookup: cell coordinate → variable mapping
   const cellToMapping = useMemo(() => {
