@@ -1,0 +1,217 @@
+# ==============================================================================
+# Python / FastAPI backend
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.tox/
+.nox/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# Alembic
+# Uncomment if you don't want to commit migration versions (usually you do)
+# backend/alembic/versions/*.py
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+*.env.local
+
+# Database files (SQLite for dev/tests)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# FastAPI / app-specific
+backend/logs/
+backend/uploads/
+backend/exports/
+backend/managed_files/
+*.log
+
+# ==============================================================================
+# Node / Vite / React frontend
+# ==============================================================================
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/install-state.gz
+
+# Build output
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+
+# Vite cache
+.vite-cache/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production bundles
+*.tsbuildinfo
+
+# Editor files from packages
+.eslintcache
+.stylelintcache
+
+# npm / yarn / pnpm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm/
+.yarn-integrity
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ==============================================================================
+# Editors / IDEs
+# ==============================================================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains (PyCharm, WebStorm, IntelliJ)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+.\#*
+
+# ==============================================================================
+# OS files
+# ==============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================================================
+# Project-specific
+# ==============================================================================
+
+# Uploaded tapes & generated exports (user data)
+backend/user_data/
+backend/uploaded_tapes/
+backend/generated_exports/
+frontend/public/uploads/
+
+# Local scratchpad / exploratory files
+scratch/
+playground/
+tmp/
+temp/
+*.tmp
+
+# Secrets (extra caution)
+*.pem
+*.key
+*.crt
+secrets/
