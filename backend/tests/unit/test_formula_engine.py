@@ -176,6 +176,22 @@ def test_validate_formula_bad_syntax():
     assert len(errors) > 0
 
 
+def test_validate_typo_suggestion():
+    engine = FormulaEngine()
+    errors = engine.validate("class_a_balence", {"class_a_balance"})
+    assert len(errors) == 1
+    assert "did you mean" in errors[0]
+    assert "class_a_balance" in errors[0]
+
+
+def test_validate_no_suggestion_for_gibberish():
+    engine = FormulaEngine()
+    errors = engine.validate("zzzzzzz", {"class_a_balance", "total_collections"})
+    assert len(errors) == 1
+    assert "did you mean" not in errors[0]
+    assert "Unknown variable: zzzzzzz" == errors[0]
+
+
 def test_nested_functions():
     engine = FormulaEngine()
     ctx = {"a": Decimal("10"), "b": Decimal("20"), "c": Decimal("5")}

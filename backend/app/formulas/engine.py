@@ -1,4 +1,5 @@
 """High-level formula engine — ties tokenizer, parser, evaluator together."""
+import difflib
 from decimal import Decimal
 
 from app.formulas.tokenizer import tokenize, Token, TokenType
@@ -30,7 +31,11 @@ class FormulaEngine:
         refs = self.extract_variable_refs(formula)
         for ref in refs:
             if ref not in known_vars:
-                errors.append(f"Unknown variable: {ref}")
+                suggestions = difflib.get_close_matches(ref, known_vars, n=1, cutoff=0.6)
+                if suggestions:
+                    errors.append(f"Unknown variable: {ref} (did you mean '{suggestions[0]}'?)")
+                else:
+                    errors.append(f"Unknown variable: {ref}")
 
         return errors
 
