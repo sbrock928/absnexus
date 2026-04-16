@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.schemas.user import UserResponse, UserCreate
 
@@ -16,7 +16,11 @@ def me(user: User = Depends(get_current_user)) -> User:
 
 
 @router.post("/users", response_model=UserResponse, status_code=201)
-def create_user(body: UserCreate, db: Session = Depends(get_db)) -> User:
+def create_user(
+    body: UserCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> User:
     user = User(username=body.username, display_name=body.display_name, role=body.role)
     db.add(user)
     db.flush()

@@ -17,3 +17,8 @@ class UserCreate(BaseModel):
     username: str
     display_name: str
     role: str = "analyst"
+
+
+class UserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None

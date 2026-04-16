@@ -15,6 +15,7 @@ from app.formulas.router import router as formulas_router
 from app.processing.router import router as processing_router
 from app.export.router import router as export_router
 from app.audit.router import router as audit_router
+from app.users.router import router as users_router
 from app.batch.router import router as batch_router
 
 
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(processing_router, prefix="/api/deals", tags=["processing"])
     app.include_router(export_router, prefix="/api", tags=["export"])
     app.include_router(audit_router, prefix="/api/audit", tags=["audit"])
+    app.include_router(users_router, prefix="/api/users", tags=["users"])
     app.include_router(batch_router, prefix="/api", tags=["batch"])
 
     return app
