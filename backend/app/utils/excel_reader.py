@@ -23,7 +23,7 @@ class ExcelReader:
         cell_ref = f"{column_letter}{row_number}"
         return ws[cell_ref].value
 
-    def get_sheet_grid(self, sheet_name: str, max_rows: int = 100) -> list[list[Any]]:
+    def get_sheet_grid(self, sheet_name: str, max_rows: int = 500) -> list[list[Any]]:
         ws = self.wb[sheet_name]
         rows = []
         for i, row in enumerate(ws.iter_rows(values_only=True)):
@@ -35,8 +35,8 @@ class ExcelReader:
     def read_sheet_grid(
         self,
         sheet_name: str,
-        max_rows: int = 100,
-        max_cols: int = 20,
+        max_rows: int = 500,
+        max_cols: int = 30,
     ) -> dict:
         """Return sheet contents as a navigable grid.
 
