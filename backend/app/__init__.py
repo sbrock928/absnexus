@@ -10,7 +10,7 @@ from app.routers import auth, servicers, deals, health
 from app.variables.router import router as variables_router
 from app.mappings.router import router as mappings_router
 from app.tranches.router import router as tranches_router
-from app.dag.router import router as dag_router
+from app.dag.router import router as dag_router, bare_router as dag_bare_router
 from app.formulas.router import router as formulas_router
 from app.processing.router import router as processing_router
 from app.export.router import router as export_router
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(mappings_router, prefix="/api/deals", tags=["mappings"])
     app.include_router(tranches_router, prefix="/api/deals", tags=["tranches"])
     app.include_router(dag_router, prefix="/api/deals", tags=["dag"])
+    app.include_router(dag_bare_router, prefix="/api", tags=["dag"])
     app.include_router(formulas_router, prefix="/api/formulas", tags=["formulas"])
     app.include_router(processing_router, prefix="/api/deals", tags=["processing"])
     app.include_router(export_router, prefix="/api", tags=["export"])

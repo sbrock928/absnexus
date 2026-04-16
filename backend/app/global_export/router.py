@@ -1,5 +1,6 @@
 """Global export templates — HTTP routing layer."""
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -145,3 +146,33 @@ def save_deal_config(
         for r in body.rows
     ]
     return GlobalExportService(db).save_deal_config(deal_id, template_id, rows_data)
+
+
+# ── Preview ──
+
+@router.get("/deals/{deal_id}/export-preview/{template_id}")
+def preview_export_json(
+    deal_id: int,
+    template_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Structured preview for the inline grid."""
+    return GlobalExportService(db).preview_structured(deal_id, template_id)
+
+
+@router.get("/deals/{deal_id}/export-preview/{template_id}/xlsx")
+def preview_export_xlsx(
+    deal_id: int,
+    template_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Downloadable .xlsx preview with placeholder values."""
+    data = GlobalExportService(db).preview_xlsx(deal_id, template_id)
+    filename = f"preview_deal_{deal_id}_template_{template_id}.xlsx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

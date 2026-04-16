@@ -117,3 +117,10 @@ export function revertDag(
 ): Promise<{ version_id: number; version_number: number }> {
   return api.post(`/deals/${dealId}/dag/revert/${versionId}`);
 }
+
+export function importDag(
+  dealId: number,
+  payload: Record<string, unknown>,
+): Promise<{ version_id: number; version_number: number }> {
+  return api.post(`/deals/${dealId}/dag/import`, payload);
+}

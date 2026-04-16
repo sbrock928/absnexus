@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { DagNodeData } from "./types";
 import type { FormulaToken } from "./DagGraphView";
+import { FormulaChipBuilder } from "./FormulaChipBuilder";
 import styles from "./NodePropertiesPanel.module.css";
+
+export interface MappedVariable {
+  id: number;
+  name: string;
+  display_name: string | null;
+}
 
 interface Props {
   node: DagNodeData;
@@ -12,6 +19,7 @@ interface Props {
   dependencies: string[];
   downstream: string[];
   availableTokens?: FormulaToken[];
+  mappedVariables?: MappedVariable[];
 }
 
 const typeColors: Record<string, string> = {
@@ -30,8 +38,8 @@ export function NodePropertiesPanel({
   dependencies,
   downstream,
   availableTokens = [],
+  mappedVariables = [],
 }: Props) {
-  const formulaRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState(node.label);
   const [formula, setFormula] = useState(node.formula ?? "");
   const [description, setDescription] = useState(node.description ?? "");
@@ -116,113 +124,12 @@ export function NodePropertiesPanel({
       {node.node_type !== "input" && node.node_type !== "input_value" && (
         <div className={styles.field}>
           <label className={styles.label}>Formula</label>
-          <textarea
-            ref={formulaRef}
-            className={styles.textarea}
+          <FormulaChipBuilder
             value={formula}
-            onChange={(e) => { setFormula(e.target.value); markDirty(); }}
-            rows={3}
-            spellCheck={false}
+            onChange={(next) => { setFormula(next); markDirty(); }}
+            tokens={availableTokens}
             placeholder="e.g. total_collections * svc_fee_rate"
           />
-          {availableTokens.length > 0 && (
-            <div className={styles.tokenPalette}>
-              <div className={styles.tokenSection}>
-                <div className={styles.tokenSectionLabel}>Variables</div>
-                <div className={styles.tokenGrid}>
-                  {availableTokens.filter(t => t.category === "variable").map(t => (
-                    <button
-                      key={t.name}
-                      className={styles.tokenBtn}
-                      title={t.label}
-                      onClick={() => {
-                        const el = formulaRef.current;
-                        if (!el) return;
-                        const start = el.selectionStart;
-                        const end = el.selectionEnd;
-                        const before = formula.slice(0, start);
-                        const after = formula.slice(end);
-                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
-                        const newFormula = before + sep + t.name + after;
-                        setFormula(newFormula);
-                        markDirty();
-                        requestAnimationFrame(() => {
-                          const pos = (before + sep + t.name).length;
-                          el.focus();
-                          el.setSelectionRange(pos, pos);
-                        });
-                      }}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.tokenSection}>
-                <div className={styles.tokenSectionLabel}>Nodes</div>
-                <div className={styles.tokenGrid}>
-                  {availableTokens.filter(t => t.category === "node").map(t => (
-                    <button
-                      key={t.name}
-                      className={`${styles.tokenBtn} ${styles.tokenNode}`}
-                      title={t.label}
-                      onClick={() => {
-                        const el = formulaRef.current;
-                        if (!el) return;
-                        const start = el.selectionStart;
-                        const end = el.selectionEnd;
-                        const before = formula.slice(0, start);
-                        const after = formula.slice(end);
-                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
-                        const newFormula = before + sep + t.name + after;
-                        setFormula(newFormula);
-                        markDirty();
-                        requestAnimationFrame(() => {
-                          const pos = (before + sep + t.name).length;
-                          el.focus();
-                          el.setSelectionRange(pos, pos);
-                        });
-                      }}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.tokenSection}>
-                <div className={styles.tokenSectionLabel}>Functions</div>
-                <div className={styles.tokenGrid}>
-                  {availableTokens.filter(t => t.category === "function").map(t => (
-                    <button
-                      key={t.name}
-                      className={`${styles.tokenBtn} ${styles.tokenFunc}`}
-                      title={t.label}
-                      onClick={() => {
-                        const el = formulaRef.current;
-                        if (!el) return;
-                        const start = el.selectionStart;
-                        const end = el.selectionEnd;
-                        const before = formula.slice(0, start);
-                        const after = formula.slice(end);
-                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
-                        const insert = t.name + "(";
-                        const newFormula = before + sep + insert + after;
-                        setFormula(newFormula);
-                        markDirty();
-                        requestAnimationFrame(() => {
-                          const pos = (before + sep + insert).length;
-                          el.focus();
-                          el.setSelectionRange(pos, pos);
-                        });
-                      }}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -275,14 +182,19 @@ export function NodePropertiesPanel({
         <>
           <div className={styles.field}>
             <label className={styles.label}>Compare against (tape variable)</label>
-            <input
+            <select
               className={styles.input}
               value={comparisonVar}
               onChange={(e) => { setComparisonVar(e.target.value); markDirty(); }}
-              onKeyDown={handleKeyDown}
-              placeholder="e.g. reported_oc"
               style={{ fontFamily: "var(--font-mono)" }}
-            />
+            >
+              <option value="">— none —</option>
+              {mappedVariables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  {v.display_name ? `${v.display_name} (${v.name})` : v.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Tolerance (absolute)</label>
@@ -317,14 +229,19 @@ export function NodePropertiesPanel({
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Compare against (tape variable)</label>
-            <input
+            <select
               className={styles.input}
               value={comparisonVar}
               onChange={(e) => { setComparisonVar(e.target.value); markDirty(); }}
-              onKeyDown={handleKeyDown}
-              placeholder="e.g. a_int_pmt_tape"
               style={{ fontFamily: "var(--font-mono)" }}
-            />
+            >
+              <option value="">— none —</option>
+              {mappedVariables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  {v.display_name ? `${v.display_name} (${v.name})` : v.name}
+                </option>
+              ))}
+            </select>
             <div className={styles.formulaHint}>
               Tape variable for waterfall comparison. Leave empty to skip.
             </div>

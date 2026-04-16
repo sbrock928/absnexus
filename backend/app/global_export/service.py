@@ -5,6 +5,8 @@ import io
 import os
 from decimal import Decimal
 
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy.orm import Session
 
 from app.core import settings
@@ -109,7 +111,8 @@ class GlobalExportService:
         tmpl_name = template.name.replace(" ", "_") if template else f"tmpl_{template_id}"
         period = run.report_period or "unknown"
         filename = f"{deal_name}_{tmpl_name}_{period.replace('-', '')}.csv"
-        dest_dir = os.path.join(settings.export_directory, str(run.deal_id), period)
+        base_dir = (deal.export_directory_override if deal else None) or settings.export_directory
+        dest_dir = os.path.join(base_dir, str(run.deal_id), period)
         os.makedirs(dest_dir, exist_ok=True)
         file_path = os.path.join(dest_dir, filename)
 
@@ -135,12 +138,76 @@ class GlobalExportService:
                 context = self._build_context(run)
                 return self._generate(run, cols, template_id, context)
 
-        # Placeholder
+        # Placeholder rows from deal's configured export rows
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow([c.header_label for c in cols])
-        writer.writerow([self._placeholder(c) for c in cols])
+        for row_values in self._placeholder_rows(deal_id, template_id, cols):
+            writer.writerow(row_values)
         return out.getvalue()
+
+    def preview_structured(self, deal_id: int, template_id: int) -> dict:
+        """Return JSON-shaped preview: {columns: [...], rows: [[...], ...]}."""
+        cols = self.dao.list_columns(template_id)
+        column_headers = [c.header_label for c in cols]
+        rows = self._placeholder_rows(deal_id, template_id, cols)
+        return {"columns": column_headers, "rows": rows}
+
+    def preview_xlsx(self, deal_id: int, template_id: int) -> bytes:
+        """Build an .xlsx workbook with placeholder values for the template."""
+        cols = self.dao.list_columns(template_id)
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Preview"
+
+        header_font = Font(bold=True)
+        header_fill = PatternFill("solid", fgColor="E5E7EB")
+        for idx, col in enumerate(cols, start=1):
+            cell = ws.cell(row=1, column=idx, value=col.header_label)
+            cell.font = header_font
+            cell.fill = header_fill
+
+        for row_idx, row_values in enumerate(self._placeholder_rows(deal_id, template_id, cols), start=2):
+            for col_idx, value in enumerate(row_values, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+
+    def _placeholder_rows(
+        self,
+        deal_id: int,
+        template_id: int,
+        cols: list[GlobalExportColumn],
+    ) -> list[list[str]]:
+        """Build placeholder rows mirroring the deal's configured DealExportRows.
+
+        Each cell shows `<source_ref>` or `<meta_field>` so users can see what
+        will populate it at run time.
+        """
+        deal_rows = self.dao.list_deal_rows(deal_id, template_id)
+        # Fall back to a single placeholder row when no deal config exists yet.
+        if not deal_rows:
+            return [[self._placeholder(c) for c in cols]]
+
+        rendered: list[list[str]] = []
+        for row in deal_rows:
+            cells = self.dao.list_cells_for_row(row.id)
+            cells_by_col = {c.column_id: c for c in cells}
+            values: list[str] = []
+            for col in cols:
+                cell = cells_by_col.get(col.id)
+                if cell is None:
+                    values.append(self._placeholder(col))
+                    continue
+                if cell.value_source == "literal":
+                    values.append(cell.source_ref or "")
+                else:
+                    # node/variable/formula/run_meta/deal_meta — show the ref as a placeholder token
+                    values.append(f"<{cell.source_ref}>" if cell.source_ref else self._placeholder(col))
+            rendered.append(values)
+        return rendered
 
     def _build_context(self, run: ProcessingRun) -> dict[str, Decimal]:
         """Build full formula context from tape values + execution results."""

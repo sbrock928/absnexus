@@ -30,6 +30,25 @@ const NODE_TYPE_MAP: Record<string, string> = {
   validation: "validationNode",
 };
 
+// Tier layout — nodes are stacked into three horizontal bands so the graph
+// reads top-down as "Outputs → Calcs → Inputs" regardless of saved positions.
+// Position_x (horizontal) is still driven by autoLayout / user drag.
+export type TierKey = "top" | "mid" | "bot";
+
+export const NODE_TYPE_TIER: Record<string, TierKey> = {
+  distribution: "top",
+  validation: "top",
+  calculation: "mid",
+  input: "bot",
+  input_value: "bot",
+};
+
+const TIER_Y: Record<TierKey, number> = {
+  top: 0,
+  mid: 260,
+  bot: 520,
+};
+
 const nodeTypes: NodeTypes = {
   inputNode: InputNode,
   calcNode: CalcNode,
@@ -48,6 +67,7 @@ interface Props {
   backendEdges: any[];
   visibleNodeIds: Set<number>;
   availableTokens?: FormulaToken[];
+  mappedVariables?: { id: number; name: string; display_name: string | null }[];
   onCreateNode: (type: string, position: { x: number; y: number }) => Promise<any>;
   onUpdateNode: (nodeId: number, fields: Record<string, any>) => Promise<void>;
   onDeleteNode: (nodeId: number) => Promise<void>;
@@ -63,7 +83,12 @@ function buildRfNodes(backendNodes: any[], visibleIds: Set<number>): Node[] {
     .map((n) => ({
       id: String(n.id),
       type: NODE_TYPE_MAP[n.node_type] ?? "calcNode",
-      position: { x: n.position_x ?? 0, y: n.position_y ?? 0 },
+      position: {
+        x: n.position_x ?? 0,
+        // Override y to the node's tier band so the graph is always top-down
+        // "outputs → calcs → inputs". Saved position_y is ignored.
+        y: TIER_Y[NODE_TYPE_TIER[n.node_type] ?? "mid"],
+      },
       data: {
         label: n.name,
         node_key: n.key ?? n.node_key,
@@ -108,6 +133,7 @@ export function DagGraphView({
   backendEdges,
   visibleNodeIds,
   availableTokens = [],
+  mappedVariables = [],
   onCreateNode,
   onUpdateNode,
   onDeleteNode,
@@ -145,12 +171,12 @@ export function DagGraphView({
     [onCreateEdge]
   );
 
-  // Save position on drag end
+  // Save horizontal position only on drag end; vertical position is driven by
+  // tier assignment so users can't drag a node out of its band.
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
       onUpdateNode(Number(node.id), {
         position_x: node.position.x,
-        position_y: node.position.y,
       });
     },
     [onUpdateNode]
@@ -276,8 +302,11 @@ export function DagGraphView({
               backendFields.tolerance = fields.tolerance || null;
             if (fields.comparison_var !== undefined)
               backendFields.comparison_variable = fields.comparison_var || null;
-            if (fields.payment_type !== undefined)
+            if (fields.payment_type !== undefined) {
+              // Keep payment_type (export templates) and export_field (waterfall) in sync.
               backendFields.payment_type = fields.payment_type || null;
+              backendFields.export_field = fields.payment_type || null;
+            }
             await onUpdateNode(selectedData.backendId, backendFields);
           }}
           onDelete={async () => {
@@ -293,6 +322,7 @@ export function DagGraphView({
           dependencies={deps}
           downstream={downstream}
           availableTokens={availableTokens}
+          mappedVariables={mappedVariables}
         />
       ) : (
         <div className={styles.emptyPanel}>

@@ -15,6 +15,8 @@ class DealUpdate(BaseModel):
     name: str | None = None
     product_type: str | None = None
     status: Literal["draft", "active", "archived"] | None = None
+    export_directory_override: str | None = None
+    dag_archive_directory_override: str | None = None
 
 
 class DealResponse(BaseModel):
@@ -28,3 +30,5 @@ class DealResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+    export_directory_override: str | None = None
+    dag_archive_directory_override: str | None = None

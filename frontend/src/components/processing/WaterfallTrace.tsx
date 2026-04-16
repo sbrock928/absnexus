@@ -94,8 +94,8 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                   <td style={{ color: "var(--text-muted)" }}>{s.step}</td>
                   <td>
                     <span style={{ fontWeight: 500 }}>{s.node_name}</span>
-                    {s.export_field && (
-                      <span className={styles.fieldCode}>{s.export_field}</span>
+                    {(s.export_field || s.payment_type) && (
+                      <span className={styles.fieldCode}>{s.export_field || s.payment_type}</span>
                     )}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>

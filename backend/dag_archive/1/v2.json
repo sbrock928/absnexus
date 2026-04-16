@@ -1,0 +1,29 @@
+{
+  "deal_id": 1,
+  "version_number": 2,
+  "description": "v2",
+  "created_by": "testuser",
+  "created_at": "2026-04-16T21:53:47.076230",
+  "nodes": [
+    {
+      "key": "n2",
+      "name": "N2",
+      "node_type": "input_value",
+      "stream": "distribution",
+      "formula": null,
+      "description": null,
+      "input_source": "tape",
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 0,
+      "position_y": 0
+    }
+  ],
+  "edges": []
+}

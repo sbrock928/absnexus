@@ -32,4 +32,9 @@ class Deal(Base):
         Numeric(18, 4), nullable=True, default=Decimal("0.01"),
     )
 
+    # Optional per-deal overrides for file output directories.
+    # When null, the global settings.export_directory / settings.dag_archive_directory is used.
+    export_directory_override: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    dag_archive_directory_override: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     servicer = relationship("Servicer", lazy="joined")

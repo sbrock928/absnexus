@@ -11,6 +11,8 @@ import {
   getTemplate,
   getDealExportConfig,
   saveDealExportConfig,
+  getExportPreview,
+  getExportPreviewXlsxUrl,
   type DealExportRowSave,
   type DealExportCellSave,
 } from "@/api/globalExport";
@@ -78,6 +80,12 @@ export function ExportBuilderPage() {
   const { data: existingConfig } = useQuery({
     queryKey: ["deal-export-config", id, activeTemplateId],
     queryFn: () => getDealExportConfig(id, activeTemplateId!),
+    enabled: activeTemplateId !== null,
+  });
+
+  const { data: preview } = useQuery({
+    queryKey: ["export-preview", id, activeTemplateId, existingConfig?.rows.length],
+    queryFn: () => getExportPreview(id, activeTemplateId!),
     enabled: activeTemplateId !== null,
   });
 
@@ -194,11 +202,22 @@ export function ExportBuilderPage() {
             Configure how each distribution expands into CSV rows for {deal?.name ?? "this deal"}
           </div>
         </div>
-        {isEditable && (
-          <button className="btn btn-primary" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-            {saveMut.isPending ? "Saving..." : "Save config"}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {activeTemplateId !== null && (
+            <a
+              className="btn btn-secondary"
+              href={getExportPreviewXlsxUrl(id, activeTemplateId)}
+              style={{ textDecoration: "none" }}
+            >
+              Download preview .xlsx
+            </a>
+          )}
+          {isEditable && (
+            <button className="btn btn-primary" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+              {saveMut.isPending ? "Saving..." : "Save config"}
+            </button>
+          )}
+        </div>
       </div>
 
       {isArchived && (
@@ -354,6 +373,59 @@ export function ExportBuilderPage() {
             </div>
           );
         })
+      )}
+
+      {/* ── Preview ── */}
+      {preview && preview.columns.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Preview</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+            Shows placeholder tokens in place of calculated values. Run a processing job to see actual amounts.
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table
+              className="table"
+              style={{
+                fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+                fontSize: 12,
+                minWidth: "100%",
+              }}
+            >
+              <thead>
+                <tr>
+                  {preview.columns.map((c, i) => (
+                    <th key={i} style={{ whiteSpace: "nowrap" }}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={preview.columns.length} style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
+                      No rows configured yet.
+                    </td>
+                  </tr>
+                ) : (
+                  preview.rows.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      {row.map((cell, colIdx) => (
+                        <td
+                          key={colIdx}
+                          style={{
+                            whiteSpace: "nowrap",
+                            color: cell.startsWith("<") ? "var(--accent-blue)" : "var(--text-primary)",
+                          }}
+                        >
+                          {cell || <span style={{ color: "var(--text-muted)" }}>—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

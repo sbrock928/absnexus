@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth";
 import { api } from "@/api/client";
@@ -18,12 +18,12 @@ import {
   deleteEdge,
   saveDag,
   revertDag,
+  importDag,
   type DagNode,
-  type DagEdge,
-  type DagVersion,
 } from "@/api/dag";
-import { DagGraphView } from "@/components/dag-builder/DagGraphView";
+import { DagGraphView, NODE_TYPE_TIER, type TierKey } from "@/components/dag-builder/DagGraphView";
 import { FormulaEditorModal } from "@/components/dag-builder/FormulaEditorModal";
+import { FormulaChipBuilder } from "@/components/dag-builder/FormulaChipBuilder";
 import styles from "./DagEditorPage.module.css";
 
 export function DagEditorPage() {
@@ -52,6 +52,7 @@ export function DagEditorPage() {
     input_value: true, calculation: true, distribution: true, validation: true,
   });
   const [focusNodeId, setFocusNodeId] = useState<number | null>(null);
+  const [collapsedTiers, setCollapsedTiers] = useState<Set<TierKey>>(new Set());
   const [addNodeStream, setAddNodeStream] = useState<"distribution" | "validation">("distribution");
 
   // Fetch data
@@ -75,12 +76,24 @@ export function DagEditorPage() {
     queryFn: () => api.get<Variable[]>("/variables/"),
   });
 
+  const { data: mappings = [] } = useQuery({
+    queryKey: ["deal-mappings", id],
+    queryFn: () => api.get<{ id: number; variable_id: number }[]>(`/deals/${id}/mappings`),
+  });
+
   const currentVersion = versions.length > 0 ? versions[0] : null;
+
+  // Only variables actually mapped on this deal are usable in formulas and
+  // as validation comparison targets.
+  const mappedVariables = useMemo(() => {
+    const ids = new Set(mappings.map((m) => m.variable_id));
+    return variables.filter((v) => ids.has(v.id));
+  }, [variables, mappings]);
 
   // Build token list for formula builder
   const availableTokens: FormulaToken[] = useMemo(() => {
     const tokens: FormulaToken[] = [];
-    for (const v of variables) {
+    for (const v of mappedVariables) {
       tokens.push({ name: v.name, label: v.display_name || v.name, category: "variable" });
     }
     for (const n of allNodes) {
@@ -90,7 +103,7 @@ export function DagEditorPage() {
       tokens.push({ name: fn, label: fn, category: "function" });
     }
     return tokens;
-  }, [variables, allNodes]);
+  }, [mappedVariables, allNodes]);
 
   // Compute focused node ancestors + descendants for drill-down
   const focusedNodeIds: Set<number> | null = useMemo(() => {
@@ -125,8 +138,24 @@ export function DagEditorPage() {
     if (!typeFilters[n.node_type]) return false;
     if (searchFilter && !n.name.toLowerCase().includes(searchFilter.toLowerCase()) && !n.key.toLowerCase().includes(searchFilter.toLowerCase())) return false;
     if (focusedNodeIds && !focusedNodeIds.has(n.id)) return false;
+    const tier = NODE_TYPE_TIER[n.node_type] ?? "mid";
+    if (collapsedTiers.has(tier)) return false;
     return true;
   });
+
+  const tierCounts = useMemo(() => {
+    const counts: Record<TierKey, number> = { top: 0, mid: 0, bot: 0 };
+    for (const n of allNodes) counts[NODE_TYPE_TIER[n.node_type] ?? "mid"]++;
+    return counts;
+  }, [allNodes]);
+
+  const toggleTier = (t: TierKey) => {
+    setCollapsedTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t); else next.add(t);
+      return next;
+    });
+  };
 
   const visibleNodeIds = useMemo(() => new Set(filteredNodes.map((n: { id: number }) => n.id)), [filteredNodes]);
 
@@ -250,64 +279,78 @@ export function DagEditorPage() {
 
   // ── Add Node Dialog ────────────────────────────────────────
 
-  const [newNodeKey, setNewNodeKey] = useState("");
   const [newNodeName, setNewNodeName] = useState("");
   const [newNodeType, setNewNodeType] = useState("calculation");
   const [newFormula, setNewFormula] = useState("");
   const [newPaymentType, setNewPaymentType] = useState("");
   const [newTolerance, setNewTolerance] = useState("0.01");
   const [newComparisonVar, setNewComparisonVar] = useState("");
+  const [newVariableId, setNewVariableId] = useState<number | null>(null);
 
-  const addFormulaRef = useRef<HTMLTextAreaElement>(null);
+  const slugify = (s: string): string =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80);
 
-  const insertTokenInAddForm = (name: string, appendParen: boolean) => {
-    const el = addFormulaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const before = newFormula.slice(0, start);
-    const after = newFormula.slice(end);
-    const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
-    const insert = appendParen ? name + "(" : name;
-    const next = before + sep + insert + after;
-    setNewFormula(next);
-    requestAnimationFrame(() => {
-      const pos = (before + sep + insert).length;
-      el.focus();
-      el.setSelectionRange(pos, pos);
-    });
+  // Ensure uniqueness against existing node keys (append _2, _3, ...).
+  const uniqueKey = (base: string): string => {
+    const taken = new Set(allNodes.map((n) => n.key));
+    if (!taken.has(base)) return base;
+    let i = 2;
+    while (taken.has(`${base}_${i}`)) i++;
+    return `${base}_${i}`;
   };
 
   const resetAddForm = () => {
-    setNewNodeKey("");
     setNewNodeName("");
     setNewNodeType("calculation");
     setNewFormula("");
     setNewPaymentType("");
     setNewTolerance("0.01");
     setNewComparisonVar("");
+    setNewVariableId(null);
   };
 
   const handleAddNode = () => {
-    if (!newNodeKey || !newNodeName) return;
+    let key: string;
+    let name: string;
     const payload: any = {
-      node_key: newNodeKey,
-      name: newNodeName,
       node_type: newNodeType,
       stream: newNodeType === "validation" ? "validation" : addNodeStream,
       position_x: 200 + Math.random() * 300,
       position_y: 100 + allNodes.length * 60,
     };
-    if (newNodeType !== "input_value" && newFormula) {
-      payload.formula = newFormula;
+
+    if (newNodeType === "input_value") {
+      const v = mappedVariables.find((mv) => mv.id === newVariableId);
+      if (!v) return;
+      key = uniqueKey(slugify(v.name));
+      name = v.display_name || v.name;
+      payload.input_source = "tape";
+      payload.variable_id = v.id;
+    } else {
+      if (!newNodeName.trim()) return;
+      const base = slugify(newNodeName) || `node_${Date.now()}`;
+      key = uniqueKey(base);
+      name = newNodeName.trim();
+      if (newFormula) payload.formula = newFormula;
+      if (newNodeType === "distribution" && newPaymentType) {
+        // Write to both — `payment_type` drives the global export templates,
+        // `export_field` drives the waterfall display. Keep them in sync.
+        payload.payment_type = newPaymentType;
+        payload.export_field = newPaymentType;
+      }
+      if (newNodeType === "validation") {
+        payload.tolerance = newTolerance;
+        if (newComparisonVar) payload.comparison_variable = newComparisonVar;
+      }
     }
-    if (newNodeType === "distribution" && newPaymentType) {
-      payload.payment_type = newPaymentType;
-    }
-    if (newNodeType === "validation") {
-      payload.tolerance = newTolerance;
-      if (newComparisonVar) payload.comparison_var = newComparisonVar;
-    }
+
+    payload.node_key = key;
+    payload.name = name;
+
     createNodeMut.mutate(payload, {
       onSuccess: () => {
         setShowAddNode(false);
@@ -327,6 +370,12 @@ export function DagEditorPage() {
 
   return (
     <div>
+      {/* Breadcrumb */}
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+        <Link to={`/deals/${dealId}`} style={{ color: "var(--accent-blue)", textDecoration: "none" }}>
+          ← Back to deal
+        </Link>
+      </div>
       {/* Header */}
       <div className="page-header">
         <div>
@@ -342,6 +391,27 @@ export function DagEditorPage() {
             <button className="btn" onClick={() => setShowHistory(true)}>
               History
             </button>
+            <label className="btn" style={{ cursor: "pointer", marginBottom: 0 }}>
+              Import…
+              <input
+                type="file"
+                accept="application/json,.json"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const payload = JSON.parse(text);
+                    await importDag(id, payload);
+                    invalidate();
+                  } catch (err) {
+                    alert(`Import failed: ${(err as Error).message}`);
+                  }
+                }}
+              />
+            </label>
             <button className="btn btn-primary" onClick={() => setShowSave(true)}>
               Save
             </button>
@@ -419,8 +489,6 @@ export function DagEditorPage() {
               <th>Stream</th>
               <th>Formula</th>
               <th>Export</th>
-              <th>WF #</th>
-              <th>Tape Compare</th>
               <th></th>
             </tr>
           </thead>
@@ -466,69 +534,6 @@ export function DagEditorPage() {
                     <span className={styles.exportBadge}>{node.payment_type}</span>
                   )}
                   {!node.payment_type && "—"}
-                </td>
-                <td>
-                  {node.node_type === "distribution" ? (
-                    <input
-                      type="number"
-                      value={node.waterfall_order ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null;
-                        updateNodeMut.mutate({
-                          nodeId: node.id,
-                          fields: { waterfall_order: val },
-                        });
-                      }}
-                      style={{
-                        width: 50,
-                        padding: "2px 6px",
-                        background: "var(--bg-input)",
-                        border: "1px solid var(--border-color)",
-                        borderRadius: 4,
-                        color: "var(--text-primary)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 12,
-                      }}
-                    />
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {node.node_type === "distribution" ? (
-                    isEditable ? (
-                      <select
-                        value={node.comparison_variable ?? ""}
-                        onChange={(e) => {
-                          updateNodeMut.mutate({
-                            nodeId: node.id,
-                            fields: { comparison_variable: e.target.value || null },
-                          });
-                        }}
-                        style={{
-                          width: 160,
-                          padding: "2px 6px",
-                          background: "var(--bg-tertiary)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          color: node.comparison_variable ? "var(--accent-green)" : "var(--text-muted)",
-                          fontSize: 11,
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        <option value="">— none —</option>
-                        {variables.map((v) => (
-                          <option key={v.id} value={v.name}>{v.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <code style={{ fontSize: 11, color: node.comparison_variable ? "var(--accent-green)" : "var(--text-muted)" }}>
-                        {node.comparison_variable ?? "—"}
-                      </code>
-                    )
-                  ) : (
-                    "—"
-                  )}
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: 4 }}>
@@ -586,11 +591,48 @@ export function DagEditorPage() {
 
       {/* ── Graph View ──────────────────────────────────────── */}
       {viewMode === "graph" && (
-        <DagGraphView
+        <>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Tiers:
+            </span>
+            {([
+              { key: "top" as TierKey, label: "Distribution & Validation", color: "#a78bfa" },
+              { key: "mid" as TierKey, label: "Calculations", color: "#60a5fa" },
+              { key: "bot" as TierKey, label: "Inputs", color: "#4ade80" },
+            ]).map(({ key, label, color }) => {
+              const collapsed = collapsedTiers.has(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() => toggleTier(key)}
+                  title={collapsed ? `Show ${label}` : `Hide ${label}`}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: 11,
+                    border: `1px solid ${color}`,
+                    borderRadius: 999,
+                    background: collapsed ? "transparent" : `${color}22`,
+                    color: collapsed ? "var(--text-muted)" : color,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    opacity: collapsed ? 0.65 : 1,
+                  }}
+                >
+                  <span>{collapsed ? "▶" : "▼"}</span>
+                  {label} ({tierCounts[key]})
+                </button>
+              );
+            })}
+          </div>
+          <DagGraphView
           backendNodes={allNodes}
           backendEdges={edges}
           visibleNodeIds={visibleNodeIds}
           availableTokens={availableTokens}
+          mappedVariables={mappedVariables}
           onCreateNode={async (type, pos) => {
             const key = `new_${type}_${Date.now()}`;
             const resp = await createNode(id, {
@@ -605,7 +647,7 @@ export function DagEditorPage() {
             return resp;
           }}
           onUpdateNode={async (nodeId, fields) => {
-            await updateNode(nodeId, fields);
+            await updateNode(nodeId, fields, id);
             invalidate();
           }}
           onDeleteNode={async (nodeId) => {
@@ -632,6 +674,7 @@ export function DagEditorPage() {
             invalidate();
           }}
         />
+        </>
       )}
 
       {/* ── Add Node Dialog ─────────────────────────────────── */}
@@ -641,27 +684,6 @@ export function DagEditorPage() {
             <h2 className={styles.dialogTitle}>
               Add node
             </h2>
-
-            <div className="form-group">
-              <label className="form-label">Node key (unique identifier)</label>
-              <input
-                className="input"
-                value={newNodeKey}
-                onChange={(e) => setNewNodeKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
-                placeholder="e.g. class_a_interest_calc"
-                style={{ fontFamily: "var(--font-mono)" }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Display name</label>
-              <input
-                className="input"
-                value={newNodeName}
-                onChange={(e) => setNewNodeName(e.target.value)}
-                placeholder="e.g. Class A Interest (calc)"
-              />
-            </div>
 
             <div className="form-row">
               <div className="form-group" style={{ flex: 1 }}>
@@ -678,7 +700,7 @@ export function DagEditorPage() {
                   <option value="validation">Validation (check)</option>
                 </select>
               </div>
-              {newNodeType !== "validation" && (
+              {newNodeType !== "validation" && newNodeType !== "input_value" && (
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Stream</label>
                   <select
@@ -694,61 +716,52 @@ export function DagEditorPage() {
               )}
             </div>
 
+            {newNodeType === "input_value" ? (
+              <div className="form-group">
+                <label className="form-label">Tape variable</label>
+                <select
+                  className="select"
+                  style={{ width: "100%" }}
+                  value={newVariableId ?? ""}
+                  onChange={(e) => setNewVariableId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— pick a mapped variable —</option>
+                  {mappedVariables.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.display_name || v.name} ({v.name})
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  Only variables mapped on this deal are shown. The node key and display name are derived automatically.
+                </div>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Display name</label>
+                <input
+                  className="input"
+                  value={newNodeName}
+                  onChange={(e) => setNewNodeName(e.target.value)}
+                  placeholder="e.g. Class A Interest"
+                />
+                {newNodeName.trim() && (
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
+                    node_key: <span style={{ color: "var(--accent-blue)" }}>{uniqueKey(slugify(newNodeName))}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {newNodeType !== "input_value" && (
               <div className="form-group">
                 <label className="form-label">Formula</label>
-                <textarea
-                  ref={addFormulaRef}
-                  className="textarea"
+                <FormulaChipBuilder
                   value={newFormula}
-                  onChange={(e) => setNewFormula(e.target.value)}
+                  onChange={setNewFormula}
+                  tokens={availableTokens}
                   placeholder="e.g. class_a_balance * class_a_note_rate / 12"
-                  rows={3}
-                  spellCheck={false}
-                  style={{ fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace", fontSize: 13, resize: "vertical" }}
                 />
-                <div style={{
-                  maxHeight: 180, overflowY: "auto", border: "1px solid var(--border)",
-                  borderRadius: "var(--radius)", padding: 8, background: "var(--bg-tertiary)", marginTop: 6,
-                }}>
-                  {availableTokens.filter(t => t.category === "variable").length > 0 && (
-                    <div style={{ marginBottom: 6 }}>
-                      <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Variables</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                        {availableTokens.filter(t => t.category === "variable").map(t => (
-                          <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, false)}
-                            style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)", borderRadius: 3, color: "var(--accent-green)", cursor: "pointer", whiteSpace: "nowrap" }}>
-                            {t.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {availableTokens.filter(t => t.category === "node").length > 0 && (
-                    <div style={{ marginBottom: 6 }}>
-                      <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Nodes</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                        {availableTokens.filter(t => t.category === "node").map(t => (
-                          <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, false)}
-                            style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(74,158,255,0.1)", border: "1px solid rgba(74,158,255,0.25)", borderRadius: 3, color: "var(--accent-blue)", cursor: "pointer", whiteSpace: "nowrap" }}>
-                            {t.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Functions</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                      {availableTokens.filter(t => t.category === "function").map(t => (
-                        <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, true)}
-                          style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 3, color: "var(--accent-purple)", cursor: "pointer", whiteSpace: "nowrap" }}>
-                          {t.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -769,13 +782,19 @@ export function DagEditorPage() {
               <>
                 <div className="form-group">
                   <label className="form-label">Compare against (tape variable)</label>
-                  <input
-                    className="input"
+                  <select
+                    className="select"
+                    style={{ width: "100%", fontFamily: "var(--font-mono)" }}
                     value={newComparisonVar}
                     onChange={(e) => setNewComparisonVar(e.target.value)}
-                    placeholder="e.g. reported_oc"
-                    style={{ fontFamily: "var(--font-mono)" }}
-                  />
+                  >
+                    <option value="">— none —</option>
+                    {mappedVariables.map((v) => (
+                      <option key={v.id} value={v.name}>
+                        {v.display_name ? `${v.display_name} (${v.name})` : v.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Tolerance (absolute)</label>
@@ -797,7 +816,10 @@ export function DagEditorPage() {
               <button
                 className="btn btn-primary"
                 onClick={handleAddNode}
-                disabled={!newNodeKey || !newNodeName || createNodeMut.isPending}
+                disabled={
+                  createNodeMut.isPending ||
+                  (newNodeType === "input_value" ? !newVariableId : !newNodeName.trim())
+                }
               >
                 {createNodeMut.isPending ? "Adding..." : "Add node"}
               </button>

@@ -118,3 +118,18 @@ export function saveDealExportConfig(
     rows,
   });
 }
+
+// ── Preview ──
+
+export interface ExportPreview {
+  columns: string[];
+  rows: string[][];
+}
+
+export function getExportPreview(dealId: number, templateId: number): Promise<ExportPreview> {
+  return api.get<ExportPreview>(`/deals/${dealId}/export-preview/${templateId}`);
+}
+
+export function getExportPreviewXlsxUrl(dealId: number, templateId: number): string {
+  return `/api/deals/${dealId}/export-preview/${templateId}/xlsx`;
+}

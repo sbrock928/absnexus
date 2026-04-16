@@ -58,6 +58,22 @@ def revert_dag(
     return {"version_id": version.id, "version_number": version.version_number}
 
 
+@router.post("/{deal_id}/dag/import")
+def import_dag(
+    deal_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
+):
+    """Create a new version from an uploaded JSON payload matching the dump format."""
+    try:
+        version = DagService(db).import_from_file(deal_id, payload, user.username)
+    except Exception as exc:
+        raise HTTPException(400, f"Invalid DAG payload: {exc}") from exc
+    return {"version_id": version.id, "version_number": version.version_number}
+
+
 @router.post("/{deal_id}/dag/validate")
 def validate_dag(deal_id: int, db: Session = Depends(get_db)):
     errors = DagService(db).validate_dag(deal_id)
@@ -113,10 +129,118 @@ def patch_node(
     if not node:
         raise HTTPException(404, "Node not found")
     changes = body.model_dump(exclude_unset=True)
+    formula_changed = "formula" in changes
     for field, value in changes.items():
         setattr(node, field, value)
     db.flush()
+    if formula_changed:
+        DagService(db)._sync_edges_from_formula(node)
     return node
+
+
+# ── Single-node / edge CRUD on the current version ──────────
+
+
+class NodeCreate(BaseModel):
+    # Accept either `key` or `node_key` from the frontend for compatibility.
+    key: str | None = None
+    node_key: str | None = None
+    name: str
+    node_type: str
+    stream: str = "distribution"
+    formula: str | None = None
+    description: str | None = None
+    input_source: str | None = None
+    variable_id: int | None = None
+    payment_type: str | None = None
+    export_field: str | None = None
+    tolerance: Decimal | None = None
+    tolerance_type: str | None = None
+    comparison_variable: str | None = None
+    comparison_var: str | None = None
+    default_prior_value: Decimal | None = None
+    waterfall_order: int | None = None
+    position_x: int = 0
+    position_y: int = 0
+
+
+@router.post("/{deal_id}/dag/nodes", status_code=201)
+def create_node(
+    deal_id: int,
+    body: NodeCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
+):
+    data = body.model_dump(exclude_unset=True)
+    if "key" not in data and "node_key" in data:
+        data["key"] = data.pop("node_key")
+    if not data.get("key"):
+        raise HTTPException(400, "node_key/key is required")
+    return DagService(db).create_node(deal_id, data)
+
+
+class EdgeCreate(BaseModel):
+    source_node_id: int
+    target_node_id: int
+
+
+@router.post("/{deal_id}/dag/edges", status_code=201)
+def create_edge(
+    deal_id: int,
+    body: EdgeCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+    _deal: Deal = Depends(require_editable_deal),
+):
+    edge = DagService(db).create_edge(deal_id, body.source_node_id, body.target_node_id)
+    if edge is None:
+        raise HTTPException(400, "No DAG version exists for this deal")
+    return {"id": edge.id, "source_node_id": edge.source_node_id, "target_node_id": edge.target_node_id}
+
+
+# Bare `/dag/...` routes for the frontend calls that don't carry a deal_id.
+bare_router = APIRouter()
+
+
+@bare_router.patch("/dag/nodes/{node_id}")
+def patch_node_bare(
+    node_id: int,
+    body: NodePatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+):
+    node = db.query(DagNode).filter(DagNode.id == node_id).first()
+    if not node:
+        raise HTTPException(404, "Node not found")
+    changes = body.model_dump(exclude_unset=True)
+    formula_changed = "formula" in changes
+    for field, value in changes.items():
+        setattr(node, field, value)
+    db.flush()
+    if formula_changed:
+        DagService(db)._sync_edges_from_formula(node)
+    return node
+
+
+@bare_router.delete("/dag/nodes/{node_id}", status_code=204)
+def delete_node_bare(
+    node_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+):
+    if not DagService(db).delete_node(node_id):
+        raise HTTPException(404, "Node not found")
+
+
+@bare_router.delete("/dag/edges/{edge_id}", status_code=204)
+def delete_edge_bare(
+    edge_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+):
+    if not DagService(db).delete_edge(edge_id):
+        raise HTTPException(404, "Edge not found")
 
 
 # ── Waterfall config on deal ─────────────────────────────────

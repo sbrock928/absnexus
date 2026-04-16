@@ -12,6 +12,7 @@ import {
   type DealExportRow,
 } from "../api/globalExport";
 import type { Deal, Servicer, Variable } from "../types";
+import { WaterfallTrace } from "../components/processing/WaterfallTrace";
 
 interface MappingVariable {
   id: number;
@@ -69,6 +70,7 @@ export function DealDetailPage() {
   const [activeExportTemplateId, setActiveExportTemplateId] = useState<number | null>(null);
   const [exportTemplateColumns, setExportTemplateColumns] = useState<GlobalColumn[]>([]);
   const [exportDealRows, setExportDealRows] = useState<DealExportRow[]>([]);
+  const [variables, setVariables] = useState<Variable[]>([]);
   const [tab, setTab] = useState("overview");
   const [showClone, setShowClone] = useState(false);
   const [error, setError] = useState("");
@@ -88,6 +90,7 @@ export function DealDetailPage() {
 
   const reloadMappings = () => { if (dealId) api.get<Mapping[]>(`/deals/${dealId}/mappings`).then(setMappings); };
   const reloadTranches = () => { if (dealId) api.get<Tranche[]>(`/deals/${dealId}/tranches`).then(setTranches); };
+  const reloadDag = () => { if (dealId) api.get<DagData>(`/deals/${dealId}/dag`).then(setDag).catch(() => {}); };
   const reloadAliases = () => {
     if (!dealId) return;
     // Load aliases for all variables mapped in this deal
@@ -109,6 +112,7 @@ export function DealDetailPage() {
     reloadTranches();
     api.get<DagData>(`/deals/${dealId}/dag`).then(setDag).catch(() => {});
     api.get<any[]>(`/deals/${dealId}/runs`).then(setRuns).catch(() => {});
+    api.get<Variable[]>(`/variables/available/${dealId}`).then(setVariables).catch(() => {});
     listTemplates().then((templates) => {
       setExportTemplates(templates);
       if (templates.length > 0) setActiveExportTemplateId(templates[0].id);
@@ -231,7 +235,7 @@ export function DealDetailPage() {
       )}
 
       <div className="tabs">
-        {["overview", "mappings", "tranches", "dag", "export", "runs"].map((t) => (
+        {["overview", "mappings", "tranches", "dag", "waterfall", "export", "runs"].map((t) => (
           <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
             {t === "dag" ? "DAG" : t.charAt(0).toUpperCase() + t.slice(1)}
             {t === "mappings" && ` (${mappings.length})`}
@@ -268,53 +272,55 @@ export function DealDetailPage() {
         </div>
       )}
 
-      {/* ── Waterfall Config (inline in overview) ── */}
+      {/* ── File output overrides (Overview tab) ── */}
       {tab === "overview" && deal && (
         <div className="card" style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>Waterfall configuration</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>File output directories</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Starting variable</label>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
+                Export directory override
+              </label>
               <input
                 className="input"
-                value={(deal as any).waterfall_starting_var ?? "total_available_funds"}
+                value={(deal as any).export_directory_override ?? ""}
                 disabled={isArchived}
                 onChange={(e) => {
-                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_starting_var: e.target.value });
-                  setDeal({ ...deal, waterfall_starting_var: e.target.value } as any);
+                  const next = e.target.value;
+                  setDeal({ ...deal, export_directory_override: next } as Deal);
                 }}
+                onBlur={(e) => {
+                  api.patch(`/deals/${deal.id}`, { export_directory_override: e.target.value || null });
+                }}
+                placeholder="Leave blank to use the global default"
                 style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
               />
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                CSV exports for this deal will be written under this path instead of the global export directory.
+              </div>
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Ending variable (reconciliation)</label>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
+                DAG archive directory override
+              </label>
               <input
                 className="input"
-                value={(deal as any).waterfall_ending_var ?? "end_available_funds"}
+                value={(deal as any).dag_archive_directory_override ?? ""}
                 disabled={isArchived}
                 onChange={(e) => {
-                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_ending_var: e.target.value });
-                  setDeal({ ...deal, waterfall_ending_var: e.target.value } as any);
+                  const next = e.target.value;
+                  setDeal({ ...deal, dag_archive_directory_override: next } as Deal);
                 }}
+                onBlur={(e) => {
+                  api.patch(`/deals/${deal.id}`, { dag_archive_directory_override: e.target.value || null });
+                }}
+                placeholder="Leave blank to use the global default"
                 style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
               />
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                Every saved DAG version is dumped as JSON to this path (for regulatory file archiving).
+              </div>
             </div>
-            <div>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Reconciliation tolerance</label>
-              <input
-                className="input"
-                value={(deal as any).waterfall_tolerance ?? "0.01"}
-                disabled={isArchived}
-                onChange={(e) => {
-                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_tolerance: e.target.value });
-                  setDeal({ ...deal, waterfall_tolerance: e.target.value } as any);
-                }}
-                style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 120 }}
-              />
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
-            The waterfall checks that the sum of all distributions starting from the starting variable equals the tape-reported ending variable.
           </div>
         </div>
       )}
@@ -512,6 +518,20 @@ export function DealDetailPage() {
         </div>
       )}
 
+      {/* ── Waterfall Tab ── */}
+      {tab === "waterfall" && deal && (
+        <WaterfallTab
+          deal={deal}
+          isArchived={isArchived}
+          isEditable={isEditable}
+          runs={runs}
+          dag={dag}
+          mappedVariables={variables.filter((v) => new Set(mappings.map((m) => m.variable_id)).has(v.id))}
+          onRefreshDag={reloadDag}
+          onDealUpdate={(next) => setDeal({ ...deal, ...next } as Deal)}
+        />
+      )}
+
       {/* ── Export Tab ── */}
       {tab === "export" && (
         <div>
@@ -628,6 +648,7 @@ export function DealDetailPage() {
         <MappingDialog
           dealId={Number(dealId)}
           mapping={editingMapping}
+          existingMappings={mappings}
           onClose={() => { setShowMappingDialog(false); setEditingMapping(null); }}
           onSaved={() => { setShowMappingDialog(false); setEditingMapping(null); reloadMappings(); }}
         />
@@ -647,17 +668,296 @@ export function DealDetailPage() {
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
+/*  Waterfall Tab                                                         */
+/* ────────────────────────────────────────────────────────────────────── */
+
+function WaterfallTab({
+  deal,
+  isArchived,
+  isEditable,
+  runs,
+  dag,
+  mappedVariables,
+  onRefreshDag,
+  onDealUpdate,
+}: {
+  deal: Deal;
+  isArchived: boolean;
+  isEditable: boolean;
+  runs: any[];
+  dag: DagData | null;
+  mappedVariables: Variable[];
+  onRefreshDag: () => void;
+  onDealUpdate: (fields: Partial<Deal>) => void;
+}) {
+  const viewableRuns = runs.filter((r) => r.status === "executed" || r.status === "completed");
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(
+    viewableRuns.length > 0 ? viewableRuns[0].id : null,
+  );
+
+  // Distribution nodes ordered by waterfall_order, for the setup / structure preview.
+  const distributionSteps = ((dag?.nodes ?? []) as any[])
+    .filter((n) => n.node_type === "distribution")
+    .sort((a, b) => {
+      const ao = a.waterfall_order ?? 1e9;
+      const bo = b.waterfall_order ?? 1e9;
+      if (ao !== bo) return ao - bo;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+  const patchNode = async (nodeId: number, fields: Record<string, unknown>) => {
+    try {
+      await api.patch(`/deals/${deal.id}/dag/nodes/${nodeId}`, fields);
+      onRefreshDag();
+    } catch (e) {
+      console.error("Failed to update node", e);
+    }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 12 }}>Waterfall configuration</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Starting variable</label>
+            <input
+              className="input"
+              value={(deal as any).waterfall_starting_var ?? "total_available_funds"}
+              disabled={isArchived}
+              onChange={(e) => {
+                api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_starting_var: e.target.value });
+                onDealUpdate({ waterfall_starting_var: e.target.value } as any);
+              }}
+              style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Ending variable (reconciliation)</label>
+            <input
+              className="input"
+              value={(deal as any).waterfall_ending_var ?? "end_available_funds"}
+              disabled={isArchived}
+              onChange={(e) => {
+                api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_ending_var: e.target.value });
+                onDealUpdate({ waterfall_ending_var: e.target.value } as any);
+              }}
+              style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Reconciliation tolerance</label>
+            <input
+              className="input"
+              value={(deal as any).waterfall_tolerance ?? "0.01"}
+              disabled={isArchived}
+              onChange={(e) => {
+                api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_tolerance: e.target.value });
+                onDealUpdate({ waterfall_tolerance: e.target.value } as any);
+              }}
+              style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 120 }}
+            />
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+          The waterfall checks that the sum of all distributions starting from the starting variable equals the tape-reported ending variable.
+        </div>
+      </div>
+
+      {/* Waterfall setup — editable order + tape compare per distribution */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Waterfall setup</div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+          Order distributions top-to-bottom, and optionally compare each against a tape variable for reconciliation.
+        </div>
+        {distributionSteps.length === 0 ? (
+          <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
+            No distribution nodes configured. Add distribution nodes in the DAG editor to build the waterfall.
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                padding: 10,
+                background: "rgba(74,158,255,0.08)",
+                border: "1px solid rgba(74,158,255,0.2)",
+                borderRadius: "var(--radius)",
+                marginBottom: 10,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Starting balance</div>
+                <code style={{ fontSize: 13, color: "var(--accent-blue)" }}>
+                  {(deal as any).waterfall_starting_var ?? "total_available_funds"}
+                </code>
+              </div>
+            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ width: 40 }}>#</th>
+                  <th style={{ width: 80 }}>Order</th>
+                  <th>Distribution</th>
+                  <th>Export field</th>
+                  <th>Tape compare</th>
+                  <th>Formula</th>
+                </tr>
+              </thead>
+              <tbody>
+                {distributionSteps.map((s, idx) => (
+                  <tr key={s.id}>
+                    <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
+                    <td>
+                      {isEditable ? (
+                        <input
+                          type="number"
+                          value={s.waterfall_order ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            patchNode(s.id, { waterfall_order: val });
+                          }}
+                          style={{
+                            width: 60,
+                            padding: "2px 6px",
+                            background: "var(--bg-input)",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: 4,
+                            color: "var(--text-primary)",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 12,
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontFamily: "var(--font-mono)" }}>{s.waterfall_order ?? "—"}</span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{s.name}</td>
+                    <td>
+                      {(s.export_field || (s as any).payment_type) ? (
+                        <code style={{ fontSize: 11, color: "var(--accent-purple)" }}>{s.export_field || (s as any).payment_type}</code>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {isEditable ? (
+                        <select
+                          value={(s as any).comparison_variable ?? ""}
+                          onChange={(e) => {
+                            patchNode(s.id, { comparison_variable: e.target.value || null });
+                          }}
+                          style={{
+                            minWidth: 160,
+                            padding: "2px 6px",
+                            background: "var(--bg-tertiary)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                            color: (s as any).comparison_variable ? "var(--accent-green)" : "var(--text-muted)",
+                            fontSize: 11,
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          <option value="">— none —</option>
+                          {mappedVariables.map((v) => (
+                            <option key={v.id} value={v.name}>{v.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <code style={{ fontSize: 11, color: (s as any).comparison_variable ? "var(--accent-green)" : "var(--text-muted)" }}>
+                          {(s as any).comparison_variable ?? "—"}
+                        </code>
+                      )}
+                    </td>
+                    <td style={{ maxWidth: 360 }}>
+                      <code
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-secondary)",
+                          fontFamily: "var(--font-mono)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          display: "block",
+                        }}
+                      >
+                        {s.formula ?? "—"}
+                      </code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div
+              style={{
+                padding: 10,
+                background: "rgba(148,163,184,0.08)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                marginTop: 10,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Ending reconciliation variable</div>
+              <code style={{ fontSize: 13, color: "var(--accent-blue)" }}>
+                {(deal as any).waterfall_ending_var ?? "end_available_funds"}
+              </code>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Trace — actual numbers from a completed run */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ fontWeight: 600 }}>Run trace:</div>
+          <select
+            className="select"
+            value={selectedRunId ?? ""}
+            onChange={(e) => setSelectedRunId(e.target.value ? Number(e.target.value) : null)}
+            disabled={viewableRuns.length === 0}
+            style={{ minWidth: 300 }}
+          >
+            <option value="">{viewableRuns.length === 0 ? "No completed runs" : "— pick a run —"}</option>
+            {viewableRuns.map((r) => (
+              <option key={r.id} value={r.id}>
+                RUN-{r.id} · {r.report_period} · {r.status}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedRunId ? (
+          <WaterfallTrace dealId={deal.id} runId={selectedRunId} />
+        ) : (
+          <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
+            Pick a completed run above to see actual calculated amounts and tape reconciliation.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/* ────────────────────────────────────────────────────────────────────── */
 /*  Mapping Dialog                                                       */
 /* ────────────────────────────────────────────────────────────────────── */
 
 function MappingDialog({
   dealId,
   mapping,
+  existingMappings,
   onClose,
   onSaved,
 }: {
   dealId: number;
   mapping: Mapping | null;
+  existingMappings: Mapping[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -670,6 +970,10 @@ function MappingDialog({
   const [variables, setVariables] = useState<Variable[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Exclude variables already mapped on this deal so users can't duplicate.
+  const mappedVarIds = new Set(existingMappings.map((m) => m.variable_id));
+  const availableVariables = variables.filter((v) => !mappedVarIds.has(v.id));
 
   useEffect(() => {
     api.get<Variable[]>(`/variables/available/${dealId}`).then(setVariables).catch(() => {
@@ -723,12 +1027,17 @@ function MappingDialog({
             <label className="form-label">Variable</label>
             <select className="select" value={variableId} onChange={(e) => setVariableId(e.target.value)}>
               <option value="">Select a variable…</option>
-              {variables.map((v) => (
+              {availableVariables.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.display_name || v.name} ({v.scope})
                 </option>
               ))}
             </select>
+            {availableVariables.length === 0 && (
+              <div className="form-help" style={{ color: "var(--text-muted)" }}>
+                All available variables are already mapped on this deal.
+              </div>
+            )}
           </div>
         )}
 

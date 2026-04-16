@@ -22,6 +22,11 @@ export interface Deal {
   created_by: string;
   created_at: string;
   updated_at: string;
+  export_directory_override?: string | null;
+  dag_archive_directory_override?: string | null;
+  waterfall_starting_var?: string | null;
+  waterfall_ending_var?: string | null;
+  waterfall_tolerance?: string | null;
 }
 
 export interface Variable {
