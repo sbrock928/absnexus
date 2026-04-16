@@ -137,11 +137,14 @@ class DagService:
         if not nx.is_directed_acyclic_graph(g):
             errors.append("DAG contains cycles")
 
-        # Check stream isolation
+        # Check stream isolation — allow distribution → validation (read-only dependency)
         for e in edges:
             src = id_to_node.get(e.source_node_id)
             tgt = id_to_node.get(e.target_node_id)
             if src and tgt and src.stream != tgt.stream:
+                # Allow distribution → validation (validation reads distribution results)
+                if src.stream == "distribution" and tgt.stream == "validation":
+                    continue
                 errors.append(
                     f"Cross-stream edge: {src.key} ({src.stream}) -> {tgt.key} ({tgt.stream})"
                 )

@@ -24,6 +24,7 @@ import styles from "./DagGraphView.module.css";
 
 const NODE_TYPE_MAP: Record<string, string> = {
   input: "inputNode",
+  input_value: "inputNode",
   calculation: "calcNode",
   distribution: "distNode",
   validation: "validationNode",
@@ -45,7 +46,7 @@ export interface FormulaToken {
 interface Props {
   backendNodes: any[];
   backendEdges: any[];
-  stream: string;
+  visibleNodeIds: Set<number>;
   availableTokens?: FormulaToken[];
   onCreateNode: (type: string, position: { x: number; y: number }) => Promise<any>;
   onUpdateNode: (nodeId: number, fields: Record<string, any>) => Promise<void>;
@@ -56,16 +57,16 @@ interface Props {
   onDeleteEdge: (edgeId: number) => Promise<void>;
 }
 
-function buildRfNodes(backendNodes: any[], stream: string): Node[] {
+function buildRfNodes(backendNodes: any[], visibleIds: Set<number>): Node[] {
   return backendNodes
-    .filter((n) => n.stream === stream)
+    .filter((n) => visibleIds.has(n.id))
     .map((n) => ({
       id: String(n.id),
       type: NODE_TYPE_MAP[n.node_type] ?? "calcNode",
       position: { x: n.position_x ?? 0, y: n.position_y ?? 0 },
       data: {
         label: n.name,
-        node_key: n.node_key,
+        node_key: n.key ?? n.node_key,
         node_type: n.node_type,
         stream: n.stream,
         is_active: n.is_active,
@@ -78,7 +79,7 @@ function buildRfNodes(backendNodes: any[], stream: string): Node[] {
         variable_id: n.variable_id,
         tranche_field: n.tranche_field,
         default_prior_value: n.default_prior_value,
-        comparison_var: n.comparison_var,
+        comparison_var: n.comparison_variable ?? n.comparison_var,
         payment_type: n.payment_type,
         backendId: n.id,
       } as DagNodeData,
@@ -96,14 +97,16 @@ function buildRfEdges(backendEdges: any[], visibleNodeIds: Set<number>): Edge[] 
       id: String(e.id),
       source: String(e.source_node_id),
       target: String(e.target_node_id),
+      animated: false,
       style: { stroke: "var(--text-muted)", strokeWidth: 1.5 },
+      type: "smoothstep",
     }));
 }
 
 export function DagGraphView({
   backendNodes,
   backendEdges,
-  stream,
+  visibleNodeIds,
   availableTokens = [],
   onCreateNode,
   onUpdateNode,
@@ -115,12 +118,9 @@ export function DagGraphView({
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  const filteredBackendNodes = backendNodes.filter((n) => n.stream === stream);
-  const visibleNodeIds = new Set(filteredBackendNodes.map((n) => n.id));
-
   const initialNodes = useMemo(
-    () => buildRfNodes(backendNodes, stream),
-    [backendNodes, stream]
+    () => buildRfNodes(backendNodes, visibleNodeIds),
+    [backendNodes, visibleNodeIds]
   );
   const initialEdges = useMemo(
     () => buildRfEdges(backendEdges, visibleNodeIds),
@@ -132,9 +132,9 @@ export function DagGraphView({
 
   // Sync React Flow state when backend data changes
   useEffect(() => {
-    setNodes(buildRfNodes(backendNodes, stream));
+    setNodes(buildRfNodes(backendNodes, visibleNodeIds));
     setEdges(buildRfEdges(backendEdges, visibleNodeIds));
-  }, [backendNodes, backendEdges, stream]);
+  }, [backendNodes, backendEdges, visibleNodeIds]);
 
   // Handle new connection between nodes
   const onConnect = useCallback(
@@ -169,7 +169,7 @@ export function DagGraphView({
   // Add node from palette
   const handleAddNode = async (type: string) => {
     const x = 200 + Math.random() * 200;
-    const y = 100 + filteredBackendNodes.length * 80;
+    const y = 100 + backendNodes.length * 80;
     await onCreateNode(type, { x, y });
   };
 
@@ -181,7 +181,7 @@ export function DagGraphView({
   const selectedData: DagNodeData | undefined = selectedBackend
     ? {
         label: selectedBackend.name,
-        node_key: selectedBackend.node_key,
+        node_key: selectedBackend.key ?? selectedBackend.node_key,
         node_type: selectedBackend.node_type,
         stream: selectedBackend.stream,
         is_active: selectedBackend.is_active,
@@ -196,7 +196,7 @@ export function DagGraphView({
         variable_id: selectedBackend.variable_id,
         tranche_field: selectedBackend.tranche_field,
         default_prior_value: selectedBackend.default_prior_value,
-        comparison_var: selectedBackend.comparison_var,
+        comparison_var: selectedBackend.comparison_variable ?? selectedBackend.comparison_var,
         payment_type: selectedBackend.payment_type,
         backendId: selectedBackend.id,
       }
@@ -208,7 +208,7 @@ export function DagGraphView({
         .filter((e) => String(e.target_node_id) === selectedNodeId)
         .map((e) => {
           const src = backendNodes.find((n) => n.id === e.source_node_id);
-          return src ? `${src.name} (${src.node_key})` : `node_${e.source_node_id}`;
+          return src ? `${src.name} (${src.key ?? src.node_key})` : `node_${e.source_node_id}`;
         })
     : [];
 
@@ -217,7 +217,7 @@ export function DagGraphView({
         .filter((e) => String(e.source_node_id) === selectedNodeId)
         .map((e) => {
           const tgt = backendNodes.find((n) => n.id === e.target_node_id);
-          return tgt ? `${tgt.name} (${tgt.node_key})` : `node_${e.target_node_id}`;
+          return tgt ? `${tgt.name} (${tgt.key ?? tgt.node_key})` : `node_${e.target_node_id}`;
         })
     : [];
 
@@ -237,7 +237,13 @@ export function DagGraphView({
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{ padding: 0.2, maxZoom: 1.2 }}
+          minZoom={0.2}
+          maxZoom={2}
+          defaultEdgeOptions={{ type: "smoothstep" }}
           proOptions={{ hideAttribution: true }}
+          snapToGrid
+          snapGrid={[20, 20]}
         >
           <Background color="var(--border-color)" gap={20} size={1} />
           <Controls />
@@ -245,7 +251,7 @@ export function DagGraphView({
             style={{ background: "var(--bg-sidebar)" }}
             nodeColor={(n) => {
               const type = (n.data as DagNodeData)?.node_type;
-              if (type === "input") return "#4ade80";
+              if (type === "input" || type === "input_value") return "#4ade80";
               if (type === "calculation") return "#60a5fa";
               if (type === "distribution") return "#a78bfa";
               if (type === "validation") return "#fbbf24";
@@ -269,7 +275,7 @@ export function DagGraphView({
             if (fields.tolerance !== undefined)
               backendFields.tolerance = fields.tolerance || null;
             if (fields.comparison_var !== undefined)
-              backendFields.comparison_var = fields.comparison_var || null;
+              backendFields.comparison_variable = fields.comparison_var || null;
             if (fields.payment_type !== undefined)
               backendFields.payment_type = fields.payment_type || null;
             await onUpdateNode(selectedData.backendId, backendFields);

@@ -113,7 +113,7 @@ export function NodePropertiesPanel({
       </div>
 
       {/* Formula — calc, dist, validation */}
-      {node.node_type !== "input" && (
+      {node.node_type !== "input" && node.node_type !== "input_value" && (
         <div className={styles.field}>
           <label className={styles.label}>Formula</label>
           <textarea
@@ -239,7 +239,7 @@ export function NodePropertiesPanel({
       </div>
 
       {/* Input source — input nodes only */}
-      {node.node_type === "input" && (
+      {node.node_type === "input" || node.node_type === "input_value" && (
         <div className={styles.field}>
           <label className={styles.label}>Input source</label>
           <div className={styles.sourceInfo}>
@@ -253,7 +253,7 @@ export function NodePropertiesPanel({
       )}
 
       {/* Default prior value — shown when formula references _prior */}
-      {node.node_type !== "input" && formula.includes("_prior") && (
+      {node.node_type !== "input" && node.node_type !== "input_value" && formula.includes("_prior") && (
         <div className={styles.field}>
           <label className={styles.label}>Default prior value (1st month)</label>
           <input

@@ -50,7 +50,8 @@ def test_revert_creates_new_version(db):
     assert data["nodes"][0].key == "n1"
 
 
-def test_stream_validation(db):
+def test_distribution_to_validation_edge_allowed(db):
+    """Distribution → validation edges are allowed (validation reads distribution results)."""
     deal = _make_deal(db)
     svc = DagService(db)
     nodes = [
@@ -58,6 +59,20 @@ def test_stream_validation(db):
         DagNodeCreate(key="val_calc", name="VC", node_type="validation", stream="validation", formula="dist_in * 1", comparison_variable="x"),
     ]
     edges = [DagEdgeCreate(source_key="dist_in", target_key="val_calc")]
+    svc.save(deal.id, nodes, edges, "testuser")
+    errors = svc.validate_dag(deal.id)
+    assert not any("Cross-stream" in e for e in errors)
+
+
+def test_validation_to_distribution_edge_rejected(db):
+    """Validation → distribution edges are still rejected."""
+    deal = _make_deal(db)
+    svc = DagService(db)
+    nodes = [
+        DagNodeCreate(key="val_node", name="VN", node_type="validation", stream="validation", formula="1", comparison_variable="x"),
+        DagNodeCreate(key="dist_node", name="DN", node_type="calculation", stream="distribution"),
+    ]
+    edges = [DagEdgeCreate(source_key="val_node", target_key="dist_node")]
     svc.save(deal.id, nodes, edges, "testuser")
     errors = svc.validate_dag(deal.id)
     assert any("Cross-stream" in e for e in errors)

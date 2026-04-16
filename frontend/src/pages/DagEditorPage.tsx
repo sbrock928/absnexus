@@ -40,12 +40,19 @@ export function DagEditorPage() {
   const isEditable = isModeler && !isArchived;
 
   const [viewMode, setViewMode] = useState<"table" | "graph">("table");
-  const [stream, setStream] = useState<"distribution" | "validation">("distribution");
   const [showAddNode, setShowAddNode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [saveDesc, setSaveDesc] = useState("");
   const [showSave, setShowSave] = useState(false);
   const [editingFormulaNode, setEditingFormulaNode] = useState<{ id: number; formula: string } | null>(null);
+
+  // Filter state
+  const [searchFilter, setSearchFilter] = useState("");
+  const [typeFilters, setTypeFilters] = useState<Record<string, boolean>>({
+    input_value: true, calculation: true, distribution: true, validation: true,
+  });
+  const [focusNodeId, setFocusNodeId] = useState<number | null>(null);
+  const [addNodeStream, setAddNodeStream] = useState<"distribution" | "validation">("distribution");
 
   // Fetch data
   const { data: allNodes = [] } = useQuery({
@@ -85,12 +92,100 @@ export function DagEditorPage() {
     return tokens;
   }, [variables, allNodes]);
 
-  // Filter by stream for table view
-  const filteredNodes = allNodes.filter((n) => n.stream === stream);
-  const inputNodes = filteredNodes.filter((n) => n.node_type === "input");
-  const calcNodes = filteredNodes.filter((n) => n.node_type === "calculation");
-  const distNodes = filteredNodes.filter((n) => n.node_type === "distribution");
-  const valNodes = filteredNodes.filter((n) => n.node_type === "validation");
+  // Compute focused node ancestors + descendants for drill-down
+  const focusedNodeIds: Set<number> | null = useMemo(() => {
+    if (!focusNodeId) return null;
+    const ids = new Set<number>([focusNodeId]);
+    // Build adjacency from edges
+    const childrenOf: Record<number, number[]> = {};
+    const parentsOf: Record<number, number[]> = {};
+    for (const e of edges) {
+      (childrenOf[e.source_node_id] ??= []).push(e.target_node_id);
+      (parentsOf[e.target_node_id] ??= []).push(e.source_node_id);
+    }
+    // Walk ancestors
+    const walkUp = (nid: number) => {
+      for (const pid of (parentsOf[nid] ?? [])) {
+        if (!ids.has(pid)) { ids.add(pid); walkUp(pid); }
+      }
+    };
+    // Walk descendants
+    const walkDown = (nid: number) => {
+      for (const cid of (childrenOf[nid] ?? [])) {
+        if (!ids.has(cid)) { ids.add(cid); walkDown(cid); }
+      }
+    };
+    walkUp(focusNodeId);
+    walkDown(focusNodeId);
+    return ids;
+  }, [focusNodeId, edges]);
+
+  // Apply all filters
+  const filteredNodes = allNodes.filter((n) => {
+    if (!typeFilters[n.node_type]) return false;
+    if (searchFilter && !n.name.toLowerCase().includes(searchFilter.toLowerCase()) && !n.key.toLowerCase().includes(searchFilter.toLowerCase())) return false;
+    if (focusedNodeIds && !focusedNodeIds.has(n.id)) return false;
+    return true;
+  });
+
+  const visibleNodeIds = useMemo(() => new Set(filteredNodes.map((n: { id: number }) => n.id)), [filteredNodes]);
+
+  // Counts (unfiltered, for legend)
+  const inputNodes = allNodes.filter((n) => n.node_type === "input_value" || n.node_type === "input");
+  const calcNodes = allNodes.filter((n) => n.node_type === "calculation");
+  const distNodes = allNodes.filter((n) => n.node_type === "distribution");
+  const valNodes = allNodes.filter((n) => n.node_type === "validation");
+
+  // Auto-layout: topological waterfall
+  const autoLayout = () => {
+    // Build adjacency
+    const childrenOf: Record<number, number[]> = {};
+    const parentCount: Record<number, number> = {};
+    for (const n of allNodes) parentCount[n.id] = 0;
+    for (const e of edges) {
+      (childrenOf[e.source_node_id] ??= []).push(e.target_node_id);
+      parentCount[e.target_node_id] = (parentCount[e.target_node_id] ?? 0) + 1;
+    }
+    // Topological sort by layers (BFS)
+    const layers: number[][] = [];
+    let current = allNodes.filter((n) => (parentCount[n.id] ?? 0) === 0).map((n) => n.id);
+    const placed = new Set<number>();
+    while (current.length > 0) {
+      layers.push(current);
+      for (const nid of current) placed.add(nid);
+      const next: number[] = [];
+      for (const nid of current) {
+        for (const cid of (childrenOf[nid] ?? [])) {
+          if (!placed.has(cid) && !next.includes(cid)) {
+            // Check all parents are placed
+            const allParentsPlaced = (edges.filter((e) => e.target_node_id === cid).every((e) => placed.has(e.source_node_id)));
+            if (allParentsPlaced) next.push(cid);
+          }
+        }
+      }
+      current = next;
+    }
+    // Position: each layer is a row, nodes spread horizontally
+    const nodeWidth = 240;
+    const nodeHeight = 120;
+    const xGap = 40;
+    const yGap = 60;
+    for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
+      const layer = layers[layerIdx];
+      const totalWidth = layer.length * nodeWidth + (layer.length - 1) * xGap;
+      const startX = Math.max(0, (800 - totalWidth) / 2);
+      for (let i = 0; i < layer.length; i++) {
+        const nid = layer[i];
+        updateNodeMut.mutate({
+          nodeId: nid,
+          fields: {
+            position_x: Math.round(startX + i * (nodeWidth + xGap)),
+            position_y: Math.round(layerIdx * (nodeHeight + yGap)),
+          },
+        });
+      }
+    }
+  };
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["dag-nodes", id] });
@@ -199,11 +294,11 @@ export function DagEditorPage() {
       node_key: newNodeKey,
       name: newNodeName,
       node_type: newNodeType,
-      stream,
+      stream: newNodeType === "validation" ? "validation" : addNodeStream,
       position_x: 200 + Math.random() * 300,
       position_y: 100 + allNodes.length * 60,
     };
-    if (newNodeType !== "input" && newFormula) {
+    if (newNodeType !== "input_value" && newFormula) {
       payload.formula = newFormula;
     }
     if (newNodeType === "distribution" && newPaymentType) {
@@ -223,7 +318,7 @@ export function DagEditorPage() {
 
   // Node type colors
   const typeColor = (t: string) => {
-    if (t === "input") return "#4ade80";
+    if (t === "input" || t === "input_value") return "#4ade80";
     if (t === "calculation") return "#60a5fa";
     if (t === "distribution") return "#a78bfa";
     if (t === "validation") return "#fbbf24";
@@ -262,49 +357,55 @@ export function DagEditorPage() {
         </div>
       )}
 
-      {/* View + stream toggles */}
+      {/* Toolbar */}
       <div className={styles.toggleRow}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className={`btn ${viewMode === "table" ? "btn-primary" : ""}`}
-            onClick={() => setViewMode("table")}
-          >
-            Table view
-          </button>
-          <button
-            className={`btn ${viewMode === "graph" ? "btn-primary" : ""}`}
-            onClick={() => setViewMode("graph")}
-          >
-            Graph view
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className={`btn ${viewMode === "table" ? "btn-primary" : ""}`} onClick={() => setViewMode("table")}>Table</button>
+          <button className={`btn ${viewMode === "graph" ? "btn-primary" : ""}`} onClick={() => setViewMode("graph")}>Graph</button>
           {isEditable && (
-            <button className="btn" onClick={() => setShowAddNode(true)}>
-              + Add node
+            <button className="btn" onClick={() => setShowAddNode(true)}>+ Add node</button>
+          )}
+          <button className="btn" onClick={autoLayout} title="Auto-arrange nodes in waterfall layout">Auto-layout</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            className="input"
+            placeholder="Search nodes..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            style={{ width: 180, padding: "5px 10px", fontSize: 12 }}
+          />
+          {focusNodeId && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setFocusNodeId(null)}>
+              Show all
             </button>
           )}
-          <button
-            className={`btn ${stream === "distribution" ? "btn-primary" : ""}`}
-            onClick={() => setStream("distribution")}
-          >
-            Distribution
-          </button>
-          <button
-            className={`btn ${stream === "validation" ? "btn-primary" : ""}`}
-            onClick={() => setStream("validation")}
-          >
-            Validation
-          </button>
         </div>
       </div>
 
-      {/* Node type legend */}
-      <div className={styles.legend}>
-        <span><span className={styles.dot} style={{ background: "#4ade80" }} /> input value ({inputNodes.length})</span>
-        <span><span className={styles.dot} style={{ background: "#60a5fa" }} /> calculation ({calcNodes.length})</span>
-        <span><span className={styles.dot} style={{ background: "#a78bfa" }} /> distribution ({distNodes.length})</span>
-        <span><span className={styles.dot} style={{ background: "#fbbf24" }} /> validation ({valNodes.length})</span>
+      {/* Filter checkboxes + legend */}
+      <div className={styles.legend} style={{ gap: 16 }}>
+        {[
+          { type: "input_value", label: "Input", color: "#4ade80", count: inputNodes.length },
+          { type: "calculation", label: "Calculation", color: "#60a5fa", count: calcNodes.length },
+          { type: "distribution", label: "Distribution", color: "#a78bfa", count: distNodes.length },
+          { type: "validation", label: "Validation", color: "#fbbf24", count: valNodes.length },
+        ].map(({ type, label, color, count }) => (
+          <label key={type} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={typeFilters[type]}
+              onChange={(e) => setTypeFilters((prev) => ({ ...prev, [type]: e.target.checked }))}
+              style={{ accentColor: color }}
+            />
+            <span className={styles.dot} style={{ background: color }} />
+            {label} ({count})
+          </label>
+        ))}
+        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+          Showing {filteredNodes.length} of {allNodes.length}
+          {focusNodeId && " (focused)"}
+        </span>
       </div>
 
       {/* ── Table View ──────────────────────────────────────── */}
@@ -320,7 +421,7 @@ export function DagEditorPage() {
               <th>Export</th>
               <th>WF #</th>
               <th>Tape Compare</th>
-              {isEditable && <th></th>}
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -429,25 +530,40 @@ export function DagEditorPage() {
                     "—"
                   )}
                 </td>
-                {isEditable && (
-                  <td>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {node.is_active ? (
-                        <button
-                          className={styles.actionLink}
-                          onClick={() => deactivateMut.mutate(node.id)}
-                        >
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          className={styles.actionLink}
-                          style={{ color: "var(--accent-green)" }}
-                          onClick={() => reactivateMut.mutate(node.id)}
-                        >
-                          Reactivate
-                        </button>
-                      )}
+                <td>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      className={styles.actionLink}
+                      style={{ color: "var(--accent-blue)" }}
+                      onClick={() => {
+                        if (focusNodeId === node.id) {
+                          setFocusNodeId(null);
+                        } else {
+                          setFocusNodeId(node.id);
+                          setViewMode("graph");
+                        }
+                      }}
+                    >
+                      {focusNodeId === node.id ? "Unfocus" : "Focus"}
+                    </button>
+                    {isEditable && node.is_active && (
+                      <button
+                        className={styles.actionLink}
+                        onClick={() => deactivateMut.mutate(node.id)}
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                    {isEditable && !node.is_active && (
+                      <button
+                        className={styles.actionLink}
+                        style={{ color: "var(--accent-green)" }}
+                        onClick={() => reactivateMut.mutate(node.id)}
+                      >
+                        Reactivate
+                      </button>
+                    )}
+                    {isEditable && (
                       <button
                         className={styles.actionLink}
                         style={{ color: "var(--accent-red)" }}
@@ -459,9 +575,9 @@ export function DagEditorPage() {
                       >
                         Delete
                       </button>
-                    </div>
-                  </td>
-                )}
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -473,7 +589,7 @@ export function DagEditorPage() {
         <DagGraphView
           backendNodes={allNodes}
           backendEdges={edges}
-          stream={stream}
+          visibleNodeIds={visibleNodeIds}
           availableTokens={availableTokens}
           onCreateNode={async (type, pos) => {
             const key = `new_${type}_${Date.now()}`;
@@ -481,7 +597,7 @@ export function DagEditorPage() {
               node_key: key,
               name: `New ${type}`,
               node_type: type,
-              stream,
+              stream: type === "validation" ? "validation" : "distribution",
               position_x: pos.x,
               position_y: pos.y,
             } as any);
@@ -523,7 +639,7 @@ export function DagEditorPage() {
         <div className={styles.overlay} onClick={() => setShowAddNode(false)}>
           <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
             <h2 className={styles.dialogTitle}>
-              Add node to {stream} stream
+              Add node
             </h2>
 
             <div className="form-group">
@@ -547,24 +663,38 @@ export function DagEditorPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Node type</label>
-              <select
-                className="select"
-                style={{ width: "100%" }}
-                value={newNodeType}
-                onChange={(e) => setNewNodeType(e.target.value)}
-              >
-                <option value="input">Input variable</option>
-                <option value="calculation">Calculation</option>
-                <option value="distribution">Distribution (export)</option>
-                {stream === "validation" && (
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Node type</label>
+                <select
+                  className="select"
+                  style={{ width: "100%" }}
+                  value={newNodeType}
+                  onChange={(e) => setNewNodeType(e.target.value)}
+                >
+                  <option value="input_value">Input variable</option>
+                  <option value="calculation">Calculation</option>
+                  <option value="distribution">Distribution (export)</option>
                   <option value="validation">Validation (check)</option>
-                )}
-              </select>
+                </select>
+              </div>
+              {newNodeType !== "validation" && (
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Stream</label>
+                  <select
+                    className="select"
+                    style={{ width: "100%" }}
+                    value={addNodeStream}
+                    onChange={(e) => setAddNodeStream(e.target.value as "distribution" | "validation")}
+                  >
+                    <option value="distribution">Distribution</option>
+                    <option value="validation">Validation</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            {newNodeType !== "input" && (
+            {newNodeType !== "input_value" && (
               <div className="form-group">
                 <label className="form-label">Formula</label>
                 <textarea
