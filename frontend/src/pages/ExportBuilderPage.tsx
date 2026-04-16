@@ -18,6 +18,7 @@ import {
 } from "@/api/globalExport";
 
 const VALUE_SOURCES = [
+  { value: "literal", label: "Literal text" },
   { value: "node", label: "DAG Node" },
   { value: "variable", label: "Tape Variable" },
   { value: "run_meta", label: "Run Meta" },
@@ -349,6 +350,16 @@ export function ExportBuilderPage() {
                                       <option key={o.value} value={o.value}>{o.label}</option>
                                     ))}
                                   </select>
+                                )}
+                                {cell.value_source === "literal" && (
+                                  <input
+                                    type="text"
+                                    value={cell.source_ref}
+                                    disabled={!isEditable}
+                                    onChange={(e) => updateCell(row.key, col.id, "source_ref", e.target.value)}
+                                    placeholder="e.g. C"
+                                    style={{ fontSize: 11, padding: "1px 4px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 2, color: "var(--accent-purple)", fontFamily: "var(--font-mono)" }}
+                                  />
                                 )}
                               </div>
                             </td>

@@ -6,7 +6,6 @@ import os
 from decimal import Decimal
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
 from sqlalchemy.orm import Session
 
 from app.core import settings
@@ -160,12 +159,8 @@ class GlobalExportService:
         ws = wb.active
         ws.title = "Preview"
 
-        header_font = Font(bold=True)
-        header_fill = PatternFill("solid", fgColor="E5E7EB")
         for idx, col in enumerate(cols, start=1):
-            cell = ws.cell(row=1, column=idx, value=col.header_label)
-            cell.font = header_font
-            cell.fill = header_fill
+            ws.cell(row=1, column=idx, value=col.header_label)
 
         for row_idx, row_values in enumerate(self._placeholder_rows(deal_id, template_id, cols), start=2):
             for col_idx, value in enumerate(row_values, start=1):
