@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth";
 import { api } from "@/api/client";
-import type { Deal } from "@/types";
+import type { Deal, Variable } from "@/types";
+import type { FormulaToken } from "@/components/dag-builder/DagGraphView";
 import {
   fetchNodes,
   fetchEdges,
@@ -22,6 +23,7 @@ import {
   type DagVersion,
 } from "@/api/dag";
 import { DagGraphView } from "@/components/dag-builder/DagGraphView";
+import { FormulaEditorModal } from "@/components/dag-builder/FormulaEditorModal";
 import styles from "./DagEditorPage.module.css";
 
 export function DagEditorPage() {
@@ -43,6 +45,7 @@ export function DagEditorPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [saveDesc, setSaveDesc] = useState("");
   const [showSave, setShowSave] = useState(false);
+  const [editingFormulaNode, setEditingFormulaNode] = useState<{ id: number; formula: string } | null>(null);
 
   // Fetch data
   const { data: allNodes = [] } = useQuery({
@@ -60,7 +63,27 @@ export function DagEditorPage() {
     queryFn: () => fetchVersions(id),
   });
 
+  const { data: variables = [] } = useQuery({
+    queryKey: ["variables-all"],
+    queryFn: () => api.get<Variable[]>("/variables/"),
+  });
+
   const currentVersion = versions.length > 0 ? versions[0] : null;
+
+  // Build token list for formula builder
+  const availableTokens: FormulaToken[] = useMemo(() => {
+    const tokens: FormulaToken[] = [];
+    for (const v of variables) {
+      tokens.push({ name: v.name, label: v.display_name || v.name, category: "variable" });
+    }
+    for (const n of allNodes) {
+      tokens.push({ name: n.key, label: n.name, category: "node" });
+    }
+    for (const fn of ["MIN", "MAX", "ABS", "IF", "ROUND", "CEILING", "FLOOR", "SUM"]) {
+      tokens.push({ name: fn, label: fn, category: "function" });
+    }
+    return tokens;
+  }, [variables, allNodes]);
 
   // Filter by stream for table view
   const filteredNodes = allNodes.filter((n) => n.stream === stream);
@@ -139,6 +162,26 @@ export function DagEditorPage() {
   const [newPaymentType, setNewPaymentType] = useState("");
   const [newTolerance, setNewTolerance] = useState("0.01");
   const [newComparisonVar, setNewComparisonVar] = useState("");
+
+  const addFormulaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertTokenInAddForm = (name: string, appendParen: boolean) => {
+    const el = addFormulaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = newFormula.slice(0, start);
+    const after = newFormula.slice(end);
+    const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
+    const insert = appendParen ? name + "(" : name;
+    const next = before + sep + insert + after;
+    setNewFormula(next);
+    requestAnimationFrame(() => {
+      const pos = (before + sep + insert).length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
 
   const resetAddForm = () => {
     setNewNodeKey("");
@@ -300,18 +343,21 @@ export function DagEditorPage() {
                     {node.stream.toUpperCase()}
                   </span>
                 </td>
-                <td
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                    maxWidth: 300,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {node.formula ?? "—"}
+                <td style={{ maxWidth: 300 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <code style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                      {node.formula ?? "—"}
+                    </code>
+                    {isEditable && node.node_type !== "input_value" && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ flexShrink: 0, fontSize: 11 }}
+                        onClick={() => setEditingFormulaNode({ id: node.id, formula: node.formula ?? "" })}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td>
                   {node.payment_type && (
@@ -391,6 +437,7 @@ export function DagEditorPage() {
           backendNodes={allNodes}
           backendEdges={edges}
           stream={stream}
+          availableTokens={availableTokens}
           onCreateNode={async (type, pos) => {
             const key = `new_${type}_${Date.now()}`;
             const resp = await createNode(id, {
@@ -484,15 +531,56 @@ export function DagEditorPage() {
               <div className="form-group">
                 <label className="form-label">Formula</label>
                 <textarea
-                  className="input"
+                  ref={addFormulaRef}
+                  className="textarea"
                   value={newFormula}
                   onChange={(e) => setNewFormula(e.target.value)}
                   placeholder="e.g. class_a_balance * class_a_note_rate / 12"
                   rows={3}
-                  style={{ fontFamily: "var(--font-mono)", resize: "vertical" }}
+                  spellCheck={false}
+                  style={{ fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace", fontSize: 13, resize: "vertical" }}
                 />
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
-                  Functions: MIN, MAX, ABS, IF, ROUND, CEILING, FLOOR, SUM
+                <div style={{
+                  maxHeight: 180, overflowY: "auto", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)", padding: 8, background: "var(--bg-tertiary)", marginTop: 6,
+                }}>
+                  {availableTokens.filter(t => t.category === "variable").length > 0 && (
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Variables</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        {availableTokens.filter(t => t.category === "variable").map(t => (
+                          <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, false)}
+                            style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)", borderRadius: 3, color: "var(--accent-green)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            {t.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {availableTokens.filter(t => t.category === "node").length > 0 && (
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Nodes</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        {availableTokens.filter(t => t.category === "node").map(t => (
+                          <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, false)}
+                            style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(74,158,255,0.1)", border: "1px solid rgba(74,158,255,0.25)", borderRadius: 3, color: "var(--accent-blue)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            {t.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--text-muted)", marginBottom: 3 }}>Functions</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                      {availableTokens.filter(t => t.category === "function").map(t => (
+                        <button key={t.name} title={t.label} onClick={() => insertTokenInAddForm(t.name, true)}
+                          style={{ padding: "2px 6px", fontSize: 10, fontFamily: "monospace", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 3, color: "var(--accent-purple)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -640,6 +728,22 @@ export function DagEditorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Formula Editor Modal (table view) ─────────────── */}
+      {editingFormulaNode && (
+        <FormulaEditorModal
+          initial={editingFormulaNode.formula}
+          tokens={availableTokens}
+          onSave={(formula) => {
+            updateNodeMut.mutate({
+              nodeId: editingFormulaNode.id,
+              fields: { formula: formula || null },
+            });
+            setEditingFormulaNode(null);
+          }}
+          onCancel={() => setEditingFormulaNode(null)}
+        />
       )}
     </div>
   );

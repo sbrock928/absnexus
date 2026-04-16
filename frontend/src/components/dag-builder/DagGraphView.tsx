@@ -36,10 +36,17 @@ const nodeTypes: NodeTypes = {
   validationNode: ValidationNode,
 };
 
+export interface FormulaToken {
+  name: string;
+  label: string;
+  category: "variable" | "node" | "function";
+}
+
 interface Props {
   backendNodes: any[];
   backendEdges: any[];
   stream: string;
+  availableTokens?: FormulaToken[];
   onCreateNode: (type: string, position: { x: number; y: number }) => Promise<any>;
   onUpdateNode: (nodeId: number, fields: Record<string, any>) => Promise<void>;
   onDeleteNode: (nodeId: number) => Promise<void>;
@@ -97,6 +104,7 @@ export function DagGraphView({
   backendNodes,
   backendEdges,
   stream,
+  availableTokens = [],
   onCreateNode,
   onUpdateNode,
   onDeleteNode,
@@ -200,7 +208,7 @@ export function DagGraphView({
         .filter((e) => String(e.target_node_id) === selectedNodeId)
         .map((e) => {
           const src = backendNodes.find((n) => n.id === e.source_node_id);
-          return src?.node_key ?? `node_${e.source_node_id}`;
+          return src ? `${src.name} (${src.node_key})` : `node_${e.source_node_id}`;
         })
     : [];
 
@@ -209,7 +217,7 @@ export function DagGraphView({
         .filter((e) => String(e.source_node_id) === selectedNodeId)
         .map((e) => {
           const tgt = backendNodes.find((n) => n.id === e.target_node_id);
-          return tgt?.node_key ?? `node_${e.target_node_id}`;
+          return tgt ? `${tgt.name} (${tgt.node_key})` : `node_${e.target_node_id}`;
         })
     : [];
 
@@ -278,6 +286,7 @@ export function DagGraphView({
           }}
           dependencies={deps}
           downstream={downstream}
+          availableTokens={availableTokens}
         />
       ) : (
         <div className={styles.emptyPanel}>

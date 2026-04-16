@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
 import { api } from "../api/client";
+import { listColumns, type ExportColumn } from "../api/export";
 import type { Deal, Servicer, Variable } from "../types";
 
 interface MappingVariable {
@@ -57,6 +58,7 @@ export function DealDetailPage() {
   const [tranches, setTranches] = useState<Tranche[]>([]);
   const [dag, setDag] = useState<DagData | null>(null);
   const [runs, setRuns] = useState<any[]>([]);
+  const [exportColumns, setExportColumns] = useState<ExportColumn[]>([]);
   const [tab, setTab] = useState("overview");
   const [showClone, setShowClone] = useState(false);
   const [error, setError] = useState("");
@@ -97,6 +99,7 @@ export function DealDetailPage() {
     reloadTranches();
     api.get<DagData>(`/deals/${dealId}/dag`).then(setDag).catch(() => {});
     api.get<any[]>(`/deals/${dealId}/runs`).then(setRuns).catch(() => {});
+    listColumns(Number(dealId)).then(setExportColumns).catch(() => {});
   }, [dealId]);
 
   // Reload aliases whenever mappings change
@@ -206,12 +209,13 @@ export function DealDetailPage() {
       )}
 
       <div className="tabs">
-        {["overview", "mappings", "tranches", "dag", "runs"].map((t) => (
+        {["overview", "mappings", "tranches", "dag", "export", "runs"].map((t) => (
           <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
             {t === "dag" ? "DAG" : t.charAt(0).toUpperCase() + t.slice(1)}
             {t === "mappings" && ` (${mappings.length})`}
             {t === "tranches" && ` (${tranches.length})`}
             {t === "dag" && dag && ` v${dag.version.version_number}`}
+            {t === "export" && ` (${exportColumns.length})`}
             {t === "runs" && ` (${runs.length})`}
           </button>
         ))}
@@ -314,18 +318,16 @@ export function DealDetailPage() {
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Tape label</th><th>Sheet</th><th>Cell</th><th>Variable</th><th>Deal alias</th>{isEditable && <th style={{ width: 100 }}>Actions</th>}</tr>
+                <tr><th>Canonical name</th><th>Display name</th><th>Sheet</th><th>Cell</th><th>Tape label</th>{isEditable && <th style={{ width: 100 }}>Actions</th>}</tr>
               </thead>
               <tbody>
                 {mappings.map((m) => {
                   const alias = dealAliases[m.variable_id];
                   const isEditingAlias = editingAliasVarId === m.variable_id;
+                  const displayName = alias || m.variable?.display_name || m.variable?.name || "—";
                   return (
                     <tr key={m.id}>
-                      <td>{m.tape_label ?? "—"}</td>
-                      <td style={{ color: "var(--text-muted)" }}>{m.sheet_name}</td>
-                      <td><code style={{ color: "var(--accent-blue)" }}>{m.column_letter}{m.row_number}</code></td>
-                      <td><code style={{ color: "var(--accent-green)" }}>{m.variable?.display_name || m.variable?.name || `var_${m.variable_id}`}</code></td>
+                      <td><code style={{ color: "var(--accent-green)", fontSize: 12 }}>{m.variable?.name || `var_${m.variable_id}`}</code></td>
                       <td>
                         {isEditingAlias ? (
                           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -347,15 +349,18 @@ export function DealDetailPage() {
                           </div>
                         ) : (
                           <span
-                            style={{ color: alias ? "var(--accent-purple)" : "var(--text-muted)", cursor: isEditable ? "pointer" : "default", fontSize: 13 }}
+                            style={{ color: alias ? "var(--accent-purple)" : "var(--text-secondary)", cursor: isEditable ? "pointer" : "default", fontSize: 13 }}
                             onClick={() => { if (isEditable) { setEditingAliasVarId(m.variable_id); setAliasInput(alias ?? ""); } }}
-                            title={isEditable ? "Click to set deal-specific alias" : undefined}
+                            title={isEditable ? "Click to set deal-specific display name" : undefined}
                           >
-                            {alias ?? "—"}
+                            {displayName}
                             {isEditable && !alias && <span style={{ marginLeft: 4, fontSize: 11, color: "var(--accent-blue)" }}>+ set</span>}
                           </span>
                         )}
                       </td>
+                      <td style={{ color: "var(--text-muted)" }}>{m.sheet_name}</td>
+                      <td><code style={{ color: "var(--accent-blue)" }}>{m.column_letter}{m.row_number}</code></td>
+                      <td>{m.tape_label ?? "—"}</td>
                       {isEditable && (
                         <td>
                           <div style={{ display: "flex", gap: 4 }}>
@@ -481,6 +486,61 @@ export function DealDetailPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Export Tab ── */}
+      {tab === "export" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+            {isEditable && (
+              <Link to={`/deals/${dealId}/export`} className="btn btn-primary" style={{ textDecoration: "none" }}>
+                Open Export Builder
+              </Link>
+            )}
+          </div>
+          {exportColumns.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📤</div>
+              <div className="empty-state-title">No export columns configured</div>
+              <div className="empty-state-text">
+                {isEditable
+                  ? "Open the Export Builder to configure CSV output columns."
+                  : "An analytics team member will configure the export layout."}
+              </div>
+            </div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ width: 40 }}>#</th>
+                  <th>Header</th>
+                  <th>Value source</th>
+                  <th>Format</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exportColumns.map((c, idx) => (
+                  <tr key={c.id}>
+                    <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
+                    <td style={{ fontFamily: "monospace", fontWeight: 500 }}>{c.header_label}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      {c.value_type === "distribution_node" && `node: ${c.node_id ?? "—"}${c.prorate_by ? ` (${c.prorate_by})` : ""}`}
+                      {c.value_type === "literal" && `literal: ${c.literal_value ?? ""}`}
+                      {c.value_type === "run_meta" && `run: ${c.meta_field ?? ""}`}
+                      {c.value_type === "deal_meta" && `deal: ${c.meta_field ?? ""}`}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {c.format_type}
+                      {c.format_type === "decimal" && c.decimal_places != null && (
+                        <span style={{ color: "var(--text-muted)" }}> ({c.decimal_places} dp)</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}

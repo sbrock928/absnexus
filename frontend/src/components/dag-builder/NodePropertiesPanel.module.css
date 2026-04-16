@@ -175,3 +175,73 @@
 .deleteBtn:hover {
   background: rgba(248, 113, 113, 0.2);
 }
+
+/* Token palette — click-to-insert formula builder */
+.tokenPalette {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-input);
+  padding: 6px;
+}
+
+.tokenSection {
+  margin-bottom: 6px;
+}
+
+.tokenSection:last-child {
+  margin-bottom: 0;
+}
+
+.tokenSectionLabel {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.tokenGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.tokenBtn {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 3px;
+  color: var(--accent-green);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tokenBtn:hover {
+  background: rgba(74, 222, 128, 0.2);
+}
+
+.tokenNode {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.25);
+  color: var(--accent-blue);
+}
+
+.tokenNode:hover {
+  background: rgba(96, 165, 250, 0.2);
+}
+
+.tokenFunc {
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.25);
+  color: var(--accent-purple);
+}
+
+.tokenFunc:hover {
+  background: rgba(167, 139, 250, 0.2);
+}

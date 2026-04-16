@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { DagNodeData } from "./types";
+import type { FormulaToken } from "./DagGraphView";
 import styles from "./NodePropertiesPanel.module.css";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   onReactivate: () => void;
   dependencies: string[];
   downstream: string[];
+  availableTokens?: FormulaToken[];
 }
 
 const typeColors: Record<string, string> = {
@@ -27,7 +29,9 @@ export function NodePropertiesPanel({
   onReactivate,
   dependencies,
   downstream,
+  availableTokens = [],
 }: Props) {
+  const formulaRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState(node.label);
   const [formula, setFormula] = useState(node.formula ?? "");
   const [description, setDescription] = useState(node.description ?? "");
@@ -113,6 +117,7 @@ export function NodePropertiesPanel({
         <div className={styles.field}>
           <label className={styles.label}>Formula</label>
           <textarea
+            ref={formulaRef}
             className={styles.textarea}
             value={formula}
             onChange={(e) => { setFormula(e.target.value); markDirty(); }}
@@ -120,9 +125,104 @@ export function NodePropertiesPanel({
             spellCheck={false}
             placeholder="e.g. total_collections * svc_fee_rate"
           />
-          <div className={styles.formulaHint}>
-            Use variable names. Functions: MIN, MAX, ABS, IF, ROUND, CEILING, FLOOR, SUM
-          </div>
+          {availableTokens.length > 0 && (
+            <div className={styles.tokenPalette}>
+              <div className={styles.tokenSection}>
+                <div className={styles.tokenSectionLabel}>Variables</div>
+                <div className={styles.tokenGrid}>
+                  {availableTokens.filter(t => t.category === "variable").map(t => (
+                    <button
+                      key={t.name}
+                      className={styles.tokenBtn}
+                      title={t.label}
+                      onClick={() => {
+                        const el = formulaRef.current;
+                        if (!el) return;
+                        const start = el.selectionStart;
+                        const end = el.selectionEnd;
+                        const before = formula.slice(0, start);
+                        const after = formula.slice(end);
+                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
+                        const newFormula = before + sep + t.name + after;
+                        setFormula(newFormula);
+                        markDirty();
+                        requestAnimationFrame(() => {
+                          const pos = (before + sep + t.name).length;
+                          el.focus();
+                          el.setSelectionRange(pos, pos);
+                        });
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.tokenSection}>
+                <div className={styles.tokenSectionLabel}>Nodes</div>
+                <div className={styles.tokenGrid}>
+                  {availableTokens.filter(t => t.category === "node").map(t => (
+                    <button
+                      key={t.name}
+                      className={`${styles.tokenBtn} ${styles.tokenNode}`}
+                      title={t.label}
+                      onClick={() => {
+                        const el = formulaRef.current;
+                        if (!el) return;
+                        const start = el.selectionStart;
+                        const end = el.selectionEnd;
+                        const before = formula.slice(0, start);
+                        const after = formula.slice(end);
+                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
+                        const newFormula = before + sep + t.name + after;
+                        setFormula(newFormula);
+                        markDirty();
+                        requestAnimationFrame(() => {
+                          const pos = (before + sep + t.name).length;
+                          el.focus();
+                          el.setSelectionRange(pos, pos);
+                        });
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.tokenSection}>
+                <div className={styles.tokenSectionLabel}>Functions</div>
+                <div className={styles.tokenGrid}>
+                  {availableTokens.filter(t => t.category === "function").map(t => (
+                    <button
+                      key={t.name}
+                      className={`${styles.tokenBtn} ${styles.tokenFunc}`}
+                      title={t.label}
+                      onClick={() => {
+                        const el = formulaRef.current;
+                        if (!el) return;
+                        const start = el.selectionStart;
+                        const end = el.selectionEnd;
+                        const before = formula.slice(0, start);
+                        const after = formula.slice(end);
+                        const sep = before.length > 0 && !before.endsWith(" ") && !before.endsWith("(") ? " " : "";
+                        const insert = t.name + "(";
+                        const newFormula = before + sep + insert + after;
+                        setFormula(newFormula);
+                        markDirty();
+                        requestAnimationFrame(() => {
+                          const pos = (before + sep + insert).length;
+                          el.focus();
+                          el.setSelectionRange(pos, pos);
+                        });
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

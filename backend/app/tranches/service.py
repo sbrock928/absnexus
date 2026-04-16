@@ -1,8 +1,20 @@
 """Tranche service — balance management and context building."""
+import re
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.models.tranche import DealTranche
 from app.tranches.dao import TrancheDAO
+
+
+def _sanitize_label(label: str) -> str:
+    """Convert a class label to a safe formula variable fragment.
+
+    Examples: "A" → "a", "A-1" → "a_1", "B2" → "b2", "A--3" → "a_3"
+    """
+    s = label.lower().strip()
+    s = re.sub(r"[^a-z0-9]", "_", s)  # replace non-alnum with underscore
+    s = re.sub(r"_+", "_", s)  # collapse multiple underscores
+    return s.strip("_")
 
 
 class TrancheService:
@@ -14,6 +26,7 @@ class TrancheService:
         """Build deterministic formula variables from tranches.
 
         Returns keys like: class_a_balance, class_a_note_rate,
+        class_a_1_balance, class_a_1_note_rate (for sub-tranches),
         class_a_balance_144a, class_a_balance_prior, etc.
         """
         tranches = self.dao.list_for_deal(deal_id)
@@ -25,7 +38,7 @@ class TrancheService:
             by_class.setdefault(t.class_label.lower(), []).append(t)
 
         for label, class_tranches in by_class.items():
-            prefix = f"class_{label}"
+            prefix = f"class_{_sanitize_label(label)}"
             combined_balance = Decimal("0")
             combined_prior = Decimal("0")
 
