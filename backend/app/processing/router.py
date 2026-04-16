@@ -17,6 +17,7 @@ from app.services.tape_extractor import TapeExtractor
 from app.services.dag_executor import DagExecutor
 from app.services.export_service import ExportService
 from app.services.clone_service import CloneService
+from app.processing.service import ProcessingService
 from app.utils.file_manager import FileManager
 
 router = APIRouter()
@@ -104,6 +105,35 @@ def upload_tape(
 
 # ── Step 2: Extract variables ──
 
+@router.get("/{deal_id}/runs/{run_id}/extracted")
+def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
+    """Read-only — return previously extracted values for a run."""
+    run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
+    if not run or run.deal_id != deal_id:
+        raise HTTPException(404, "Run not found")
+    rows = (
+        db.query(ExtractedValue)
+        .filter(ExtractedValue.run_id == run_id)
+        .order_by(ExtractedValue.id)
+        .all()
+    )
+    return {
+        "extracted": len(rows),
+        "warnings": sum(1 for r in rows if r.warning),
+        "values": [
+            {
+                "variable": r.variable_name, "cell": r.cell_ref, "sheet": r.sheet_name,
+                "raw": r.raw_value,
+                "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
+                "prior": str(r.prior_value) if r.prior_value is not None else None,
+                "pct_change": str(r.pct_change) if r.pct_change is not None else None,
+                "warning": r.warning,
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.post("/{deal_id}/runs/{run_id}/extract")
 def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db)):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
@@ -111,6 +141,10 @@ def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Run not found")
     if not run.tape_file_path:
         raise HTTPException(400, "No tape uploaded")
+
+    # Clean up previous extraction if re-extracting
+    db.query(ExtractedValue).filter(ExtractedValue.run_id == run.id).delete()
+    db.flush()
 
     run.status = "extracting"
     extractor = TapeExtractor(db)
@@ -142,6 +176,10 @@ def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db)):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
+
+    # Clean up previous execution if re-executing
+    db.query(ExecutionStep).filter(ExecutionStep.run_id == run.id).delete()
+    db.flush()
 
     run.status = "executing"
     executor = DagExecutor(db)
@@ -254,7 +292,23 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
     }
 
 
-# ── Step 5: Export ──
+# ── Step 5: Waterfall reconciliation ──
+
+@router.get("/{deal_id}/runs/{run_id}/waterfall")
+def get_waterfall(
+    deal_id: int,
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the waterfall balance trace for a completed run."""
+    try:
+        return ProcessingService(db).get_waterfall(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Step 6: Export ──
 
 @router.post("/{deal_id}/runs/{run_id}/export")
 def export_csv(

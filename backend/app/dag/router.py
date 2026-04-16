@@ -1,12 +1,18 @@
 """DAG builder endpoints."""
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User
+from app.models.dag import DagNode
+from app.models.deal import Deal
 from app.schemas.dag import DagSaveRequest, DagLoadResponse, DagVersionResponse
 from app.dag.service import DagService
+from app.services.deal_service import DealService
 
 router = APIRouter()
 
@@ -72,3 +78,71 @@ def reactivate_node(
     user: User = Depends(require_role("admin", "analytics")),
 ):
     DagService(db).reactivate_node(node_id)
+
+
+# ── Node patch (update individual fields) ────────────────────
+
+
+class NodePatch(BaseModel):
+    name: str | None = None
+    formula: str | None = None
+    payment_type: str | None = None
+    export_field: str | None = None
+    waterfall_order: int | None = None
+    tolerance: Decimal | None = None
+    tolerance_type: str | None = None
+    comparison_variable: str | None = None
+    position_x: int | None = None
+    position_y: int | None = None
+
+
+@router.patch("/{deal_id}/dag/nodes/{node_id}")
+def patch_node(
+    deal_id: int,
+    node_id: int,
+    body: NodePatch,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "analytics")),
+):
+    node = db.query(DagNode).filter(DagNode.id == node_id, DagNode.deal_id == deal_id).first()
+    if not node:
+        raise HTTPException(404, "Node not found")
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(node, field, value)
+    db.flush()
+    return node
+
+
+# ── Waterfall config on deal ─────────────────────────────────
+
+
+class WaterfallConfigUpdate(BaseModel):
+    waterfall_starting_var: str | None = None
+    waterfall_ending_var: str | None = None
+    waterfall_tolerance: Decimal | None = None
+
+
+@router.patch("/{deal_id}/waterfall-config")
+def update_waterfall_config(
+    deal_id: int,
+    payload: WaterfallConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "analytics")),
+):
+    deal = DealService(db).get(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found.")
+    if payload.waterfall_starting_var is not None:
+        deal.waterfall_starting_var = payload.waterfall_starting_var
+    if payload.waterfall_ending_var is not None:
+        deal.waterfall_ending_var = payload.waterfall_ending_var
+    if payload.waterfall_tolerance is not None:
+        deal.waterfall_tolerance = payload.waterfall_tolerance
+    db.flush()
+    return {
+        "starting_var": deal.waterfall_starting_var,
+        "ending_var": deal.waterfall_ending_var,
+        "tolerance": str(deal.waterfall_tolerance),
+    }
+

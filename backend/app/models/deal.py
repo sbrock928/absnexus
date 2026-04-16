@@ -1,6 +1,7 @@
 """Deal model."""
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from decimal import Decimal
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -18,6 +19,17 @@ class Deal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Waterfall reconciliation config
+    waterfall_starting_var: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, default="total_available_funds",
+    )
+    waterfall_ending_var: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, default="end_available_funds",
+    )
+    waterfall_tolerance: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 4), nullable=True, default=Decimal("0.01"),
     )
 
     servicer = relationship("Servicer", lazy="joined")

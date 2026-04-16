@@ -37,6 +37,7 @@ class DagService:
                 tolerance=n.tolerance, tolerance_type=n.tolerance_type,
                 comparison_variable=n.comparison_variable,
                 default_prior_value=n.default_prior_value,
+                waterfall_order=n.waterfall_order,
                 position_x=n.position_x, position_y=n.position_y,
             )
             key_to_id[n.key] = node.id
@@ -82,6 +83,7 @@ class DagService:
                 tolerance=n.tolerance, tolerance_type=n.tolerance_type,
                 comparison_variable=n.comparison_variable,
                 default_prior_value=n.default_prior_value,
+                waterfall_order=n.waterfall_order,
                 position_x=n.position_x, position_y=n.position_y,
             ))
 

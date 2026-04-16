@@ -497,11 +497,21 @@ def seed_svcb_deal(
     # DAG — build node + edge schemas, then save as version
     dag_svc = DagService(db)
 
+    # Explicit waterfall ordering for distribution nodes
+    svcb_waterfall_order = {
+        "svc_fee_pmt": 1,
+        "class_d_int_pmt": 2,
+        "class_e_int_pmt": 3,
+        "class_f_int_pmt": 4,
+        "principal_dist": 5,
+    }
+
     node_creates: list[DagNodeCreate] = []
     for key, name, ntype, formula, payment_type, px, py in SVCB_DIST_NODES:
         node_creates.append(DagNodeCreate(
             key=key, name=name, node_type=ntype, stream="distribution",
             formula=formula, payment_type=payment_type,
+            waterfall_order=svcb_waterfall_order.get(key),
             position_x=px, position_y=py,
         ))
 
@@ -793,11 +803,21 @@ def seed_svca_deal(
 
     # DAG
     dag_svc = DagService(db)
+
+    svca_waterfall_order = {
+        "svc_fee_pmt": 1,
+        "class_a_int_pmt": 2,
+        "class_b_int_pmt": 3,
+        "class_c_int_pmt": 4,
+        "principal_dist": 5,
+    }
+
     node_creates: list[DagNodeCreate] = []
     for key, name, ntype, formula, payment_type, px, py in SVCA_DIST_NODES:
         node_creates.append(DagNodeCreate(
             key=key, name=name, node_type=ntype, stream="distribution",
             formula=formula, payment_type=payment_type,
+            waterfall_order=svca_waterfall_order.get(key),
             position_x=px, position_y=py,
         ))
     for key, name, ntype, formula, comp_var, tolerance, px, py in SVCA_VALIDATION_NODES:

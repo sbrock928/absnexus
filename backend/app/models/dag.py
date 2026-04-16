@@ -61,6 +61,9 @@ class DagNode(Base):
     # Prior month default (first month only)
     default_prior_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
 
+    # Waterfall ordering for distribution nodes
+    waterfall_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Visual position
     position_x: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     position_y: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

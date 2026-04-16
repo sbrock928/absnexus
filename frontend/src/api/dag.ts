@@ -18,6 +18,7 @@ export interface DagNode {
   tolerance_type: string | null;
   comparison_variable: string | null;
   default_prior_value: number | null;
+  waterfall_order: number | null;
   position_x: number;
   position_y: number;
   is_active: boolean;
@@ -69,7 +70,10 @@ export function createNode(dealId: number, payload: Partial<DagNode>): Promise<D
   return api.post<DagNode>(`/deals/${dealId}/dag/nodes`, payload);
 }
 
-export function updateNode(nodeId: number, fields: Record<string, unknown>): Promise<DagNode> {
+export function updateNode(nodeId: number, fields: Record<string, unknown>, dealId?: number): Promise<DagNode> {
+  if (dealId) {
+    return api.patch<DagNode>(`/deals/${dealId}/dag/nodes/${nodeId}`, fields);
+  }
   return api.patch<DagNode>(`/dag/nodes/${nodeId}`, fields);
 }
 

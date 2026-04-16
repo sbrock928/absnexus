@@ -23,6 +23,22 @@ class ExportService:
         if not template:
             raise ValueError(f"Template {template_id} not found")
 
+        # Check waterfall reconciliation before allowing export
+        from app.processing.service import ProcessingService
+        try:
+            waterfall = ProcessingService(self.db).get_waterfall(run.id)
+        except ValueError:
+            waterfall = None
+
+        if waterfall and waterfall["has_tape_value"] and waterfall["reconciled"] is False:
+            raise ValueError(
+                f"Waterfall reconciliation failed. Calculated remainder "
+                f"${waterfall['final_calculated_remainder']} does not match tape "
+                f"value ${waterfall['tape_ending_balance']} (diff "
+                f"${waterfall['difference']} exceeds tolerance "
+                f"${waterfall['tolerance']}). Review distribution amounts before exporting."
+            )
+
         deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()
         rows = self._build_rows(run, template)
 

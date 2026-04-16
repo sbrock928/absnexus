@@ -74,7 +74,7 @@ export function DagEditorPage() {
 
   const updateNodeMut = useMutation({
     mutationFn: ({ nodeId, fields }: { nodeId: number; fields: Record<string, any> }) =>
-      updateNode(nodeId, fields),
+      updateNode(nodeId, fields, id),
     onSuccess: invalidate,
   });
 
@@ -266,6 +266,7 @@ export function DagEditorPage() {
               <th>Stream</th>
               <th>Formula</th>
               <th>Export</th>
+              <th>WF #</th>
               {isModeler && <th></th>}
             </tr>
           </thead>
@@ -308,6 +309,33 @@ export function DagEditorPage() {
                     <span className={styles.exportBadge}>{node.payment_type}</span>
                   )}
                   {!node.payment_type && "—"}
+                </td>
+                <td>
+                  {node.node_type === "distribution" ? (
+                    <input
+                      type="number"
+                      value={node.waterfall_order ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        updateNodeMut.mutate({
+                          nodeId: node.id,
+                          fields: { waterfall_order: val },
+                        });
+                      }}
+                      style={{
+                        width: 50,
+                        padding: "2px 6px",
+                        background: "var(--bg-input)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: 4,
+                        color: "var(--text-primary)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 12,
+                      }}
+                    />
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 {isModeler && (
                   <td>

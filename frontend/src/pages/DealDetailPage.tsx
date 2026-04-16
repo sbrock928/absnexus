@@ -211,6 +211,54 @@ export function DealDetailPage() {
         </div>
       )}
 
+      {/* ── Waterfall Config (inline in overview) ── */}
+      {tab === "overview" && deal && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 12 }}>Waterfall configuration</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Starting variable</label>
+              <input
+                className="input"
+                value={(deal as any).waterfall_starting_var ?? "total_available_funds"}
+                onChange={(e) => {
+                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_starting_var: e.target.value });
+                  setDeal({ ...deal, waterfall_starting_var: e.target.value } as any);
+                }}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Ending variable (reconciliation)</label>
+              <input
+                className="input"
+                value={(deal as any).waterfall_ending_var ?? "end_available_funds"}
+                onChange={(e) => {
+                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_ending_var: e.target.value });
+                  setDeal({ ...deal, waterfall_ending_var: e.target.value } as any);
+                }}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Reconciliation tolerance</label>
+              <input
+                className="input"
+                value={(deal as any).waterfall_tolerance ?? "0.01"}
+                onChange={(e) => {
+                  api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_tolerance: e.target.value });
+                  setDeal({ ...deal, waterfall_tolerance: e.target.value } as any);
+                }}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 120 }}
+              />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+            The waterfall checks that the sum of all distributions starting from the starting variable equals the tape-reported ending variable.
+          </div>
+        </div>
+      )}
+
       {/* ── Mappings Tab ── */}
       {tab === "mappings" && (
         <div>

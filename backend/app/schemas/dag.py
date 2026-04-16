@@ -19,6 +19,7 @@ class DagNodeCreate(BaseModel):
     tolerance_type: str | None = None
     comparison_variable: str | None = None
     default_prior_value: Decimal | None = None
+    waterfall_order: int | None = None
     position_x: int = 0
     position_y: int = 0
 
@@ -51,6 +52,7 @@ class DagNodeResponse(BaseModel):
     tolerance_type: str | None
     comparison_variable: str | None
     default_prior_value: Decimal | None
+    waterfall_order: int | None
     position_x: int
     position_y: int
     is_active: bool
