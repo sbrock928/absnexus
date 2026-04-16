@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import { api } from "../api/client";
+import { listTemplates, type GlobalTemplate } from "../api/globalExport";
 import { WaterfallTrace } from "../components/processing/WaterfallTrace";
 import { CellMapperModal } from "../components/cell-mapper/CellMapperModal";
 import { reextractVariable } from "../api/mappings";
@@ -40,6 +41,8 @@ export function ProcessingPage() {
   const [steps, setSteps] = useState<ExecStep[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [exportRes, setExportRes] = useState<any>(null);
+  const [exportTemplates, setExportTemplates] = useState<GlobalTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingRuns, setExistingRuns] = useState<any[]>([]);
@@ -54,6 +57,7 @@ export function ProcessingPage() {
 
   useEffect(() => {
     Promise.all([api.get<Deal[]>("/deals/"), api.get<Servicer[]>("/servicers/")]).then(([d, s]) => { setDeals(d); setServicers(s); });
+    listTemplates().then((t) => { setExportTemplates(t); if (t.length > 0) setSelectedTemplateId(t[0].id); });
   }, []);
 
   const svcName = (id: number) => servicers.find((s) => s.id === id)?.name ?? "";
@@ -179,10 +183,10 @@ export function ProcessingPage() {
   };
 
   const handleExport = async () => {
-    if (!selectedDeal || !run) return;
+    if (!selectedDeal || !run || !selectedTemplateId) return;
     setLoading(true); setError("");
     try {
-      const data = await api.post<any>(`/deals/${selectedDeal.id}/runs/${run.id}/export?template_id=1`);
+      const data = await api.post<any>(`/deals/${selectedDeal.id}/runs/${run.id}/export?template_id=${selectedTemplateId}`);
       setExportRes(data);
       setMaxStep((m) => Math.max(m, 6));
     } catch (e: any) { setError(e.message); } finally { setLoading(false); }
@@ -440,16 +444,29 @@ export function ProcessingPage() {
       {/* Step 6: Export */}
       {step === 6 && selectedDeal && run && (
         <div>
-          <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>Ready to export</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Waterfall reconciliation passed. Generate the payment CSV.</div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Select export template</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              {exportTemplates.map((t) => (
+                <button
+                  key={t.id}
+                  className={`btn ${selectedTemplateId === t.id ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => { setSelectedTemplateId(t.id); setExportRes(null); }}
+                >
+                  {t.name}
+                </button>
+              ))}
             </div>
-            {!exportRes ? (
-              <button className="btn btn-primary" onClick={handleExport} disabled={loading}>{loading ? "Exporting..." : "Export CSV"}</button>
-            ) : (
-              <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>✓ Exported</span>
-            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                {selectedTemplateId ? `Generate CSV using ${exportTemplates.find(t => t.id === selectedTemplateId)?.name ?? "selected template"}` : "Select a template above"}
+              </div>
+              {!exportRes ? (
+                <button className="btn btn-primary" onClick={handleExport} disabled={loading || !selectedTemplateId}>{loading ? "Exporting..." : "Export CSV"}</button>
+              ) : (
+                <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>✓ Exported</span>
+              )}
+            </div>
           </div>
           {exportRes && (
             <div className="card" style={{ background: "rgba(74,222,128,0.05)", borderColor: "rgba(74,222,128,0.2)", marginTop: 16 }}>

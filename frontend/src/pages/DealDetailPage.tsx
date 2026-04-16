@@ -3,7 +3,14 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
 import { api } from "../api/client";
-import { listColumns, type ExportColumn } from "../api/export";
+import {
+  listTemplates,
+  getTemplate,
+  getDealMappings,
+  type GlobalTemplate,
+  type GlobalColumn,
+  type DealMapping,
+} from "../api/globalExport";
 import type { Deal, Servicer, Variable } from "../types";
 
 interface MappingVariable {
@@ -58,7 +65,10 @@ export function DealDetailPage() {
   const [tranches, setTranches] = useState<Tranche[]>([]);
   const [dag, setDag] = useState<DagData | null>(null);
   const [runs, setRuns] = useState<any[]>([]);
-  const [exportColumns, setExportColumns] = useState<ExportColumn[]>([]);
+  const [exportTemplates, setExportTemplates] = useState<GlobalTemplate[]>([]);
+  const [activeExportTemplateId, setActiveExportTemplateId] = useState<number | null>(null);
+  const [exportTemplateColumns, setExportTemplateColumns] = useState<GlobalColumn[]>([]);
+  const [exportDealMappings, setExportDealMappings] = useState<DealMapping[]>([]);
   const [tab, setTab] = useState("overview");
   const [showClone, setShowClone] = useState(false);
   const [error, setError] = useState("");
@@ -99,8 +109,20 @@ export function DealDetailPage() {
     reloadTranches();
     api.get<DagData>(`/deals/${dealId}/dag`).then(setDag).catch(() => {});
     api.get<any[]>(`/deals/${dealId}/runs`).then(setRuns).catch(() => {});
-    listColumns(Number(dealId)).then(setExportColumns).catch(() => {});
+    listTemplates().then((templates) => {
+      setExportTemplates(templates);
+      if (templates.length > 0) setActiveExportTemplateId(templates[0].id);
+    }).catch(() => {});
   }, [dealId]);
+
+  // Load export template columns + deal mappings when active template changes
+  useEffect(() => {
+    if (!dealId || !activeExportTemplateId) return;
+    getTemplate(activeExportTemplateId).then((data) => {
+      setExportTemplateColumns(data.columns);
+    }).catch(() => setExportTemplateColumns([]));
+    getDealMappings(Number(dealId), activeExportTemplateId).then(setExportDealMappings).catch(() => setExportDealMappings([]));
+  }, [dealId, activeExportTemplateId]);
 
   // Reload aliases whenever mappings change
   useEffect(() => {
@@ -215,7 +237,7 @@ export function DealDetailPage() {
             {t === "mappings" && ` (${mappings.length})`}
             {t === "tranches" && ` (${tranches.length})`}
             {t === "dag" && dag && ` v${dag.version.version_number}`}
-            {t === "export" && ` (${exportColumns.length})`}
+            {t === "export" && ` (${exportTemplates.length} templates)`}
             {t === "runs" && ` (${runs.length})`}
           </button>
         ))}
@@ -493,21 +515,29 @@ export function DealDetailPage() {
       {/* ── Export Tab ── */}
       {tab === "export" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div className="tabs" style={{ marginBottom: 0 }}>
+              {exportTemplates.map((t) => (
+                <button
+                  key={t.id}
+                  className={`tab ${activeExportTemplateId === t.id ? "active" : ""}`}
+                  onClick={() => setActiveExportTemplateId(t.id)}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
             {isEditable && (
               <Link to={`/deals/${dealId}/export`} className="btn btn-primary" style={{ textDecoration: "none" }}>
-                Open Export Builder
+                Edit Mappings
               </Link>
             )}
           </div>
-          {exportColumns.length === 0 ? (
+          {exportTemplateColumns.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon">📤</div>
-              <div className="empty-state-title">No export columns configured</div>
+              <div className="empty-state-title">No columns in this template</div>
               <div className="empty-state-text">
-                {isEditable
-                  ? "Open the Export Builder to configure CSV output columns."
-                  : "An analytics team member will configure the export layout."}
+                Configure columns on the <Link to="/export-templates" style={{ color: "var(--accent-blue)" }}>Export Templates</Link> page.
               </div>
             </div>
           ) : (
@@ -516,29 +546,40 @@ export function DealDetailPage() {
                 <tr>
                   <th style={{ width: 40 }}>#</th>
                   <th>Header</th>
-                  <th>Value source</th>
+                  <th>Type</th>
+                  <th>Value / Mapping</th>
                   <th>Format</th>
                 </tr>
               </thead>
               <tbody>
-                {exportColumns.map((c, idx) => (
-                  <tr key={c.id}>
-                    <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
-                    <td style={{ fontFamily: "monospace", fontWeight: 500 }}>{c.header_label}</td>
-                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      {c.value_type === "distribution_node" && `node: ${c.node_id ?? "—"}${c.prorate_by ? ` (${c.prorate_by})` : ""}`}
-                      {c.value_type === "literal" && `literal: ${c.literal_value ?? ""}`}
-                      {c.value_type === "run_meta" && `run: ${c.meta_field ?? ""}`}
-                      {c.value_type === "deal_meta" && `deal: ${c.meta_field ?? ""}`}
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      {c.format_type}
-                      {c.format_type === "decimal" && c.decimal_places != null && (
-                        <span style={{ color: "var(--text-muted)" }}> ({c.decimal_places} dp)</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {exportTemplateColumns.map((c, idx) => {
+                  const mapping = exportDealMappings.find((m) => m.column_id === c.id);
+                  return (
+                    <tr key={c.id}>
+                      <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
+                      <td style={{ fontFamily: "monospace", fontWeight: 500 }}>{c.header_label}</td>
+                      <td>
+                        <span className={`badge ${c.value_type === "distribution_node" ? "badge-active" : "badge-system"}`} style={{ fontSize: 10 }}>
+                          {c.value_type}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                        {c.value_type === "distribution_node" && (
+                          mapping
+                            ? <code style={{ color: "var(--accent-green)" }}>{mapping.node_name} ({mapping.node_key})</code>
+                            : <span style={{ color: "var(--accent-orange)", fontStyle: "italic" }}>Not mapped</span>
+                        )}
+                        {c.value_type === "literal" && <code>{c.literal_value ?? "—"}</code>}
+                        {c.value_type === "run_meta" && <code>{c.meta_field ?? "—"}</code>}
+                        {c.value_type === "deal_meta" && <code>{c.meta_field ?? "—"}</code>}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {c.format_type}
+                        {c.decimal_places != null && <span style={{ color: "var(--text-muted)" }}> ({c.decimal_places} dp)</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

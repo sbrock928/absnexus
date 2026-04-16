@@ -82,7 +82,7 @@ class GlobalExportService:
 
     def generate_csv(self, run: ProcessingRun, template_id: int) -> tuple[str, str]:
         """Generate CSV for a run using a global template + deal mappings."""
-        if run.status != "completed":
+        if run.status not in ("executed", "completed"):
             raise ValueError(f"Cannot export: run status is '{run.status}'.")
 
         cols = self.dao.list_columns(template_id)

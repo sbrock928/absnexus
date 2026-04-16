@@ -375,7 +375,8 @@ def export_csv(
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
 
-    svc = ExportService(db)
+    from app.global_export.service import GlobalExportService
+    svc = GlobalExportService(db)
     try:
         path, file_hash = svc.generate_csv(run, template_id)
     except ValueError as e:
