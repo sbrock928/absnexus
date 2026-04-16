@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
+import { useToast } from "../components/Toast";
 import { api } from "../api/client";
 import type { Deal, Servicer } from "../types";
 
@@ -14,6 +15,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 export function DealListPage() {
   const { isModeler, isAnalyst } = useAuth();
+  const { toast } = useToast();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [servicers, setServicers] = useState<Servicer[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -47,8 +49,13 @@ export function DealListPage() {
 
   const handleDelete = async (deal: Deal) => {
     if (!confirm(`Delete "${deal.name}"? This cannot be undone.`)) return;
-    await api.del(`/deals/${deal.id}`);
-    reload();
+    try {
+      await api.del(`/deals/${deal.id}`);
+      toast("Deal deleted");
+      reload();
+    } catch (e: unknown) {
+      toast(e instanceof Error ? e.message : "Failed to delete deal", "error");
+    }
   };
 
   return (
@@ -133,6 +140,7 @@ export function DealListPage() {
 }
 
 function CreateDealDialog({ servicers, onClose, onCreated }: { servicers: Servicer[]; onClose: () => void; onCreated: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [servicerId, setServicerId] = useState(servicers[0]?.id ?? 0);
   const [productType, setProductType] = useState(PRODUCT_TYPES[0]);
@@ -145,6 +153,7 @@ function CreateDealDialog({ servicers, onClose, onCreated }: { servicers: Servic
     setSaving(true); setError("");
     try {
       await api.post("/deals/", { name: name.trim(), servicer_id: servicerId, product_type: productType });
+      toast("Deal created");
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to create deal"); }
     finally { setSaving(false); }
@@ -185,6 +194,7 @@ function CreateDealDialog({ servicers, onClose, onCreated }: { servicers: Servic
 }
 
 function EditDealDialog({ deal, onClose, onSaved }: { deal: Deal; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState(deal.name);
   const [productType, setProductType] = useState(deal.product_type);
   const [status, setStatus] = useState(deal.status);
@@ -198,6 +208,7 @@ function EditDealDialog({ deal, onClose, onSaved }: { deal: Deal; onClose: () =>
     setSaving(true); setError("");
     try {
       await api.patch(`/deals/${deal.id}`, { name: name.trim(), product_type: productType, status });
+      toast("Deal updated");
       onSaved();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to update deal"); }
     finally { setSaving(false); }

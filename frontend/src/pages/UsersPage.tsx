@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/Toast";
 import { fetchUsers, createUser, updateUser } from "../api/users";
 import type { User } from "../types";
 import styles from "./UsersPage.module.css";
@@ -8,6 +9,7 @@ const ROLES = ["analyst", "analytics", "admin"];
 
 export function UsersPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -28,14 +30,16 @@ export function UsersPage() {
       setDisplayName("");
       setNewRole("analyst");
       setFormError(null);
+      toast("User created");
     },
-    onError: (err: Error) => setFormError(err.message),
+    onError: (err: Error) => { setFormError(err.message); toast(err.message, "error"); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ userId, body }: { userId: number; body: { role?: string; is_active?: boolean } }) =>
       updateUser(userId, body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["users"] }); toast("User updated"); },
+    onError: (err: Error) => toast(err.message, "error"),
   });
 
   function handleAdd(e: React.FormEvent) {

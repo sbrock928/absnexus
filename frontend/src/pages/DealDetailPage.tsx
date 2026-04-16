@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
+import { useToast } from "../components/Toast";
 import { api } from "../api/client";
 import type { Deal, Servicer, Variable } from "../types";
 
@@ -48,6 +49,7 @@ interface DagData {
 export function DealDetailPage() {
   const { dealId } = useParams<{ dealId: string }>();
   const { isModeler, isAnalyst } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [servicer, setServicer] = useState<Servicer | null>(null);
@@ -103,12 +105,15 @@ export function DealDetailPage() {
   }, [mappings, dealId]);
 
   const handleSaveAlias = async (variableId: number, alias: string) => {
-    await api.put(`/variables/${variableId}/aliases`, {
-      display_alias: alias.trim(),
-      deal_id: Number(dealId),
-    });
-    reloadAliases();
-    setEditingAliasVarId(null);
+    try {
+      await api.put(`/variables/${variableId}/aliases`, {
+        display_alias: alias.trim(),
+        deal_id: Number(dealId),
+      });
+      toast("Alias saved");
+      reloadAliases();
+      setEditingAliasVarId(null);
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : "Failed to save alias", "error"); }
   };
 
   const handleClearAlias = async (variableId: number) => {
@@ -132,14 +137,20 @@ export function DealDetailPage() {
 
   const handleDeleteMapping = async (m: Mapping) => {
     if (!confirm(`Delete mapping for ${m.tape_label || `var_${m.variable_id}`}?`)) return;
-    await api.del(`/deals/${dealId}/mappings/${m.id}`);
-    reloadMappings();
+    try {
+      await api.del(`/deals/${dealId}/mappings/${m.id}`);
+      toast("Mapping deleted");
+      reloadMappings();
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : "Failed to delete", "error"); }
   };
 
   const handleDeleteTranche = async (t: Tranche) => {
     if (!confirm(`Delete tranche Class ${t.class_label}?`)) return;
-    await api.del(`/deals/${dealId}/tranches/${t.id}`);
-    reloadTranches();
+    try {
+      await api.del(`/deals/${dealId}/tranches/${t.id}`);
+      toast("Tranche deleted");
+      reloadTranches();
+    } catch (e: unknown) { toast(e instanceof Error ? e.message : "Failed to delete", "error"); }
   };
 
   if (error) return <div style={{ padding: 40, color: "var(--accent-red)" }}>{error}</div>;
@@ -152,8 +163,9 @@ export function DealDetailPage() {
     try {
       const updated = await api.patch<Deal>(`/deals/${deal.id}`, { status: "active" });
       setDeal(updated);
+      toast("Deal reactivated");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to reactivate");
+      toast(e instanceof Error ? e.message : "Failed to reactivate", "error");
     }
   };
 

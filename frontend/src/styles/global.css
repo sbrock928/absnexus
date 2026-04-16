@@ -206,3 +206,9 @@ body {
 .banner { padding: 10px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 16px; }
 .banner-info { background: rgba(74,158,255,0.1); border: 1px solid rgba(74,158,255,0.2); color: var(--accent-blue); }
 .banner-warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); color: var(--accent-yellow); }
+
+/* Toast animation */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
