@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth";
+import { api } from "@/api/client";
+import type { Deal } from "@/types";
 import { fetchNodes, type DagNode } from "@/api/dag";
 import {
   listColumns,
@@ -46,6 +48,13 @@ export function ExportBuilderPage() {
   const id = Number(dealId);
   const { isModeler } = useAuth();
   const qc = useQueryClient();
+
+  const { data: deal } = useQuery({
+    queryKey: ["deal", id],
+    queryFn: () => api.get<Deal>(`/deals/${id}`),
+  });
+  const isArchived = deal?.status === "archived";
+  const isEditable = isModeler && !isArchived;
 
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ExportColumn | null>(null);
@@ -149,7 +158,7 @@ export function ExportBuilderPage() {
             {columns.length} column{columns.length !== 1 ? "s" : ""} configured
           </div>
         </div>
-        {isModeler && (
+        {isEditable && (
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={() => setShowPresets(true)}>
               Copy from preset
@@ -175,7 +184,7 @@ export function ExportBuilderPage() {
               <th>Header</th>
               <th>Value source</th>
               <th>Format</th>
-              {isModeler && <th style={{ width: 140 }}></th>}
+              {isEditable && <th style={{ width: 140 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -197,7 +206,7 @@ export function ExportBuilderPage() {
                     </span>
                   )}
                 </td>
-                {isModeler && (
+                {isEditable && (
                   <td>
                     <div style={{ display: "flex", gap: 4 }}>
                       <button

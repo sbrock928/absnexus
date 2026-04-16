@@ -67,6 +67,25 @@ def admin_client(db):
 
 
 @pytest.fixture()
+def analyst_client(db):
+    app = create_app()
+
+    def _override_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = _override_db
+
+    with patch("app.dependencies.os.getlogin", return_value="analyst"):
+        user = User(username="analyst", display_name="Analyst", role="analyst")
+        db.add(user)
+        db.flush()
+        yield TestClient(app)
+
+
+@pytest.fixture()
 def test_servicer(db):
     s = Servicer(name="Wells Fargo", short_code="WF")
     db.add(s)

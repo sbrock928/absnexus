@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth";
+import { api } from "@/api/client";
+import type { Deal } from "@/types";
 import {
   fetchNodes,
   fetchEdges,
@@ -27,6 +29,13 @@ export function DagEditorPage() {
   const id = Number(dealId);
   const { isModeler } = useAuth();
   const queryClient = useQueryClient();
+
+  const { data: deal } = useQuery({
+    queryKey: ["deal", id],
+    queryFn: () => api.get<Deal>(`/deals/${id}`),
+  });
+  const isArchived = deal?.status === "archived";
+  const isEditable = isModeler && !isArchived;
 
   const [viewMode, setViewMode] = useState<"table" | "graph">("table");
   const [stream, setStream] = useState<"distribution" | "validation">("distribution");
@@ -190,7 +199,7 @@ export function DagEditorPage() {
               : `${allNodes.length} nodes · ${edges.length} edges · not saved yet`}
           </div>
         </div>
-        {isModeler && (
+        {isEditable && (
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={() => setShowHistory(true)}>
               History
@@ -227,7 +236,7 @@ export function DagEditorPage() {
           </button>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {isModeler && (
+          {isEditable && (
             <button className="btn" onClick={() => setShowAddNode(true)}>
               + Add node
             </button>
@@ -267,7 +276,7 @@ export function DagEditorPage() {
               <th>Formula</th>
               <th>Export</th>
               <th>WF #</th>
-              {isModeler && <th></th>}
+              {isEditable && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -337,7 +346,7 @@ export function DagEditorPage() {
                     "—"
                   )}
                 </td>
-                {isModeler && (
+                {isEditable && (
                   <td>
                     <div style={{ display: "flex", gap: 4 }}>
                       {node.is_active ? (
@@ -609,7 +618,7 @@ export function DagEditorPage() {
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                   {new Date(v.created_at).toLocaleString()}
                 </div>
-                {v.id !== currentVersion?.id && isModeler && (
+                {v.id !== currentVersion?.id && isEditable && (
                   <button
                     className={styles.actionLink}
                     style={{ marginTop: 4 }}

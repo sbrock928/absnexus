@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../auth";
 import { api } from "../api/client";
 import { WaterfallTrace } from "../components/processing/WaterfallTrace";
 import { CellMapperModal } from "../components/cell-mapper/CellMapperModal";
@@ -28,6 +29,7 @@ function statusToStep(status: string): number {
 }
 
 export function ProcessingPage() {
+  const { isModeler } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [servicers, setServicers] = useState<Servicer[]>([]);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
@@ -248,16 +250,21 @@ export function ProcessingPage() {
             {period && !/^\d{4}-\d{2}$/.test(period) && <div style={{ color: "var(--accent-yellow)", fontSize: 12, marginTop: 4 }}>Format must be YYYY-MM (e.g. 2026-04)</div>}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-            {deals.filter(d => d.status === "active").map((d) => (
+            {deals.filter(d => isModeler ? true : d.status === "active").map((d) => (
               <div key={d.id} className="card" style={{ cursor: "pointer" }} onClick={() => handleSelectDeal(d)}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.name}</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  {d.name}
+                  {isModeler && d.status !== "active" && (
+                    <span className={`badge badge-${d.status}`} style={{ marginLeft: 8 }}>{d.status}</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{svcName(d.servicer_id)} · {d.product_type}</div>
               </div>
             ))}
           </div>
-          {deals.filter(d => d.status === "active").length === 0 && <div className="empty-state"><div className="empty-state-title">No active deals</div></div>}
+          {deals.filter(d => isModeler ? true : d.status === "active").length === 0 && <div className="empty-state"><div className="empty-state-title">No active deals</div></div>}
         </div>
       )}
 

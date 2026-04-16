@@ -91,6 +91,16 @@ def create_batch(
             status_code=400,
             detail="Must include at least one deal.",
         )
+    # Validate deal statuses against user role
+    for di in payload.deal_inputs:
+        deal = DealService(db).get(di.deal_id)
+        if deal is None:
+            raise HTTPException(status_code=404, detail=f"Deal {di.deal_id} not found.")
+        if current_user.role == "analyst" and deal.status != "active":
+            raise HTTPException(
+                status_code=403,
+                detail=f"Analysts can only process active deals. Deal '{deal.name}' is '{deal.status}'.",
+            )
     inputs = [
         DealTapeInput(
             deal_id=di.deal_id,

@@ -1,35 +1,48 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../auth";
 
+function SidebarLink({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink to={to} className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
+      {label}
+    </NavLink>
+  );
+}
+
 export function Sidebar() {
-  const { user, isAdmin } = useAuth();
+  const { user, isModeler, isAdmin } = useAuth();
 
   return (
     <div className="sidebar">
       <div className="sidebar-brand">ABSNexus</div>
       <nav>
-        <NavLink to="/deals" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Deals
-        </NavLink>
-        <NavLink to="/variables" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Variables
-        </NavLink>
-        <NavLink to="/variable-map" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Variable Map
-        </NavLink>
-        <NavLink to="/processing" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Processing
-        </NavLink>
-        <NavLink to="/batch" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Batch
-        </NavLink>
-        <NavLink to="/audit" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-          Audit Log
-        </NavLink>
-        {isAdmin && (
-          <NavLink to="/users" className={({ isActive }) => `sidebar-item ${isActive ? "active" : ""}`}>
-            Users
-          </NavLink>
+        {isModeler ? (
+          <>
+            <div className="sidebar-section">Deal Setup</div>
+            <SidebarLink to="/deals" label="Deals" />
+            <SidebarLink to="/variables" label="Variables" />
+            <SidebarLink to="/variable-map" label="Variable Map" />
+
+            <div className="sidebar-section">Monthly Processing</div>
+            <SidebarLink to="/processing" label="Processing" />
+            <SidebarLink to="/batch" label="Batch" />
+
+            <div className="sidebar-section">Admin</div>
+            <SidebarLink to="/audit" label="Audit Log" />
+            {isAdmin && <SidebarLink to="/users" label="Users" />}
+          </>
+        ) : (
+          <>
+            <div className="sidebar-section">Processing</div>
+            <SidebarLink to="/deals" label="Deals" />
+            <SidebarLink to="/processing" label="Processing" />
+            <SidebarLink to="/batch" label="Batch" />
+
+            <div className="sidebar-section">Reference</div>
+            <SidebarLink to="/variables" label="Variables" />
+            <SidebarLink to="/variable-map" label="Variable Map" />
+            <SidebarLink to="/audit" label="Audit Log" />
+          </>
         )}
       </nav>
       <div className="user-info">

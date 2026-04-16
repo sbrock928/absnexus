@@ -6,8 +6,14 @@ import type { Deal, Servicer } from "../types";
 
 const PRODUCT_TYPES = ["ABS Auto", "ABS Consumer", "MBS HELOC", "MBS Residential", "CRT", "CLO"];
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft: ["draft", "active"],
+  active: ["active", "archived"],
+  archived: ["archived", "active"],
+};
+
 export function DealListPage() {
-  const { isModeler } = useAuth();
+  const { isModeler, isAnalyst } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [servicers, setServicers] = useState<Servicer[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -17,14 +23,15 @@ export function DealListPage() {
 
   const reload = () => {
     setLoading(true);
+    const dealsUrl = isAnalyst ? "/deals/?exclude_status=draft" : "/deals/";
     Promise.all([
-      api.get<Deal[]>("/deals/"),
+      api.get<Deal[]>(dealsUrl),
       api.get<Servicer[]>("/servicers/"),
     ]).then(([d, s]) => { setDeals(d); setServicers(s); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(reload, []);
+  useEffect(reload, [isAnalyst]);
 
   const filtered = filter === "all" ? deals : deals.filter((d) => d.status === filter);
   const counts: Record<string, number> = {
@@ -33,6 +40,10 @@ export function DealListPage() {
     draft: deals.filter((d) => d.status === "draft").length,
     archived: deals.filter((d) => d.status === "archived").length,
   };
+
+  const tabs = isAnalyst
+    ? (["all", "active", "archived"] as const)
+    : (["all", "active", "draft", "archived"] as const);
 
   const handleDelete = async (deal: Deal) => {
     if (!confirm(`Delete "${deal.name}"? This cannot be undone.`)) return;
@@ -52,14 +63,14 @@ export function DealListPage() {
         )}
       </div>
 
-      {!isModeler && (
+      {isAnalyst && (
         <div className="banner banner-info">
           You have read-only access. Contact an analytics team member to create or edit deals.
         </div>
       )}
 
       <div className="tabs">
-        {(["all", "active", "draft", "archived"] as const).map((f) => (
+        {tabs.map((f) => (
           <button key={f} className={`tab ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
             {f.charAt(0).toUpperCase() + f.slice(1)} ({counts[f]})
           </button>
@@ -135,7 +146,7 @@ function CreateDealDialog({ servicers, onClose, onCreated }: { servicers: Servic
     try {
       await api.post("/deals/", { name: name.trim(), servicer_id: servicerId, product_type: productType });
       onCreated();
-    } catch (e: any) { setError(e.message || "Failed to create deal"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to create deal"); }
     finally { setSaving(false); }
   };
 
@@ -180,13 +191,15 @@ function EditDealDialog({ deal, onClose, onSaved }: { deal: Deal; onClose: () =>
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const allowedStatuses = VALID_TRANSITIONS[deal.status] || [deal.status];
+
   const handleSubmit = async () => {
     if (!name.trim()) { setError("Deal name is required"); return; }
     setSaving(true); setError("");
     try {
       await api.patch(`/deals/${deal.id}`, { name: name.trim(), product_type: productType, status });
       onSaved();
-    } catch (e: any) { setError(e.message || "Failed to update deal"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to update deal"); }
     finally { setSaving(false); }
   };
 
@@ -209,9 +222,7 @@ function EditDealDialog({ deal, onClose, onSaved }: { deal: Deal; onClose: () =>
           <div className="form-field">
             <label className="form-label">Status</label>
             <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
+              {allowedStatuses.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
           </div>
         </div>

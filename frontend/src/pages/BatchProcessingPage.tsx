@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth";
 import { api } from "../api/client";
 import { createBatch, executeBatch, type DealInputPayload } from "../api/batch";
 import type { Deal, Servicer } from "../types";
@@ -21,6 +22,7 @@ interface DealTape {
 
 export function BatchProcessingPage() {
   const navigate = useNavigate();
+  const { isModeler } = useAuth();
 
   const [period, setPeriod] = useState(() => {
     const now = new Date();
@@ -43,7 +45,7 @@ export function BatchProcessingPage() {
     });
   }, []);
 
-  const activeDeals = deals.filter((d) => d.status === "active");
+  const activeDeals = isModeler ? deals : deals.filter((d) => d.status === "active");
   const svcName = (id: number) =>
     servicers.find((s) => s.id === id)?.name ?? `Servicer #${id}`;
 

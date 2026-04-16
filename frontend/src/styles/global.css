@@ -128,6 +128,15 @@ body {
 .tab:hover { background: var(--bg-hover); }
 .tab.active { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border); }
 
+.sidebar-section {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding: 16px 12px 4px;
+}
+
 .user-info {
   margin-top: auto;
   padding-top: 16px;

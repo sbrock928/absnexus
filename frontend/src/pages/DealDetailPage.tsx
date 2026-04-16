@@ -47,7 +47,7 @@ interface DagData {
 
 export function DealDetailPage() {
   const { dealId } = useParams<{ dealId: string }>();
-  const { isModeler } = useAuth();
+  const { isModeler, isAnalyst } = useAuth();
   const navigate = useNavigate();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [servicer, setServicer] = useState<Servicer | null>(null);
@@ -145,6 +145,18 @@ export function DealDetailPage() {
   if (error) return <div style={{ padding: 40, color: "var(--accent-red)" }}>{error}</div>;
   if (!deal) return <div style={{ padding: 40, color: "var(--text-muted)" }}>Loading...</div>;
 
+  const isArchived = deal.status === "archived";
+  const isEditable = isModeler && !isArchived;
+
+  const handleReactivate = async () => {
+    try {
+      const updated = await api.patch<Deal>(`/deals/${deal.id}`, { status: "active" });
+      setDeal(updated);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to reactivate");
+    }
+  };
+
   const nodeColor: Record<string, string> = {
     input_value: "var(--accent-green)",
     calculation: "var(--accent-blue)",
@@ -167,12 +179,19 @@ export function DealDetailPage() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {isModeler && <button className="btn btn-secondary" onClick={() => setShowClone(true)}>Clone deal</button>}
-          {isModeler && <Link to={`/deals/${dealId}/dag`} className="btn btn-secondary" style={{ textDecoration: "none" }}>Edit DAG</Link>}
-          {isModeler && <Link to={`/deals/${dealId}/export`} className="btn btn-secondary" style={{ textDecoration: "none" }}>Export builder</Link>}
-          <Link to="/processing" className="btn btn-primary" style={{ textDecoration: "none" }}>Process</Link>
+          {isEditable && <button className="btn btn-secondary" onClick={() => setShowClone(true)}>Clone deal</button>}
+          {isEditable && <Link to={`/deals/${dealId}/dag`} className="btn btn-secondary" style={{ textDecoration: "none" }}>Edit DAG</Link>}
+          {isEditable && <Link to={`/deals/${dealId}/export`} className="btn btn-secondary" style={{ textDecoration: "none" }}>Export builder</Link>}
+          {isArchived && isModeler && <button className="btn btn-primary" onClick={handleReactivate}>Reactivate</button>}
+          {(!isAnalyst || deal.status === "active") && <Link to="/processing" className="btn btn-primary" style={{ textDecoration: "none" }}>Process</Link>}
         </div>
       </div>
+
+      {isArchived && (
+        <div className="banner banner-warn" style={{ marginBottom: 16 }}>
+          This deal is archived. All edits are locked.{isModeler ? " Reactivate to make changes." : ""}
+        </div>
+      )}
 
       <div className="tabs">
         {["overview", "mappings", "tranches", "dag", "runs"].map((t) => (
@@ -221,6 +240,7 @@ export function DealDetailPage() {
               <input
                 className="input"
                 value={(deal as any).waterfall_starting_var ?? "total_available_funds"}
+                disabled={isArchived}
                 onChange={(e) => {
                   api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_starting_var: e.target.value });
                   setDeal({ ...deal, waterfall_starting_var: e.target.value } as any);
@@ -233,6 +253,7 @@ export function DealDetailPage() {
               <input
                 className="input"
                 value={(deal as any).waterfall_ending_var ?? "end_available_funds"}
+                disabled={isArchived}
                 onChange={(e) => {
                   api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_ending_var: e.target.value });
                   setDeal({ ...deal, waterfall_ending_var: e.target.value } as any);
@@ -245,6 +266,7 @@ export function DealDetailPage() {
               <input
                 className="input"
                 value={(deal as any).waterfall_tolerance ?? "0.01"}
+                disabled={isArchived}
                 onChange={(e) => {
                   api.patch(`/deals/${deal.id}/waterfall-config`, { waterfall_tolerance: e.target.value });
                   setDeal({ ...deal, waterfall_tolerance: e.target.value } as any);
@@ -264,7 +286,7 @@ export function DealDetailPage() {
         <div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
             <Link to={`/deals/${dealId}/mappings/cells`} className="btn btn-secondary">Open Cell Mapper</Link>
-            {isModeler && (
+            {isEditable && (
               <button className="btn btn-primary" onClick={() => { setEditingMapping(null); setShowMappingDialog(true); }}>+ Add mapping</button>
             )}
           </div>
@@ -280,7 +302,7 @@ export function DealDetailPage() {
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Tape label</th><th>Sheet</th><th>Cell</th><th>Variable</th><th>Deal alias</th>{isModeler && <th style={{ width: 100 }}>Actions</th>}</tr>
+                <tr><th>Tape label</th><th>Sheet</th><th>Cell</th><th>Variable</th><th>Deal alias</th>{isEditable && <th style={{ width: 100 }}>Actions</th>}</tr>
               </thead>
               <tbody>
                 {mappings.map((m) => {
@@ -313,16 +335,16 @@ export function DealDetailPage() {
                           </div>
                         ) : (
                           <span
-                            style={{ color: alias ? "var(--accent-purple)" : "var(--text-muted)", cursor: isModeler ? "pointer" : "default", fontSize: 13 }}
-                            onClick={() => { if (isModeler) { setEditingAliasVarId(m.variable_id); setAliasInput(alias ?? ""); } }}
-                            title={isModeler ? "Click to set deal-specific alias" : undefined}
+                            style={{ color: alias ? "var(--accent-purple)" : "var(--text-muted)", cursor: isEditable ? "pointer" : "default", fontSize: 13 }}
+                            onClick={() => { if (isEditable) { setEditingAliasVarId(m.variable_id); setAliasInput(alias ?? ""); } }}
+                            title={isEditable ? "Click to set deal-specific alias" : undefined}
                           >
                             {alias ?? "—"}
-                            {isModeler && !alias && <span style={{ marginLeft: 4, fontSize: 11, color: "var(--accent-blue)" }}>+ set</span>}
+                            {isEditable && !alias && <span style={{ marginLeft: 4, fontSize: 11, color: "var(--accent-blue)" }}>+ set</span>}
                           </span>
                         )}
                       </td>
-                      {isModeler && (
+                      {isEditable && (
                         <td>
                           <div style={{ display: "flex", gap: 4 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => { setEditingMapping(m); setShowMappingDialog(true); }}>Edit</button>
@@ -342,7 +364,7 @@ export function DealDetailPage() {
       {/* ── Tranches Tab ── */}
       {tab === "tranches" && (
         <div>
-          {isModeler && (
+          {isEditable && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <button className="btn btn-primary" onClick={() => { setEditingTranche(null); setShowTrancheDialog(true); }}>+ Add tranche</button>
             </div>
@@ -352,7 +374,7 @@ export function DealDetailPage() {
               <div className="empty-state-icon">📊</div>
               <div className="empty-state-title">No tranches configured</div>
               <div className="empty-state-text">Add note classes with their CUSIPs and rates.</div>
-              {isModeler && (
+              {isEditable && (
                 <button className="btn btn-primary" onClick={() => { setEditingTranche(null); setShowTrancheDialog(true); }}>+ Add tranche</button>
               )}
             </div>
@@ -384,7 +406,7 @@ export function DealDetailPage() {
                       Maturity: {t.maturity_date}
                     </div>
                   )}
-                  {isModeler && (
+                  {isEditable && (
                     <div style={{ display: "flex", gap: 6, marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => { setEditingTranche(t); setShowTrancheDialog(true); }}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTranche(t)}>Delete</button>
