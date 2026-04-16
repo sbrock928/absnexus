@@ -1,4 +1,5 @@
 """Excel file reader utility."""
+
 import openpyxl
 from typing import Any
 
@@ -59,9 +60,7 @@ class ExcelReader:
         actual_max_row = min(ws.max_row or 0, max_rows)
         actual_max_col = min(ws.max_column or 0, max_cols)
 
-        column_letters = [
-            self._col_num_to_letter(i) for i in range(1, actual_max_col + 1)
-        ]
+        column_letters = [self._col_num_to_letter(i) for i in range(1, actual_max_col + 1)]
 
         for row_idx in range(1, actual_max_row + 1):
             cells: list[Any] = []

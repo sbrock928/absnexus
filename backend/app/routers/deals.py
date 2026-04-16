@@ -1,9 +1,10 @@
 """Deal CRUD with audit logging."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import require_role
 from app.models.user import User
 from app.schemas.deal import DealCreate, DealUpdate, DealResponse
 from app.services.deal_service import DealService
@@ -37,7 +38,9 @@ def create_deal(
 ):
     svc = DealService(db)
     deal = svc.create(body.name, body.servicer_id, body.product_type, user.username)
-    AuditService(db).log_change(user.id, "deal", deal.id, "create", description=f"Created {deal.name}")
+    AuditService(db).log_change(
+        user.id, "deal", deal.id, "create", description=f"Created {deal.name}"
+    )
     return deal
 
 
@@ -69,5 +72,7 @@ def delete_deal(
     deal = DealService(db).get(deal_id)
     if not deal:
         raise HTTPException(404, "Deal not found")
-    AuditService(db).log_change(user.id, "deal", deal_id, "delete", description=f"Deleted {deal.name}")
+    AuditService(db).log_change(
+        user.id, "deal", deal_id, "delete", description=f"Deleted {deal.name}"
+    )
     DealService(db).delete(deal)

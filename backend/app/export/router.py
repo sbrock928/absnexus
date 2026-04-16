@@ -15,14 +15,20 @@ from app.models.processing import ProcessingRun
 from app.models.user import User
 from app.services.deal_service import DealService
 from app.schemas.export import (
-    ColumnCreate, ColumnResponse, ColumnUpdate,
-    CopyPresetRequest, PresetInfo, PreviewResponse, ReorderRequest,
+    ColumnCreate,
+    ColumnResponse,
+    ColumnUpdate,
+    CopyPresetRequest,
+    PresetInfo,
+    PreviewResponse,
+    ReorderRequest,
 )
 
 router = APIRouter()
 
 
 # ── Presets ───────────────────────────────────────────────────
+
 
 @router.get("/export-presets", response_model=list[PresetInfo])
 def list_presets(current_user: User = Depends(get_current_user)) -> list[dict]:
@@ -38,6 +44,7 @@ def list_presets(current_user: User = Depends(get_current_user)) -> list[dict]:
 
 
 # ── Columns CRUD ──────────────────────────────────────────────
+
 
 @router.get("/deals/{deal_id}/export-columns", response_model=list[ColumnResponse])
 def list_columns(
@@ -122,6 +129,7 @@ def copy_preset(
 
 # ── Preview ───────────────────────────────────────────────────
 
+
 @router.get("/deals/{deal_id}/export-preview", response_model=PreviewResponse)
 def preview_export(
     deal_id: int,
@@ -136,6 +144,7 @@ def preview_export(
 
 # ── Generate + download ──────────────────────────────────────
 
+
 @router.post("/deals/{deal_id}/runs/{run_id}/export-columns")
 def export_csv(
     deal_id: int,
@@ -143,9 +152,14 @@ def export_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    run = db.query(ProcessingRun).filter(
-        ProcessingRun.id == run_id, ProcessingRun.deal_id == deal_id,
-    ).first()
+    run = (
+        db.query(ProcessingRun)
+        .filter(
+            ProcessingRun.id == run_id,
+            ProcessingRun.deal_id == deal_id,
+        )
+        .first()
+    )
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found.")
     try:
@@ -162,9 +176,14 @@ def download_export(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
-    run = db.query(ProcessingRun).filter(
-        ProcessingRun.id == run_id, ProcessingRun.deal_id == deal_id,
-    ).first()
+    run = (
+        db.query(ProcessingRun)
+        .filter(
+            ProcessingRun.id == run_id,
+            ProcessingRun.deal_id == deal_id,
+        )
+        .first()
+    )
     if run is None or not run.export_file_path:
         raise HTTPException(status_code=404, detail="No export file available.")
     return FileResponse(

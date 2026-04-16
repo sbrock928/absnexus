@@ -1,4 +1,5 @@
 """Users management — HTTP routing layer."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

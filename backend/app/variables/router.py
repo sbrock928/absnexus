@@ -1,7 +1,7 @@
 """Variable library endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.core.database import get_db
 from app.dependencies import require_role, require_editable_deal
@@ -10,8 +10,14 @@ from app.models.variable_mapping import VariableMapping
 from app.models.deal import Deal
 from app.models.variable import VariableAlias
 from app.schemas.variable import (
-    VariableCreate, VariableUpdate, VariableResponse, AliasSet, AliasResponse,
-    VariableMappingSummary, MappingDealInfo, DealMappingDetail,
+    VariableCreate,
+    VariableUpdate,
+    VariableResponse,
+    AliasSet,
+    AliasResponse,
+    VariableMappingSummary,
+    MappingDealInfo,
+    DealMappingDetail,
 )
 from app.variables.dao import VariableDAO
 from app.variables.service import VariableService
@@ -96,11 +102,14 @@ def set_deal_aliases(
 ):
     dao = VariableDAO(db)
     for a in aliases:
+        if a.variable_id is None:
+            continue
         dao.set_alias(a.variable_id, a.display_alias, deal_id=deal_id)
     return {"status": "ok", "count": len(aliases)}
 
 
 # ── Cross-deal mapping summary ──────────────────────────────────────────
+
 
 @router.get("/mapping-summary", response_model=list[VariableMappingSummary])
 def mapping_summary(db: Session = Depends(get_db)):
@@ -120,13 +129,11 @@ def mapping_summary(db: Session = Depends(get_db)):
         summary.setdefault(variable_id, []).append(
             MappingDealInfo(deal_id=deal_id, deal_name=deal_name)
         )
-    return [
-        VariableMappingSummary(variable_id=vid, deals=deals)
-        for vid, deals in summary.items()
-    ]
+    return [VariableMappingSummary(variable_id=vid, deals=deals) for vid, deals in summary.items()]
 
 
 # ── Alias CRUD ──────────────────────────────────────────────────────────
+
 
 @router.get("/{var_id}/deal-detail", response_model=list[DealMappingDetail])
 def variable_deal_detail(var_id: int, db: Session = Depends(get_db)):
@@ -147,11 +154,7 @@ def variable_deal_detail(var_id: int, db: Session = Depends(get_db)):
         .all()
     )
     # Load aliases for this variable
-    aliases = (
-        db.query(VariableAlias)
-        .filter(VariableAlias.variable_id == var_id)
-        .all()
-    )
+    aliases = db.query(VariableAlias).filter(VariableAlias.variable_id == var_id).all()
     alias_by_deal: dict[int, str] = {}
     alias_by_servicer: dict[int, str] = {}
     for a in aliases:
@@ -165,26 +168,24 @@ def variable_deal_detail(var_id: int, db: Session = Depends(get_db)):
     for deal_id, deal_name, deal_status, sheet_name, col, row, tape_label in rows:
         alias = alias_by_deal.get(deal_id)
         # Could also resolve servicer alias here if we had servicer_id on Deal
-        result.append(DealMappingDetail(
-            deal_id=deal_id,
-            deal_name=deal_name,
-            deal_status=deal_status,
-            sheet_name=sheet_name,
-            column_letter=col,
-            row_number=row,
-            tape_label=tape_label,
-            alias=alias,
-        ))
+        result.append(
+            DealMappingDetail(
+                deal_id=deal_id,
+                deal_name=deal_name,
+                deal_status=deal_status,
+                sheet_name=sheet_name,
+                column_letter=col,
+                row_number=row,
+                tape_label=tape_label,
+                alias=alias,
+            )
+        )
     return result
 
 
 @router.get("/{var_id}/aliases", response_model=list[AliasResponse])
 def list_aliases(var_id: int, db: Session = Depends(get_db)):
-    return (
-        db.query(VariableAlias)
-        .filter(VariableAlias.variable_id == var_id)
-        .all()
-    )
+    return db.query(VariableAlias).filter(VariableAlias.variable_id == var_id).all()
 
 
 @router.put("/{var_id}/aliases", response_model=AliasResponse)
@@ -213,10 +214,14 @@ def delete_alias(
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
 ):
-    alias = db.query(VariableAlias).filter(
-        VariableAlias.id == alias_id,
-        VariableAlias.variable_id == var_id,
-    ).first()
+    alias = (
+        db.query(VariableAlias)
+        .filter(
+            VariableAlias.id == alias_id,
+            VariableAlias.variable_id == var_id,
+        )
+        .first()
+    )
     if not alias:
         raise HTTPException(404, "Alias not found")
     db.delete(alias)

@@ -1,4 +1,5 @@
 """Shared test fixtures."""
+
 import os
 import pytest
 from unittest.mock import patch
@@ -16,7 +17,9 @@ from app import create_app
 
 @pytest.fixture()
 def db():
-    engine = create_engine("sqlite:///:memory:", echo=False, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:", echo=False, connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(engine)
     TestSession = sessionmaker(bind=engine, expire_on_commit=False)
     session = TestSession()
@@ -95,7 +98,12 @@ def test_servicer(db):
 
 @pytest.fixture()
 def test_deal(db, test_servicer):
-    d = Deal(name="AMORT 2024-1", servicer_id=test_servicer.id, product_type="ABS Auto", created_by="testuser")
+    d = Deal(
+        name="AMORT 2024-1",
+        servicer_id=test_servicer.id,
+        product_type="ABS Auto",
+        created_by="testuser",
+    )
     db.add(d)
     db.flush()
     return d
@@ -103,7 +111,12 @@ def test_deal(db, test_servicer):
 
 @pytest.fixture()
 def system_var(db):
-    v = VariableDefinition(name="total_collections", display_name="Total Collections", scope="system", data_type="decimal")
+    v = VariableDefinition(
+        name="total_collections",
+        display_name="Total Collections",
+        scope="system",
+        data_type="decimal",
+    )
     db.add(v)
     db.flush()
     return v

@@ -1,4 +1,5 @@
 """Unit tests for waterfall balance tracking."""
+
 from decimal import Decimal
 
 import pytest
@@ -62,8 +63,13 @@ def _add_extracted(db: Session, run_id: int, var_name: str, value: Decimal, var_
 
 
 def _add_exec_step(
-    db: Session, run_id: int, node_id: int,
-    key: str, name: str, order: int, result: Decimal,
+    db: Session,
+    run_id: int,
+    node_id: int,
+    key: str,
+    name: str,
+    order: int,
+    result: Decimal,
     node_type: str = "distribution",
 ):
     step = ExecutionStep(
@@ -96,10 +102,27 @@ class TestWaterfallBasic:
 
         # DAG with 2 distribution nodes
         dag_svc = DagService(db)
-        dag_svc.save(deal.id, [
-            DagNodeCreate(key="fee", name="Fee", node_type="distribution", formula="1000", waterfall_order=1),
-            DagNodeCreate(key="prin", name="Principal", node_type="distribution", formula="9000", waterfall_order=2),
-        ], [], "testuser")
+        dag_svc.save(
+            deal.id,
+            [
+                DagNodeCreate(
+                    key="fee",
+                    name="Fee",
+                    node_type="distribution",
+                    formula="1000",
+                    waterfall_order=1,
+                ),
+                DagNodeCreate(
+                    key="prin",
+                    name="Principal",
+                    node_type="distribution",
+                    formula="9000",
+                    waterfall_order=2,
+                ),
+            ],
+            [],
+            "testuser",
+        )
 
         # Get node IDs from saved version
         loaded = dag_svc.load(deal.id)
@@ -130,11 +153,22 @@ class TestWaterfallBasic:
         _add_extracted(db, run.id, "total_available_funds", Decimal("10000"), v.id)
 
         dag_svc = DagService(db)
-        dag_svc.save(deal.id, [
-            DagNodeCreate(key="c", name="C", node_type="distribution", formula="100", waterfall_order=3),
-            DagNodeCreate(key="a", name="A", node_type="distribution", formula="200", waterfall_order=1),
-            DagNodeCreate(key="b", name="B", node_type="distribution", formula="300", waterfall_order=2),
-        ], [], "testuser")
+        dag_svc.save(
+            deal.id,
+            [
+                DagNodeCreate(
+                    key="c", name="C", node_type="distribution", formula="100", waterfall_order=3
+                ),
+                DagNodeCreate(
+                    key="a", name="A", node_type="distribution", formula="200", waterfall_order=1
+                ),
+                DagNodeCreate(
+                    key="b", name="B", node_type="distribution", formula="300", waterfall_order=2
+                ),
+            ],
+            [],
+            "testuser",
+        )
 
         loaded = dag_svc.load(deal.id)
         node_map = {n.key: n for n in loaded["nodes"]}
@@ -162,9 +196,20 @@ class TestWaterfallBasic:
         _add_extracted(db, run.id, "end_available_funds", Decimal("7000"), v2.id)
 
         dag_svc = DagService(db)
-        dag_svc.save(deal.id, [
-            DagNodeCreate(key="fee", name="Fee", node_type="distribution", formula="3000", waterfall_order=1),
-        ], [], "testuser")
+        dag_svc.save(
+            deal.id,
+            [
+                DagNodeCreate(
+                    key="fee",
+                    name="Fee",
+                    node_type="distribution",
+                    formula="3000",
+                    waterfall_order=1,
+                ),
+            ],
+            [],
+            "testuser",
+        )
 
         loaded = dag_svc.load(deal.id)
         fee_node = loaded["nodes"][0]
@@ -190,9 +235,20 @@ class TestWaterfallBasic:
         _add_extracted(db, run.id, "end_available_funds", Decimal("0"), v2.id)
 
         dag_svc = DagService(db)
-        dag_svc.save(deal.id, [
-            DagNodeCreate(key="fee", name="Fee", node_type="distribution", formula="5000", waterfall_order=1),
-        ], [], "testuser")
+        dag_svc.save(
+            deal.id,
+            [
+                DagNodeCreate(
+                    key="fee",
+                    name="Fee",
+                    node_type="distribution",
+                    formula="5000",
+                    waterfall_order=1,
+                ),
+            ],
+            [],
+            "testuser",
+        )
 
         loaded = dag_svc.load(deal.id)
         fee_node = loaded["nodes"][0]
@@ -216,9 +272,16 @@ class TestWaterfallBasic:
         _add_extracted(db, run.id, "total_available_funds", Decimal("1000"), v.id)
 
         dag_svc = DagService(db)
-        dag_svc.save(deal.id, [
-            DagNodeCreate(key="a", name="A", node_type="distribution", formula="100", waterfall_order=1),
-        ], [], "testuser")
+        dag_svc.save(
+            deal.id,
+            [
+                DagNodeCreate(
+                    key="a", name="A", node_type="distribution", formula="100", waterfall_order=1
+                ),
+            ],
+            [],
+            "testuser",
+        )
         loaded = dag_svc.load(deal.id)
         _add_exec_step(db, run.id, loaded["nodes"][0].id, "a", "A", 1, Decimal("100"))
 

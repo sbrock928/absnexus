@@ -1,4 +1,5 @@
 """Core configuration."""
+
 from pydantic_settings import BaseSettings
 
 

@@ -1,7 +1,7 @@
 """Tape extraction service — reads cells from servicer tape by mapping."""
+
 import json
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.processing import ProcessingRun, ExtractedValue
@@ -17,15 +17,17 @@ class TapeExtractor:
     def extract_all(self, run: ProcessingRun, file_path: str) -> list[ExtractedValue]:
         """Extract all mapped variables from the tape file."""
         mappings = (
-            self.db.query(VariableMapping)
-            .filter(VariableMapping.deal_id == run.deal_id)
-            .all()
+            self.db.query(VariableMapping).filter(VariableMapping.deal_id == run.deal_id).all()
         )
 
         # Snapshot mappings on the run
         snapshot = [
-            {"variable_id": m.variable_id, "sheet": m.sheet_name,
-             "col": m.column_letter, "row": m.row_number}
+            {
+                "variable_id": m.variable_id,
+                "sheet": m.sheet_name,
+                "col": m.column_letter,
+                "row": m.row_number,
+            }
             for m in mappings
         ]
         run.mappings_snapshot = json.dumps(snapshot)
@@ -37,9 +39,11 @@ class TapeExtractor:
         results: list[ExtractedValue] = []
 
         for m in mappings:
-            var = self.db.query(VariableDefinition).filter(
-                VariableDefinition.id == m.variable_id
-            ).first()
+            var = (
+                self.db.query(VariableDefinition)
+                .filter(VariableDefinition.id == m.variable_id)
+                .first()
+            )
             if not var:
                 continue
 
@@ -57,7 +61,9 @@ class TapeExtractor:
             pct_change = None
             warning = None
             if parsed is not None and prior_val is not None and prior_val != 0:
-                pct_change = ((parsed - prior_val) / abs(prior_val) * 100).quantize(Decimal("0.01"))
+                pct_change = ((parsed - prior_val) / abs(prior_val) * 100).quantize(
+                    Decimal("0.01")
+                )
                 if abs(pct_change) > 50:
                     warning = f"Changed {pct_change}% from prior month ({prior_val} -> {parsed})"
 
@@ -113,11 +119,11 @@ class TapeExtractor:
         if not prior_run:
             return {}
         prior_evs = (
-            self.db.query(ExtractedValue)
-            .filter(ExtractedValue.run_id == prior_run.id)
-            .all()
+            self.db.query(ExtractedValue).filter(ExtractedValue.run_id == prior_run.id).all()
         )
-        return {ev.variable_name: ev.parsed_value for ev in prior_evs if ev.parsed_value is not None}
+        return {
+            ev.variable_name: ev.parsed_value for ev in prior_evs if ev.parsed_value is not None
+        }
 
     def _prior_calendar_month(self, period: str) -> str:
         if not period or len(period) < 7 or "-" not in period:

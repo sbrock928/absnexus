@@ -1,4 +1,5 @@
 """Processing service — waterfall balance tracker."""
+
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -24,9 +25,7 @@ class ProcessingService:
             raise ValueError("Run not found.")
 
         if run.status not in ("completed", "executed", "failed"):
-            raise ValueError(
-                f"Waterfall requires a completed run. Current status: {run.status}."
-            )
+            raise ValueError(f"Waterfall requires a completed run. Current status: {run.status}.")
 
         deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()
         if deal is None:
@@ -37,11 +36,7 @@ class ProcessingService:
         tolerance = deal.waterfall_tolerance or Decimal("0.01")
 
         # Starting balance — from extracted values
-        extracted = (
-            self.db.query(ExtractedValue)
-            .filter(ExtractedValue.run_id == run.id)
-            .all()
-        )
+        extracted = self.db.query(ExtractedValue).filter(ExtractedValue.run_id == run.id).all()
         extracted_by_name = {ev.variable_name: ev for ev in extracted}
 
         starting_ev = extracted_by_name.get(starting_var)
@@ -112,19 +107,21 @@ class ProcessingService:
                 if matched:
                     comparison_matched += 1
 
-            steps.append({
-                "step": idx,
-                "node_key": step.node_key,
-                "node_name": step.node_name,
-                "amount": str(amount),
-                "remaining_after": str(running),
-                "export_field": step.export_field,
-                "payment_type": step.payment_type,
-                "tape_value": tape_value,
-                "difference": step_diff,
-                "matched": matched,
-                "comparison_variable": comp_var,
-            })
+            steps.append(
+                {
+                    "step": idx,
+                    "node_key": step.node_key,
+                    "node_name": step.node_name,
+                    "amount": str(amount),
+                    "remaining_after": str(running),
+                    "export_field": step.export_field,
+                    "payment_type": step.payment_type,
+                    "tape_value": tape_value,
+                    "difference": step_diff,
+                    "matched": matched,
+                    "comparison_variable": comp_var,
+                }
+            )
 
         final_remainder = running
         difference = None
@@ -232,6 +229,7 @@ class ProcessingService:
             ev.parsed_value = None
         else:
             from app.services.tape_extractor import TapeExtractor
+
             extractor = TapeExtractor(self.db)
             ev.parsed_value = extractor._parse_value(raw, var.data_type if var else "decimal")
 
@@ -248,12 +246,14 @@ class ProcessingService:
             if prior_ev and prior_ev.parsed_value is not None:
                 ev.prior_value = prior_ev.parsed_value
                 if prior_ev.parsed_value != 0:
-                    pct = abs(ev.parsed_value - prior_ev.parsed_value) / abs(prior_ev.parsed_value) * 100
+                    pct = (
+                        abs(ev.parsed_value - prior_ev.parsed_value)
+                        / abs(prior_ev.parsed_value)
+                        * 100
+                    )
                     ev.pct_change = pct.quantize(Decimal("0.01"))
                     if pct > 50:
-                        ev.warning = (
-                            f"{var_name} changed by {pct:.1f}% from prior month."
-                        )
+                        ev.warning = f"{var_name} changed by {pct:.1f}% from prior month."
 
         self.db.flush()
         return ev

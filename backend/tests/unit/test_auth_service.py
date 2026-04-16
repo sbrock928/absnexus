@@ -1,4 +1,5 @@
 """Auth service unit tests."""
+
 from app.services.auth_service import AuthService
 from app.models.user import User
 

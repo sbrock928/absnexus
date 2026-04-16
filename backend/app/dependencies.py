@@ -1,4 +1,5 @@
 """FastAPI dependencies — auth, role enforcement, deal guards."""
+
 import os
 from typing import Any
 
@@ -22,7 +23,7 @@ def get_current_user(db: Session = Depends(get_db)) -> User:
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User \'{username}\' is not registered.",
+            detail=f"User '{username}' is not registered.",
         )
     if not user.is_active:
         raise HTTPException(
@@ -37,9 +38,10 @@ def require_role(*allowed_roles: str) -> Any:
         if user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role \'{user.role}\' not authorized.",
+                detail=f"Role '{user.role}' not authorized.",
             )
         return user
+
     return _checker
 
 

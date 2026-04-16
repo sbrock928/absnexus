@@ -1,4 +1,5 @@
 """DAG builder endpoints."""
+
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,11 +7,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, require_role, require_editable_deal
+from app.dependencies import require_role, require_editable_deal
 from app.models.user import User
 from app.models.dag import DagNode
 from app.models.deal import Deal
-from app.schemas.dag import DagSaveRequest, DagLoadResponse, DagVersionResponse
+from app.schemas.dag import DagSaveRequest, DagVersionResponse
 from app.dag.service import DagService
 from app.services.deal_service import DealService
 
@@ -42,6 +43,7 @@ def load_dag(deal_id: int, version_id: int | None = None, db: Session = Depends(
 @router.get("/{deal_id}/dag/versions", response_model=list[DagVersionResponse])
 def list_versions(deal_id: int, db: Session = Depends(get_db)):
     from app.dag.dao import DagDAO
+
     return DagDAO(db).list_versions(deal_id)
 
 
@@ -82,7 +84,8 @@ def validate_dag(deal_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{deal_id}/dag/nodes/{node_id}/deactivate", status_code=204)
 def deactivate_node(
-    deal_id: int, node_id: int,
+    deal_id: int,
+    node_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
     _deal: Deal = Depends(require_editable_deal),
@@ -92,7 +95,8 @@ def deactivate_node(
 
 @router.patch("/{deal_id}/dag/nodes/{node_id}/reactivate", status_code=204)
 def reactivate_node(
-    deal_id: int, node_id: int,
+    deal_id: int,
+    node_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("admin", "analytics")),
     _deal: Deal = Depends(require_editable_deal),
@@ -196,7 +200,11 @@ def create_edge(
     edge = DagService(db).create_edge(deal_id, body.source_node_id, body.target_node_id)
     if edge is None:
         raise HTTPException(400, "No DAG version exists for this deal")
-    return {"id": edge.id, "source_node_id": edge.source_node_id, "target_node_id": edge.target_node_id}
+    return {
+        "id": edge.id,
+        "source_node_id": edge.source_node_id,
+        "target_node_id": edge.target_node_id,
+    }
 
 
 # Bare `/dag/...` routes for the frontend calls that don't carry a deal_id.
@@ -275,4 +283,3 @@ def update_waterfall_config(
         "ending_var": deal.waterfall_ending_var,
         "tolerance": str(deal.waterfall_tolerance),
     }
-

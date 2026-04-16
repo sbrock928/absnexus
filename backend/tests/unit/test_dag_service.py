@@ -1,4 +1,5 @@
 """DAG service unit tests."""
+
 from app.dag.service import DagService
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
 from app.models.servicer import Servicer
@@ -41,7 +42,13 @@ def test_revert_creates_new_version(db):
     svc = DagService(db)
     nodes = [DagNodeCreate(key="n1", name="N1", node_type="input_value", input_source="tape")]
     v1 = svc.save(deal.id, nodes, [], "testuser", "v1")
-    svc.save(deal.id, [DagNodeCreate(key="n2", name="N2", node_type="input_value", input_source="tape")], [], "testuser", "v2")
+    svc.save(
+        deal.id,
+        [DagNodeCreate(key="n2", name="N2", node_type="input_value", input_source="tape")],
+        [],
+        "testuser",
+        "v2",
+    )
     v3 = svc.revert(deal.id, v1.id, "testuser")
     assert v3.version_number == 3
 
@@ -55,8 +62,21 @@ def test_distribution_to_validation_edge_allowed(db):
     deal = _make_deal(db)
     svc = DagService(db)
     nodes = [
-        DagNodeCreate(key="dist_in", name="DI", node_type="input_value", stream="distribution", input_source="tape"),
-        DagNodeCreate(key="val_calc", name="VC", node_type="validation", stream="validation", formula="dist_in * 1", comparison_variable="x"),
+        DagNodeCreate(
+            key="dist_in",
+            name="DI",
+            node_type="input_value",
+            stream="distribution",
+            input_source="tape",
+        ),
+        DagNodeCreate(
+            key="val_calc",
+            name="VC",
+            node_type="validation",
+            stream="validation",
+            formula="dist_in * 1",
+            comparison_variable="x",
+        ),
     ]
     edges = [DagEdgeCreate(source_key="dist_in", target_key="val_calc")]
     svc.save(deal.id, nodes, edges, "testuser")
@@ -69,7 +89,14 @@ def test_validation_to_distribution_edge_rejected(db):
     deal = _make_deal(db)
     svc = DagService(db)
     nodes = [
-        DagNodeCreate(key="val_node", name="VN", node_type="validation", stream="validation", formula="1", comparison_variable="x"),
+        DagNodeCreate(
+            key="val_node",
+            name="VN",
+            node_type="validation",
+            stream="validation",
+            formula="1",
+            comparison_variable="x",
+        ),
         DagNodeCreate(key="dist_node", name="DN", node_type="calculation", stream="distribution"),
     ]
     edges = [DagEdgeCreate(source_key="val_node", target_key="dist_node")]

@@ -1,4 +1,5 @@
 """Unit tests for audit log DAO and query service."""
+
 import json
 from datetime import datetime, timedelta
 
@@ -15,8 +16,16 @@ def _seed_user(db, username="testuser", display_name="Test User", role="analytic
     return user
 
 
-def _seed_entry(db, user_id, entity_type="deal", entity_id=1, action="create",
-                changes=None, description=None, created_at=None):
+def _seed_entry(
+    db,
+    user_id,
+    entity_type="deal",
+    entity_id=1,
+    action="create",
+    changes=None,
+    description=None,
+    created_at=None,
+):
     entry = AuditLog(
         user_id=user_id,
         entity_type=entity_type,

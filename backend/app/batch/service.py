@@ -233,9 +233,9 @@ class BatchService:
                     "status": run.status,
                     "nodes_executed": node_count,
                     "execution_time_ms": None,
-                    "total_distribution": str(run.total_distribution)
-                    if run.total_distribution
-                    else "0",
+                    "total_distribution": (
+                        str(run.total_distribution) if run.total_distribution else "0"
+                    ),
                     "validations_passed": v_passed,
                     "validations_failed": v_failed,
                     "has_export": bool(run.export_file_path),
@@ -261,9 +261,7 @@ class BatchService:
                             {
                                 "node_key": v.node_key,
                                 "node_name": v.node_name,
-                                "difference": str(v.difference)
-                                if v.difference
-                                else "0",
+                                "difference": str(v.difference) if v.difference else "0",
                             }
                             for v in validations
                             if v.passed == 0
@@ -289,9 +287,7 @@ class BatchService:
             "execution_time_ms": batch.execution_time_ms,
             "started_by": batch.started_by,
             "started_at": batch.started_at.isoformat() if batch.started_at else None,
-            "completed_at": batch.completed_at.isoformat()
-            if batch.completed_at
-            else None,
+            "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
             "deals": per_deal,
         }
 

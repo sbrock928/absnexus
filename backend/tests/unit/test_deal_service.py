@@ -1,4 +1,5 @@
 """Deal service unit tests."""
+
 from app.services.deal_service import DealService
 from app.models.servicer import Servicer
 

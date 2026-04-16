@@ -1,4 +1,5 @@
 """Formula tokenizer — breaks formula strings into tokens."""
+
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -41,8 +42,8 @@ def tokenize(formula: str) -> list[Token]:
             continue
 
         # Comparisons (multi-char first)
-        if i + 1 < len(s) and s[i:i+2] in COMPARISON_OPS:
-            tokens.append(Token(TokenType.COMPARISON, s[i:i+2]))
+        if i + 1 < len(s) and s[i : i + 2] in COMPARISON_OPS:
+            tokens.append(Token(TokenType.COMPARISON, s[i : i + 2]))
             i += 2
             continue
         if ch in (">", "<"):
@@ -51,7 +52,7 @@ def tokenize(formula: str) -> list[Token]:
             continue
 
         # Numbers
-        if ch.isdigit() or (ch == "." and i + 1 < len(s) and s[i+1].isdigit()):
+        if ch.isdigit() or (ch == "." and i + 1 < len(s) and s[i + 1].isdigit()):
             m = re.match(r"\d+\.?\d*", s[i:])
             if m:
                 tokens.append(Token(TokenType.NUMBER, m.group()))
@@ -59,9 +60,12 @@ def tokenize(formula: str) -> list[Token]:
                 continue
 
         # Negative number after operator/lparen/comma/comparison or at start
-        if ch == "-" and i + 1 < len(s) and (s[i+1].isdigit() or s[i+1] == "."):
+        if ch == "-" and i + 1 < len(s) and (s[i + 1].isdigit() or s[i + 1] == "."):
             if not tokens or tokens[-1].type in (
-                TokenType.OPERATOR, TokenType.LPAREN, TokenType.COMMA, TokenType.COMPARISON
+                TokenType.OPERATOR,
+                TokenType.LPAREN,
+                TokenType.COMMA,
+                TokenType.COMPARISON,
             ):
                 m = re.match(r"-\d+\.?\d*", s[i:])
                 if m:
@@ -103,6 +107,6 @@ def tokenize(formula: str) -> list[Token]:
                 i += m.end()
                 continue
 
-        raise ValueError(f"Unexpected character \'{ch}\' at position {i} in: {formula}")
+        raise ValueError(f"Unexpected character '{ch}' at position {i} in: {formula}")
 
     return tokens

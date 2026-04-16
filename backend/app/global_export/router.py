@@ -1,4 +1,5 @@
 """Global export templates — HTTP routing layer."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -25,6 +26,7 @@ router = APIRouter()
 
 # ── Templates ──
 
+
 @router.get("/export-templates", response_model=list[GlobalTemplateResponse])
 def list_templates(
     db: Session = Depends(get_db),
@@ -46,6 +48,7 @@ def get_template(
 
 
 # ── Columns CRUD (admin/analytics only) ──
+
 
 @router.post(
     "/export-templates/{template_id}/columns",
@@ -108,6 +111,7 @@ def reorder_columns(
 
 # ── Deal export config (row-level) ──
 
+
 @router.get(
     "/deals/{deal_id}/export-config/{template_id}",
     response_model=DealExportConfigResponse,
@@ -139,7 +143,11 @@ def save_deal_config(
             "row_order": r.row_order,
             "identifier_group": r.identifier_group,
             "cells": [
-                {"column_id": c.column_id, "value_source": c.value_source, "source_ref": c.source_ref}
+                {
+                    "column_id": c.column_id,
+                    "value_source": c.value_source,
+                    "source_ref": c.source_ref,
+                }
                 for c in r.cells
             ],
         }
@@ -149,6 +157,7 @@ def save_deal_config(
 
 
 # ── Preview ──
+
 
 @router.get("/deals/{deal_id}/export-preview/{template_id}")
 def preview_export_json(

@@ -1,4 +1,5 @@
 """Authentication service — resolves Windows username to User record."""
+
 from sqlalchemy.orm import Session
 from app.models.user import User
 

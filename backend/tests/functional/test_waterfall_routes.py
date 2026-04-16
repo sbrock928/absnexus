@@ -1,4 +1,5 @@
 """Functional tests for waterfall endpoint."""
+
 import os
 import tempfile
 
@@ -46,20 +47,46 @@ def _setup_waterfall_deal(db):
     db.add(v)
     db.flush()
 
-    db.add(VariableMapping(
-        deal_id=d.id, variable_id=v.id,
-        sheet_name="Sheet1", column_letter="A", row_number=1,
-    ))
+    db.add(
+        VariableMapping(
+            deal_id=d.id,
+            variable_id=v.id,
+            sheet_name="Sheet1",
+            column_letter="A",
+            row_number=1,
+        )
+    )
     db.flush()
 
-    DagService(db).save(d.id, [
-        DagNodeCreate(key="amount", name="Amount", node_type="input_value", input_source="tape"),
-        DagNodeCreate(key="fee", name="Fee Pmt", node_type="distribution", formula="amount * 0.01", waterfall_order=1, payment_type="FEE"),
-        DagNodeCreate(key="prin", name="Principal", node_type="distribution", formula="amount * 0.99", waterfall_order=2, payment_type="PRIN"),
-    ], [
-        DagEdgeCreate(source_key="amount", target_key="fee"),
-        DagEdgeCreate(source_key="amount", target_key="prin"),
-    ], "testuser")
+    DagService(db).save(
+        d.id,
+        [
+            DagNodeCreate(
+                key="amount", name="Amount", node_type="input_value", input_source="tape"
+            ),
+            DagNodeCreate(
+                key="fee",
+                name="Fee Pmt",
+                node_type="distribution",
+                formula="amount * 0.01",
+                waterfall_order=1,
+                payment_type="FEE",
+            ),
+            DagNodeCreate(
+                key="prin",
+                name="Principal",
+                node_type="distribution",
+                formula="amount * 0.99",
+                waterfall_order=2,
+                payment_type="PRIN",
+            ),
+        ],
+        [
+            DagEdgeCreate(source_key="amount", target_key="fee"),
+            DagEdgeCreate(source_key="amount", target_key="prin"),
+        ],
+        "testuser",
+    )
 
     return d
 
@@ -124,11 +151,14 @@ def test_waterfall_config_endpoint(client, db):
     db.add(d)
     db.flush()
 
-    r = client.patch(f"/api/deals/{d.id}/waterfall-config", json={
-        "waterfall_starting_var": "custom_start",
-        "waterfall_ending_var": "custom_end",
-        "waterfall_tolerance": "0.50",
-    })
+    r = client.patch(
+        f"/api/deals/{d.id}/waterfall-config",
+        json={
+            "waterfall_starting_var": "custom_start",
+            "waterfall_ending_var": "custom_end",
+            "waterfall_tolerance": "0.50",
+        },
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["starting_var"] == "custom_start"
@@ -147,15 +177,23 @@ def test_node_patch_waterfall_order(client, db):
     db.add(d)
     db.flush()
 
-    DagService(db).save(d.id, [
-        DagNodeCreate(key="fee", name="Fee", node_type="distribution", formula="100"),
-    ], [], "testuser")
+    DagService(db).save(
+        d.id,
+        [
+            DagNodeCreate(key="fee", name="Fee", node_type="distribution", formula="100"),
+        ],
+        [],
+        "testuser",
+    )
 
     loaded = DagService(db).load(d.id)
     node_id = loaded["nodes"][0].id
 
-    r = client.patch(f"/api/deals/{d.id}/dag/nodes/{node_id}", json={
-        "waterfall_order": 5,
-    })
+    r = client.patch(
+        f"/api/deals/{d.id}/dag/nodes/{node_id}",
+        json={
+            "waterfall_order": 5,
+        },
+    )
     assert r.status_code == 200
     assert r.json()["waterfall_order"] == 5

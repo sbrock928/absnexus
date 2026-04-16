@@ -1,4 +1,5 @@
 """DAG data access."""
+
 from sqlalchemy.orm import Session
 from app.models.dag import DagNode, DagEdge, DagVersion
 
@@ -25,7 +26,9 @@ class DagDAO:
             .all()
         )
 
-    def create_version(self, deal_id: int, version_number: int, created_by: str, description: str | None = None) -> DagVersion:
+    def create_version(
+        self, deal_id: int, version_number: int, created_by: str, description: str | None = None
+    ) -> DagVersion:
         # Mark old versions as not current
         self.db.query(DagVersion).filter(
             DagVersion.deal_id == deal_id, DagVersion.is_current == 1
@@ -49,11 +52,7 @@ class DagDAO:
         )
 
     def get_edges(self, version_id: int) -> list[DagEdge]:
-        return (
-            self.db.query(DagEdge)
-            .filter(DagEdge.dag_version_id == version_id)
-            .all()
-        )
+        return self.db.query(DagEdge).filter(DagEdge.dag_version_id == version_id).all()
 
     def add_node(self, version_id: int, deal_id: int, **kwargs) -> DagNode:
         node = DagNode(dag_version_id=version_id, deal_id=deal_id, **kwargs)
@@ -62,7 +61,9 @@ class DagDAO:
         return node
 
     def add_edge(self, version_id: int, source_id: int, target_id: int) -> DagEdge:
-        edge = DagEdge(dag_version_id=version_id, source_node_id=source_id, target_node_id=target_id)
+        edge = DagEdge(
+            dag_version_id=version_id, source_node_id=source_id, target_node_id=target_id
+        )
         self.db.add(edge)
         self.db.flush()
         return edge

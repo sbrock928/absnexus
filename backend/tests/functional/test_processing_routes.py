@@ -1,4 +1,5 @@
 """Processing route functional tests."""
+
 import tempfile, openpyxl, os
 from app.models.servicer import Servicer
 from app.models.deal import Deal
@@ -25,19 +26,39 @@ def _setup_deal_with_dag(db):
     db.add(v)
     db.flush()
 
-    db.add(VariableMapping(deal_id=d.id, variable_id=v.id, sheet_name="Sheet1", column_letter="A", row_number=1))
+    db.add(
+        VariableMapping(
+            deal_id=d.id, variable_id=v.id, sheet_name="Sheet1", column_letter="A", row_number=1
+        )
+    )
     db.flush()
 
-    DagService(db).save(d.id, [
-        DagNodeCreate(key="amount", name="Amount", node_type="input_value", input_source="tape"),
-        DagNodeCreate(key="pmt", name="Payment", node_type="distribution", formula="amount", export_field="PMT", payment_type="principal"),
-    ], [DagEdgeCreate(source_key="amount", target_key="pmt")], "testuser")
+    DagService(db).save(
+        d.id,
+        [
+            DagNodeCreate(
+                key="amount", name="Amount", node_type="input_value", input_source="tape"
+            ),
+            DagNodeCreate(
+                key="pmt",
+                name="Payment",
+                node_type="distribution",
+                formula="amount",
+                export_field="PMT",
+                payment_type="principal",
+            ),
+        ],
+        [DagEdgeCreate(source_key="amount", target_key="pmt")],
+        "testuser",
+    )
 
     # Create export template
     t = ExportTemplate(name="System A", format_type="row_per_payment")
     db.add(t)
     db.flush()
-    for i, col in enumerate(["DEAL_ID", "PAYMENT_DATE", "PAYMENT_TYPE", "CLASS", "FIELD_CODE", "AMOUNT", "RUN_ID"]):
+    for i, col in enumerate(
+        ["DEAL_ID", "PAYMENT_DATE", "PAYMENT_TYPE", "CLASS", "FIELD_CODE", "AMOUNT", "RUN_ID"]
+    ):
         db.add(ExportTemplateColumn(template_id=t.id, column_name=col, column_order=i))
     db.flush()
 
@@ -65,7 +86,9 @@ def test_full_processing_flow(client, db):
     # Step 2: Upload tape
     path = _make_tape(1000000)
     with open(path, "rb") as f:
-        r = client.post(f"/api/deals/{deal.id}/runs/{run_id}/upload", files={"file": ("tape.xlsx", f)})
+        r = client.post(
+            f"/api/deals/{deal.id}/runs/{run_id}/upload", files={"file": ("tape.xlsx", f)}
+        )
     os.unlink(path)
     assert r.status_code == 200
 

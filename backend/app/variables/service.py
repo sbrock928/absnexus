@@ -1,4 +1,5 @@
 """Variable service with 3-tier scope resolution."""
+
 from sqlalchemy.orm import Session
 from app.models.deal import Deal
 from app.models.variable import VariableDefinition

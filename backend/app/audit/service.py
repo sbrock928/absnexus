@@ -1,4 +1,5 @@
 """Audit log query service (read-only)."""
+
 import json
 from datetime import datetime
 
@@ -52,7 +53,7 @@ class AuditQueryService:
         )
 
     @staticmethod
-    def _to_response(log, display_name: str) -> AuditLogResponse:  # type: ignore[type-arg]
+    def _to_response(log, display_name: str) -> AuditLogResponse:
         changes = None
         if log.changes:
             try:

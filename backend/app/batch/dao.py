@@ -17,12 +17,7 @@ class BatchDAO:
         return self.db.query(BatchRun).filter(BatchRun.batch_code == code).first()
 
     def list_recent(self, limit: int = 20) -> list[BatchRun]:
-        return (
-            self.db.query(BatchRun)
-            .order_by(BatchRun.created_at.desc())
-            .limit(limit)
-            .all()
-        )  # type: ignore[return-value]
+        return self.db.query(BatchRun).order_by(BatchRun.created_at.desc()).limit(limit).all()
 
     def list_batches_for_period(self, period: str) -> list[BatchRun]:
         return (
@@ -30,7 +25,7 @@ class BatchDAO:
             .filter(BatchRun.report_period == period)
             .order_by(BatchRun.created_at.desc())
             .all()
-        )  # type: ignore[return-value]
+        )
 
     def create(self, batch: BatchRun) -> BatchRun:
         self.db.add(batch)
@@ -43,7 +38,7 @@ class BatchDAO:
             .filter(ProcessingRun.batch_id == batch_id)
             .order_by(ProcessingRun.id)
             .all()
-        )  # type: ignore[return-value]
+        )
 
     def next_batch_code(self, period: str) -> str:
         """Generate BATCH-{period}-{seq}."""

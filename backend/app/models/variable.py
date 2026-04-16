@@ -1,4 +1,5 @@
 """Variable definition and alias models."""
+
 from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,6 +8,7 @@ from app.core.database import Base
 
 class VariableDefinition(Base):
     """Canonical variable with 3-tier scope: system -> servicer -> deal."""
+
     __tablename__ = "variable_definition"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -24,6 +26,7 @@ class VariableDefinition(Base):
 
 class VariableAlias(Base):
     """Display alias per servicer or deal for a canonical variable."""
+
     __tablename__ = "variable_alias"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

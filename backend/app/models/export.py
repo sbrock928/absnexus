@@ -1,15 +1,17 @@
 """Export models — configurable per-deal column layouts."""
 
 from datetime import datetime
-from decimal import Decimal
 
 from sqlalchemy import (
-    DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-
 
 # ── Legacy models (kept for migration compatibility) ──────────
 
@@ -28,7 +30,9 @@ class ExportTemplateColumn(Base):
     __tablename__ = "export_template_column"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    template_id: Mapped[int] = mapped_column(Integer, ForeignKey("export_template.id"), nullable=False)
+    template_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("export_template.id"), nullable=False
+    )
     column_name: Mapped[str] = mapped_column(String(100), nullable=False)
     column_order: Mapped[int] = mapped_column(Integer, nullable=False)
     data_type: Mapped[str] = mapped_column(String(50), nullable=False, default="string")
@@ -39,7 +43,9 @@ class ExportFieldMapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     deal_id: Mapped[int] = mapped_column(Integer, ForeignKey("deal.id"), nullable=False)
-    template_id: Mapped[int] = mapped_column(Integer, ForeignKey("export_template.id"), nullable=False)
+    template_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("export_template.id"), nullable=False
+    )
     node_key: Mapped[str] = mapped_column(String(100), nullable=False)
     field_code: Mapped[str] = mapped_column(String(100), nullable=False)
     payment_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -61,9 +67,7 @@ class ExportColumn(Base):
     """
 
     __tablename__ = "export_column"
-    __table_args__ = (
-        UniqueConstraint("deal_id", "position", name="uq_export_column_position"),
-    )
+    __table_args__ = (UniqueConstraint("deal_id", "position", name="uq_export_column_position"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     deal_id: Mapped[int] = mapped_column(Integer, ForeignKey("deal.id"), nullable=False)
@@ -77,7 +81,9 @@ class ExportColumn(Base):
 
     # Source-specific fields (nullable — only one applies based on value_type)
     node_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("dag_node.id"), nullable=True,
+        Integer,
+        ForeignKey("dag_node.id"),
+        nullable=True,
     )
     literal_value: Mapped[str | None] = mapped_column(String(500), nullable=True)
     meta_field: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -92,5 +98,8 @@ class ExportColumn(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow,
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )

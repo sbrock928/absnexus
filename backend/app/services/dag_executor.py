@@ -1,4 +1,5 @@
 """DAG execution engine — builds context, topo-sort, evaluate, write trace."""
+
 import json
 from decimal import Decimal
 import networkx as nx
@@ -77,19 +78,14 @@ class DagExecutor:
             context.update(prior_svc.get_default_priors(run.deal_id))
 
         # 3. Source 2: Tape values
-        extracted = (
-            self.db.query(ExtractedValue)
-            .filter(ExtractedValue.run_id == run.id)
-            .all()
-        )
+        extracted = self.db.query(ExtractedValue).filter(ExtractedValue.run_id == run.id).all()
         for ev in extracted:
             if ev.parsed_value is not None:
                 context[ev.variable_name] = ev.parsed_value
 
         # 4. Source 3: Tranche context
         tranche_ctx = TrancheService(self.db).build_tranche_context(
-            run.deal_id, run.report_period,
-            self._prior_period(run.report_period)
+            run.deal_id, run.report_period, self._prior_period(run.report_period)
         )
         context.update(tranche_ctx)
         run.tranche_snapshot = json.dumps({k: str(v) for k, v in tranche_ctx.items()})
@@ -158,7 +154,11 @@ class DagExecutor:
                         result.errors.append(f"Validation '{node.key}': {e}")
 
                     # Compare to tape value
-                    comp_val = context.get(node.comparison_variable, Decimal("0")) if node.comparison_variable else Decimal("0")
+                    comp_val = (
+                        context.get(node.comparison_variable, Decimal("0"))
+                        if node.comparison_variable
+                        else Decimal("0")
+                    )
                     step.comparison_value = comp_val
                     step.tolerance = node.tolerance or Decimal("0.01")
                     step.tolerance_type = node.tolerance_type or "absolute"

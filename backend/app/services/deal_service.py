@@ -1,7 +1,7 @@
 """Deal CRUD service."""
+
 from sqlalchemy.orm import Session
 from app.models.deal import Deal
-from app.services.audit_service import AuditService
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     "draft": {"active"},

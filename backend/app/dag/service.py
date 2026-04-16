@@ -1,4 +1,5 @@
 """DAG service — save with versioning, revert, deactivate."""
+
 import json
 import os
 from datetime import datetime
@@ -37,16 +38,25 @@ class DagService:
         key_to_id: dict[str, int] = {}
         for n in nodes:
             node = self.dao.add_node(
-                version.id, deal_id,
-                key=n.key, name=n.name, node_type=n.node_type, stream=n.stream,
-                formula=n.formula, description=n.description,
-                input_source=n.input_source, variable_id=n.variable_id,
-                payment_type=n.payment_type, export_field=n.export_field,
-                tolerance=n.tolerance, tolerance_type=n.tolerance_type,
+                version.id,
+                deal_id,
+                key=n.key,
+                name=n.name,
+                node_type=n.node_type,
+                stream=n.stream,
+                formula=n.formula,
+                description=n.description,
+                input_source=n.input_source,
+                variable_id=n.variable_id,
+                payment_type=n.payment_type,
+                export_field=n.export_field,
+                tolerance=n.tolerance,
+                tolerance_type=n.tolerance_type,
                 comparison_variable=n.comparison_variable,
                 default_prior_value=n.default_prior_value,
                 waterfall_order=n.waterfall_order,
-                position_x=n.position_x, position_y=n.position_y,
+                position_x=n.position_x,
+                position_y=n.position_y,
             )
             key_to_id[n.key] = node.id
 
@@ -71,7 +81,9 @@ class DagService:
     ) -> str | None:
         """Write a JSON snapshot of the version to disk. Returns the file path."""
         deal = self.db.query(Deal).filter(Deal.id == deal_id).first()
-        base_dir = (deal.dag_archive_directory_override if deal else None) or settings.dag_archive_directory
+        base_dir = (
+            deal.dag_archive_directory_override if deal else None
+        ) or settings.dag_archive_directory
         dest_dir = os.path.join(base_dir, str(deal_id))
         try:
             os.makedirs(dest_dir, exist_ok=True)
@@ -85,7 +97,7 @@ class DagService:
                 "nodes": [_node_to_dict(n) for n in nodes],
                 "edges": [{"source_key": e.source_key, "target_key": e.target_key} for e in edges],
             }
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2, default=_json_default)
             return file_path
         except OSError:
@@ -135,17 +147,27 @@ class DagService:
         # Convert to create schemas
         node_creates = []
         for n in old_nodes:
-            node_creates.append(DagNodeCreate(
-                key=n.key, name=n.name, node_type=n.node_type, stream=n.stream,
-                formula=n.formula, description=n.description,
-                input_source=n.input_source, variable_id=n.variable_id,
-                payment_type=n.payment_type, export_field=n.export_field,
-                tolerance=n.tolerance, tolerance_type=n.tolerance_type,
-                comparison_variable=n.comparison_variable,
-                default_prior_value=n.default_prior_value,
-                waterfall_order=n.waterfall_order,
-                position_x=n.position_x, position_y=n.position_y,
-            ))
+            node_creates.append(
+                DagNodeCreate(
+                    key=n.key,
+                    name=n.name,
+                    node_type=n.node_type,
+                    stream=n.stream,
+                    formula=n.formula,
+                    description=n.description,
+                    input_source=n.input_source,
+                    variable_id=n.variable_id,
+                    payment_type=n.payment_type,
+                    export_field=n.export_field,
+                    tolerance=n.tolerance,
+                    tolerance_type=n.tolerance_type,
+                    comparison_variable=n.comparison_variable,
+                    default_prior_value=n.default_prior_value,
+                    waterfall_order=n.waterfall_order,
+                    position_x=n.position_x,
+                    position_y=n.position_y,
+                )
+            )
 
         # Build key mapping from old node IDs
         old_id_to_key = {n.id: n.key for n in old_nodes}
@@ -156,7 +178,13 @@ class DagService:
             if src_key and tgt_key:
                 edge_creates.append(DagEdgeCreate(source_key=src_key, target_key=tgt_key))
 
-        return self.save(deal_id, node_creates, edge_creates, created_by, f"Reverted to v{old_version.version_number}")
+        return self.save(
+            deal_id,
+            node_creates,
+            edge_creates,
+            created_by,
+            f"Reverted to v{old_version.version_number}",
+        )
 
     # ── Single-node / edge CRUD on the current version ──
 
@@ -218,7 +246,9 @@ class DagService:
         self.db.flush()
         return True
 
-    def create_edge(self, deal_id: int, source_node_id: int, target_node_id: int) -> DagEdge | None:
+    def create_edge(
+        self, deal_id: int, source_node_id: int, target_node_id: int
+    ) -> DagEdge | None:
         version = self.dao.get_current_version(deal_id)
         if version is None:
             return None
@@ -262,7 +292,9 @@ class DagService:
 
         existing_edges = (
             self.db.query(DagEdge)
-            .filter(DagEdge.dag_version_id == node.dag_version_id, DagEdge.target_node_id == node.id)
+            .filter(
+                DagEdge.dag_version_id == node.dag_version_id, DagEdge.target_node_id == node.id
+            )
             .all()
         )
         existing_sources = {e.source_node_id: e for e in existing_edges}
@@ -346,10 +378,23 @@ class DagService:
 
 
 _NODE_FIELDS = [
-    "key", "name", "node_type", "stream", "formula", "description",
-    "input_source", "variable_id", "payment_type", "export_field",
-    "tolerance", "tolerance_type", "comparison_variable",
-    "default_prior_value", "waterfall_order", "position_x", "position_y",
+    "key",
+    "name",
+    "node_type",
+    "stream",
+    "formula",
+    "description",
+    "input_source",
+    "variable_id",
+    "payment_type",
+    "export_field",
+    "tolerance",
+    "tolerance_type",
+    "comparison_variable",
+    "default_prior_value",
+    "waterfall_order",
+    "position_x",
+    "position_y",
 ]
 
 

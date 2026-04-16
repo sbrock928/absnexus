@@ -1,4 +1,5 @@
 """Unit tests for export column service."""
+
 import pytest
 from decimal import Decimal
 
@@ -22,12 +23,16 @@ def deal(db):
 class TestColumnCRUD:
     def test_create_column_auto_position(self, db, deal):
         svc = ExportColumnService(db)
-        col = svc.create_column(deal.id, header_label="AMOUNT", value_type="literal", literal_value="123")
+        col = svc.create_column(
+            deal.id, header_label="AMOUNT", value_type="literal", literal_value="123"
+        )
         assert col.id is not None
         assert col.position == 1
         assert col.header_label == "AMOUNT"
 
-        col2 = svc.create_column(deal.id, header_label="RUN_ID", value_type="run_meta", meta_field="run_code")
+        col2 = svc.create_column(
+            deal.id, header_label="RUN_ID", value_type="run_meta", meta_field="run_code"
+        )
         assert col2.position == 2
 
     def test_list_columns_ordered(self, db, deal):
@@ -41,14 +46,18 @@ class TestColumnCRUD:
 
     def test_update_column(self, db, deal):
         svc = ExportColumnService(db)
-        col = svc.create_column(deal.id, header_label="OLD", value_type="literal", literal_value="x")
+        col = svc.create_column(
+            deal.id, header_label="OLD", value_type="literal", literal_value="x"
+        )
         svc.update_column(col, header_label="NEW", literal_value="y")
         assert col.header_label == "NEW"
         assert col.literal_value == "y"
 
     def test_delete_column(self, db, deal):
         svc = ExportColumnService(db)
-        col = svc.create_column(deal.id, header_label="DEL", value_type="literal", literal_value="x")
+        col = svc.create_column(
+            deal.id, header_label="DEL", value_type="literal", literal_value="x"
+        )
         svc.delete_column(col)
         assert svc.list_columns(deal.id) == []
 
@@ -107,8 +116,12 @@ class TestPreview:
 
     def test_preview_with_columns(self, db, deal):
         svc = ExportColumnService(db)
-        svc.create_column(deal.id, header_label="FIELD", value_type="literal", literal_value="hello")
-        svc.create_column(deal.id, header_label="AMT", value_type="distribution_node", format_type="decimal")
+        svc.create_column(
+            deal.id, header_label="FIELD", value_type="literal", literal_value="hello"
+        )
+        svc.create_column(
+            deal.id, header_label="AMT", value_type="distribution_node", format_type="decimal"
+        )
         result = svc.preview(deal.id)
         lines = result.strip().split("\n")
         assert len(lines) == 3  # header + 2 sample rows

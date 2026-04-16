@@ -1,4 +1,5 @@
 """User management service."""
+
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -22,7 +23,9 @@ class UserService:
         updates: dict[str, object] = {}
         if role is not None:
             if role not in VALID_ROLES:
-                raise ValueError(f"Invalid role '{role}'. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+                raise ValueError(
+                    f"Invalid role '{role}'. Must be one of: {', '.join(sorted(VALID_ROLES))}"
+                )
             updates["role"] = role
         if is_active is not None:
             updates["is_active"] = is_active

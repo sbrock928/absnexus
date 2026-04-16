@@ -1,4 +1,5 @@
 """Global export data access layer."""
+
 from sqlalchemy.orm import Session
 
 from app.models.global_export import (
@@ -19,9 +20,13 @@ class GlobalExportDAO:
         return self.db.query(GlobalExportTemplate).order_by(GlobalExportTemplate.id).all()
 
     def get_template(self, template_id: int) -> GlobalExportTemplate | None:
-        return self.db.query(GlobalExportTemplate).filter(
-            GlobalExportTemplate.id == template_id,
-        ).first()
+        return (
+            self.db.query(GlobalExportTemplate)
+            .filter(
+                GlobalExportTemplate.id == template_id,
+            )
+            .first()
+        )
 
     # ── Columns ──
 
@@ -34,11 +39,17 @@ class GlobalExportDAO:
         )
 
     def get_column(self, column_id: int) -> GlobalExportColumn | None:
-        return self.db.query(GlobalExportColumn).filter(
-            GlobalExportColumn.id == column_id,
-        ).first()
+        return (
+            self.db.query(GlobalExportColumn)
+            .filter(
+                GlobalExportColumn.id == column_id,
+            )
+            .first()
+        )
 
-    def create_column(self, template_id: int, position: int, **kwargs: object) -> GlobalExportColumn:
+    def create_column(
+        self, template_id: int, position: int, **kwargs: object
+    ) -> GlobalExportColumn:
         col = GlobalExportColumn(template_id=template_id, position=position, **kwargs)
         self.db.add(col)
         self.db.flush()
@@ -56,12 +67,19 @@ class GlobalExportDAO:
 
     def next_position(self, template_id: int) -> int:
         from sqlalchemy import func
-        result = self.db.query(func.max(GlobalExportColumn.position)).filter(
-            GlobalExportColumn.template_id == template_id,
-        ).scalar()
+
+        result = (
+            self.db.query(func.max(GlobalExportColumn.position))
+            .filter(
+                GlobalExportColumn.template_id == template_id,
+            )
+            .scalar()
+        )
         return (result or 0) + 1
 
-    def reorder_columns(self, template_id: int, ordered_ids: list[int]) -> list[GlobalExportColumn]:
+    def reorder_columns(
+        self, template_id: int, ordered_ids: list[int]
+    ) -> list[GlobalExportColumn]:
         columns = self.list_columns(template_id)
         col_map = {c.id: c for c in columns}
         for pos, col_id in enumerate(ordered_ids, start=1):
@@ -85,11 +103,7 @@ class GlobalExportDAO:
         )
 
     def list_cells_for_row(self, row_id: int) -> list[DealExportCell]:
-        return (
-            self.db.query(DealExportCell)
-            .filter(DealExportCell.row_id == row_id)
-            .all()
-        )
+        return self.db.query(DealExportCell).filter(DealExportCell.row_id == row_id).all()
 
     def save_deal_config(
         self,

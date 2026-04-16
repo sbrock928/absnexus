@@ -1,12 +1,14 @@
 """Functional tests for audit log routes."""
+
 import json
 
 from app.models.audit_log import AuditLog
 from app.models.user import User
 
 
-def _seed_audit(db, user_id, entity_type="deal", entity_id=1,
-                action="create", changes=None, description=None):
+def _seed_audit(
+    db, user_id, entity_type="deal", entity_id=1, action="create", changes=None, description=None
+):
     entry = AuditLog(
         user_id=user_id,
         entity_type=entity_type,

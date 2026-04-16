@@ -1,10 +1,16 @@
 """Formula evaluator — walks AST with Decimal arithmetic."""
+
 import math
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP
 
 from app.formulas.parser import (
-    ASTNode, NumberNode, VariableNode, BinaryOpNode,
-    ComparisonNode, FunctionCallNode, UnaryMinusNode,
+    ASTNode,
+    NumberNode,
+    VariableNode,
+    BinaryOpNode,
+    ComparisonNode,
+    FunctionCallNode,
+    UnaryMinusNode,
 )
 
 

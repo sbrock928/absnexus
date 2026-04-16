@@ -34,7 +34,11 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [tool.pylint.messages_control]
-disable = ["C0114","C0115","C0116","R0903"]
+# C0114/C0115/C0116: missing module/class/function docstring
+# R0903: too-few-public-methods (noise for DAOs, schemas)
+# E1136 (unsubscriptable-object): false positive for SQLAlchemy 2.0 `Mapped[T]` typing
+# W0613 (unused-argument): we use `_`-prefixed params for FastAPI DI side-effect deps
+disable = ["C0114", "C0115", "C0116", "R0903", "E1136", "W0613"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

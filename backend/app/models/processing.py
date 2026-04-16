@@ -1,4 +1,5 @@
 """Processing run and extracted value models."""
+
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
@@ -16,10 +17,16 @@ class ProcessingRun(Base):
     # pending -> extracting -> executing -> validating -> exporting -> completed / failed
     tape_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     tape_file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    dag_version_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("dag_version.id"), nullable=True)
-    prior_run_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("processing_run.id"), nullable=True)
+    dag_version_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("dag_version.id"), nullable=True
+    )
+    prior_run_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("processing_run.id"), nullable=True
+    )
     batch_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("batch_run.id"), nullable=True,
+        Integer,
+        ForeignKey("batch_run.id"),
+        nullable=True,
     )
     mappings_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     tranche_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
@@ -40,7 +47,9 @@ class ExtractedValue(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_id: Mapped[int] = mapped_column(Integer, ForeignKey("processing_run.id"), nullable=False)
     variable_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    variable_id: Mapped[int] = mapped_column(Integer, ForeignKey("variable_definition.id"), nullable=False)
+    variable_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("variable_definition.id"), nullable=False
+    )
     sheet_name: Mapped[str] = mapped_column(String(255), nullable=False)
     cell_ref: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "J127"
     raw_value: Mapped[str | None] = mapped_column(String(500), nullable=True)

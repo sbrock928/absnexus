@@ -1,9 +1,9 @@
 """Processing endpoints — full workflow orchestration."""
+
 import os
 import tempfile
 import hashlib
 from datetime import datetime
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
@@ -25,6 +25,7 @@ router = APIRouter()
 
 
 # ── Processing Run CRUD ──
+
 
 @router.get("/{deal_id}/runs")
 def list_runs(deal_id: int, db: Session = Depends(get_db)):
@@ -48,6 +49,7 @@ def get_run(deal_id: int, run_id: int, db: Session = Depends(get_db)):
 
 import re
 
+
 class CreateRunRequest(BaseModel):
     report_period: str  # YYYY-MM
 
@@ -67,7 +69,9 @@ def create_run(
     _deal: Deal = Depends(require_processable_deal),
 ):
     if not re.match(r"^\d{4}-\d{2}$", body.report_period):
-        raise HTTPException(400, f"Invalid period format: '{body.report_period}'. Expected YYYY-MM (e.g. 2026-04).")
+        raise HTTPException(
+            400, f"Invalid period format: '{body.report_period}'. Expected YYYY-MM (e.g. 2026-04)."
+        )
     run = ProcessingRun(
         deal_id=deal_id,
         report_period=body.report_period,
@@ -108,6 +112,7 @@ def upload_tape(
 
 # ── Step 2: Extract variables ──
 
+
 @router.get("/{deal_id}/runs/{run_id}/extracted")
 def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
     """Read-only — return previously extracted values for a run."""
@@ -126,7 +131,9 @@ def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
         "values": [
             {
                 "variable_id": r.variable_id,
-                "variable": r.variable_name, "cell": r.cell_ref, "sheet": r.sheet_name,
+                "variable": r.variable_name,
+                "cell": r.cell_ref,
+                "sheet": r.sheet_name,
                 "raw": r.raw_value,
                 "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
                 "prior": str(r.prior_value) if r.prior_value is not None else None,
@@ -139,7 +146,12 @@ def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{deal_id}/runs/{run_id}/extract")
-def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal: Deal = Depends(require_processable_deal)):
+def extract_variables(
+    deal_id: int,
+    run_id: int,
+    db: Session = Depends(get_db),
+    _deal: Deal = Depends(require_processable_deal),
+):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
@@ -163,8 +175,11 @@ def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db), 
         "values": [
             {
                 "variable_id": r.variable_id,
-                "variable": r.variable_name, "cell": r.cell_ref, "sheet": r.sheet_name,
-                "raw": r.raw_value, "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
+                "variable": r.variable_name,
+                "cell": r.cell_ref,
+                "sheet": r.sheet_name,
+                "raw": r.raw_value,
+                "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
                 "prior": str(r.prior_value) if r.prior_value is not None else None,
                 "pct_change": str(r.pct_change) if r.pct_change is not None else None,
                 "warning": r.warning,
@@ -176,8 +191,14 @@ def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db), 
 
 # ── Step 3: Execute DAG ──
 
+
 @router.post("/{deal_id}/runs/{run_id}/execute")
-def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal: Deal = Depends(require_processable_deal)):
+def execute_dag(
+    deal_id: int,
+    run_id: int,
+    db: Session = Depends(get_db),
+    _deal: Deal = Depends(require_processable_deal),
+):
     run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
     if not run or run.deal_id != deal_id:
         raise HTTPException(404, "Run not found")
@@ -209,9 +230,13 @@ def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal:
         "errors": result.errors,
         "steps": [
             {
-                "order": s.step_order, "key": s.node_key, "name": s.node_name,
-                "type": s.node_type, "stream": s.stream,
-                "formula": s.formula, "resolved": s.resolved_formula,
+                "order": s.step_order,
+                "key": s.node_key,
+                "name": s.node_name,
+                "type": s.node_type,
+                "stream": s.stream,
+                "formula": s.formula,
+                "resolved": s.resolved_formula,
                 "result": str(s.result) if s.result is not None else None,
                 "export_field": s.export_field,
                 "passed": s.passed,
@@ -224,6 +249,7 @@ def execute_dag(deal_id: int, run_id: int, db: Session = Depends(get_db), _deal:
 
 # ── Step 4: Get execution trace + lineage ──
 
+
 @router.get("/{deal_id}/runs/{run_id}/trace")
 def get_trace(deal_id: int, run_id: int, db: Session = Depends(get_db)):
     steps = (
@@ -234,12 +260,19 @@ def get_trace(deal_id: int, run_id: int, db: Session = Depends(get_db)):
     )
     return [
         {
-            "order": s.step_order, "key": s.node_key, "name": s.node_name,
-            "type": s.node_type, "stream": s.stream,
-            "formula": s.formula, "resolved": s.resolved_formula,
+            "order": s.step_order,
+            "key": s.node_key,
+            "name": s.node_name,
+            "type": s.node_type,
+            "stream": s.stream,
+            "formula": s.formula,
+            "resolved": s.resolved_formula,
             "result": str(s.result) if s.result is not None else None,
-            "export_field": s.export_field, "payment_type": s.payment_type,
-            "comparison_value": str(s.comparison_value) if s.comparison_value is not None else None,
+            "export_field": s.export_field,
+            "payment_type": s.payment_type,
+            "comparison_value": (
+                str(s.comparison_value) if s.comparison_value is not None else None
+            ),
             "tolerance": str(s.tolerance) if s.tolerance is not None else None,
             "tolerance_type": s.tolerance_type,
             "difference": str(s.difference) if s.difference is not None else None,
@@ -265,27 +298,29 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
         is_suspect = False
         suspect_reason = None
 
-        nodes.append({
-            "node_key": s.node_key,
-            "node_name": s.node_name,
-            "node_type": s.node_type,
-            "stream": s.stream,
-            "execution_order": s.step_order,
-            "formula": s.formula,
-            "formula_resolved": s.resolved_formula,
-            "result": str(s.result) if s.result is not None else None,
-            "prior_value": prior_val,
-            "delta_pct": delta_pct,
-            "is_suspect": is_suspect,
-            "suspect_reason": suspect_reason,
-            "upstream_keys": [],
-            "tape_value": str(s.comparison_value) if s.comparison_value is not None else None,
-            "difference": str(s.difference) if s.difference is not None else None,
-            "tolerance": str(s.tolerance) if s.tolerance is not None else None,
-            "validation_passed": True if s.passed == 1 else (False if s.passed == 0 else None),
-            "input_source": None,
-            "cell_ref": s.node_key,
-        })
+        nodes.append(
+            {
+                "node_key": s.node_key,
+                "node_name": s.node_name,
+                "node_type": s.node_type,
+                "stream": s.stream,
+                "execution_order": s.step_order,
+                "formula": s.formula,
+                "formula_resolved": s.resolved_formula,
+                "result": str(s.result) if s.result is not None else None,
+                "prior_value": prior_val,
+                "delta_pct": delta_pct,
+                "is_suspect": is_suspect,
+                "suspect_reason": suspect_reason,
+                "upstream_keys": [],
+                "tape_value": str(s.comparison_value) if s.comparison_value is not None else None,
+                "difference": str(s.difference) if s.difference is not None else None,
+                "tolerance": str(s.tolerance) if s.tolerance is not None else None,
+                "validation_passed": True if s.passed == 1 else (False if s.passed == 0 else None),
+                "input_source": None,
+                "cell_ref": s.node_key,
+            }
+        )
 
     return {
         "target_node_key": target_step.node_key,
@@ -298,6 +333,7 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
 
 
 # ── Step 5: Waterfall reconciliation ──
+
 
 @router.get("/{deal_id}/runs/{run_id}/waterfall")
 def get_waterfall(
@@ -333,6 +369,7 @@ def waterfall_pdf(
 
 # ── Single-variable re-extract (used after cell remap) ──
 
+
 @router.post("/{deal_id}/runs/{run_id}/reextract-variable/{variable_id}")
 def reextract_variable(
     deal_id: int,
@@ -364,9 +401,11 @@ def reextract_variable(
 
 # ── Step 6: Export ──
 
+
 @router.post("/{deal_id}/runs/{run_id}/export")
 def export_csv(
-    deal_id: int, run_id: int,
+    deal_id: int,
+    run_id: int,
     template_id: int = 1,
     db: Session = Depends(get_db),
     _deal: Deal = Depends(require_processable_deal),
@@ -376,6 +415,7 @@ def export_csv(
         raise HTTPException(404, "Run not found")
 
     from app.global_export.service import GlobalExportService
+
     svc = GlobalExportService(db)
     try:
         path, file_hash = svc.generate_csv(run, template_id)
@@ -390,7 +430,8 @@ def export_csv(
 
 @router.get("/{deal_id}/runs/{run_id}/export/preview")
 def preview_export(
-    deal_id: int, run_id: int,
+    deal_id: int,
+    run_id: int,
     template_id: int = 1,
     db: Session = Depends(get_db),
 ):
@@ -398,6 +439,7 @@ def preview_export(
 
 
 # ── Deal cloning ──
+
 
 class CloneRequest(BaseModel):
     new_name: str
@@ -416,8 +458,12 @@ def clone_deal(
 ):
     svc = CloneService(db)
     new_deal = svc.clone_deal(
-        deal_id, body.new_name, user.username,
-        clone_dag=body.clone_dag, clone_mappings=body.clone_mappings,
-        clone_exports=body.clone_exports, clone_tranches=body.clone_tranches,
+        deal_id,
+        body.new_name,
+        user.username,
+        clone_dag=body.clone_dag,
+        clone_mappings=body.clone_mappings,
+        clone_exports=body.clone_exports,
+        clone_tranches=body.clone_tranches,
     )
     return {"id": new_deal.id, "name": new_deal.name, "cloned_from_id": deal_id}

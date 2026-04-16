@@ -1,4 +1,5 @@
 """Formula engine unit tests — tokenizer, parser, evaluator."""
+
 from decimal import Decimal
 from app.formulas.tokenizer import tokenize, TokenType
 from app.formulas.parser import parse
@@ -6,8 +7,8 @@ from app.formulas.evaluator import evaluate, FormulaError
 from app.formulas.engine import FormulaEngine
 import pytest
 
-
 # === Tokenizer ===
+
 
 def test_tokenize_number():
     tokens = tokenize("42.5")
@@ -44,6 +45,7 @@ def test_tokenize_invalid_char():
 
 
 # === Parser + Evaluator ===
+
 
 def test_simple_arithmetic():
     ctx = {}

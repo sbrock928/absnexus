@@ -4,7 +4,6 @@ import csv
 import hashlib
 import io
 import os
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -14,48 +13,148 @@ from app.export.dao import ExportDAO
 from app.models.deal import Deal
 from app.models.export import ExportColumn
 from app.models.processing import ProcessingRun, ExecutionStep
-from app.models.tranche import DealTranche, TrancheBalance
 from app.tranches.dao import TrancheDAO
 
-
 # Preset layouts for "Copy from preset" feature
-PRESETS = {
+PRESETS: dict[str, dict[str, object]] = {
     "system_a": {
         "name": "System A — Row per payment",
         "description": "One row per distribution node",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "INTEREST", "format_type": "text"},
-            {"header_label": "CLASS", "value_type": "literal", "literal_value": "A", "format_type": "text"},
-            {"header_label": "FIELD_CODE", "value_type": "literal", "literal_value": "INT_PMT_A", "format_type": "text"},
-            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_TYPE",
+                "value_type": "literal",
+                "literal_value": "INTEREST",
+                "format_type": "text",
+            },
+            {
+                "header_label": "CLASS",
+                "value_type": "literal",
+                "literal_value": "A",
+                "format_type": "text",
+            },
+            {
+                "header_label": "FIELD_CODE",
+                "value_type": "literal",
+                "literal_value": "INT_PMT_A",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
     "system_b": {
         "name": "System B — Wide with 144A/RegS",
         "description": "Prorate split columns per field",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "FIELD_CODE", "value_type": "literal", "literal_value": "INT_PMT_A", "format_type": "text"},
-            {"header_label": "AMOUNT_144A", "value_type": "distribution_node", "prorate_by": "144a", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "AMOUNT_REGS", "value_type": "distribution_node", "prorate_by": "regs", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "AMOUNT_TOTAL", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "FIELD_CODE",
+                "value_type": "literal",
+                "literal_value": "INT_PMT_A",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT_144A",
+                "value_type": "distribution_node",
+                "prorate_by": "144a",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "AMOUNT_REGS",
+                "value_type": "distribution_node",
+                "prorate_by": "regs",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "AMOUNT_TOTAL",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
     "system_c": {
         "name": "System C — CUSIP level",
         "description": "One row per CUSIP",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "CUSIP", "value_type": "literal", "literal_value": "", "format_type": "text"},
-            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "INTEREST", "format_type": "text"},
-            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "CUSIP",
+                "value_type": "literal",
+                "literal_value": "",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_TYPE",
+                "value_type": "literal",
+                "literal_value": "INTEREST",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
 }
@@ -111,8 +210,15 @@ class ExportColumnService:
 
     def update_column(self, col: ExportColumn, **fields) -> ExportColumn:
         allowed = {
-            "header_label", "value_type", "node_id", "literal_value", "meta_field",
-            "format_type", "decimal_places", "prorate_by", "prorate_class_label",
+            "header_label",
+            "value_type",
+            "node_id",
+            "literal_value",
+            "meta_field",
+            "format_type",
+            "decimal_places",
+            "prorate_by",
+            "prorate_class_label",
         }
         for f, v in fields.items():
             if f in allowed:
@@ -149,7 +255,9 @@ class ExportColumnService:
             self.dao.delete_column(col)
 
         # Create preset columns
-        for i, col_def in enumerate(PRESETS[preset_key]["columns"], start=1):
+        columns_def = PRESETS[preset_key]["columns"]
+        assert isinstance(columns_def, list)
+        for i, col_def in enumerate(columns_def, start=1):
             col = ExportColumn(deal_id=deal_id, position=i, **col_def)
             self.dao.create_column(col)
 
@@ -213,7 +321,7 @@ class ExportColumnService:
         os.makedirs(dest_dir, exist_ok=True)
         file_path = os.path.join(dest_dir, filename)
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         file_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -252,7 +360,7 @@ class ExportColumnService:
         writer.writerow([c.header_label for c in cols])
 
         for node_id in distinct_node_ids:
-            step = step_by_node.get(node_id) if node_id else None  # type: ignore
+            step = step_by_node.get(node_id) if node_id else None
             row = [self._resolve_column(c, run, deal, step) for c in cols]
             writer.writerow(row)
 

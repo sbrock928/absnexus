@@ -1,4 +1,5 @@
 """Mapping endpoints — nested under /api/deals/{deal_id}/mappings."""
+
 import os
 import tempfile
 from pathlib import Path
@@ -88,10 +89,14 @@ def get_tape_grid(
 
     # Find tape path from runs
     if run_id:
-        run = db.query(ProcessingRun).filter(
-            ProcessingRun.id == run_id,
-            ProcessingRun.deal_id == deal_id,
-        ).first()
+        run = (
+            db.query(ProcessingRun)
+            .filter(
+                ProcessingRun.id == run_id,
+                ProcessingRun.deal_id == deal_id,
+            )
+            .first()
+        )
         if not run or not run.tape_file_path:
             raise HTTPException(404, "Run or tape not found.")
         tape_path = run.tape_file_path

@@ -1,4 +1,5 @@
 """Cell mapper route functional tests."""
+
 import io
 import os
 import tempfile
@@ -67,14 +68,19 @@ def test_tape_grid_all_sheets(admin_client, db):
     """GET /tape-grid returns all sheets when no sheet param."""
     deal = _setup(db)
     # Create a run with a tape file
-    tape_path = _make_tape_file({
-        "Summary": [["Name", "Value"], ["Total", 1000]],
-        "Details": [["A", "B", "C"]],
-    })
+    tape_path = _make_tape_file(
+        {
+            "Summary": [["Name", "Value"], ["Total", 1000]],
+            "Details": [["A", "B", "C"]],
+        }
+    )
     try:
         run = ProcessingRun(
-            deal_id=deal.id, report_period="2026-04", created_by="testuser",
-            status="extracted", tape_file_path=tape_path,
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="testuser",
+            status="extracted",
+            tape_file_path=tape_path,
         )
         db.add(run)
         db.flush()
@@ -94,14 +100,19 @@ def test_tape_grid_all_sheets(admin_client, db):
 def test_tape_grid_single_sheet(admin_client, db):
     """GET /tape-grid?sheet=Summary returns only that sheet."""
     deal = _setup(db)
-    tape_path = _make_tape_file({
-        "Summary": [["X", 42]],
-        "Other": [["Y"]],
-    })
+    tape_path = _make_tape_file(
+        {
+            "Summary": [["X", 42]],
+            "Other": [["Y"]],
+        }
+    )
     try:
         run = ProcessingRun(
-            deal_id=deal.id, report_period="2026-04", created_by="testuser",
-            status="extracted", tape_file_path=tape_path,
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="testuser",
+            status="extracted",
+            tape_file_path=tape_path,
         )
         db.add(run)
         db.flush()
@@ -130,29 +141,48 @@ def test_reextract_variable_endpoint(admin_client, db):
     db.add(v)
     db.flush()
 
-    tape_path = _make_tape_file({"Fees": [
-        [None] * 3,  # row 1
-        [None] * 3,  # row 2
-        [None, None, 11303.35],  # row 3 → C3
-    ]})
+    tape_path = _make_tape_file(
+        {
+            "Fees": [
+                [None] * 3,  # row 1
+                [None] * 3,  # row 2
+                [None, None, 11303.35],  # row 3 → C3
+            ]
+        }
+    )
     try:
         run = ProcessingRun(
-            deal_id=deal.id, report_period="2026-04", created_by="testuser",
-            status="extracted", tape_file_path=tape_path,
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="testuser",
+            status="extracted",
+            tape_file_path=tape_path,
         )
         db.add(run)
         db.flush()
 
-        db.add(VariableMapping(
-            deal_id=deal.id, variable_id=v.id,
-            sheet_name="Fees", column_letter="C", row_number=3,
-        ))
+        db.add(
+            VariableMapping(
+                deal_id=deal.id,
+                variable_id=v.id,
+                sheet_name="Fees",
+                column_letter="C",
+                row_number=3,
+            )
+        )
         # Seed old extracted value
-        db.add(ExtractedValue(
-            run_id=run.id, variable_id=v.id, variable_name="svc_fee_tape",
-            sheet_name="Fees", cell_ref="C1", raw_value="999",
-            parsed_value=Decimal("999"), data_type="decimal",
-        ))
+        db.add(
+            ExtractedValue(
+                run_id=run.id,
+                variable_id=v.id,
+                variable_name="svc_fee_tape",
+                sheet_name="Fees",
+                cell_ref="C1",
+                raw_value="999",
+                parsed_value=Decimal("999"),
+                data_type="decimal",
+            )
+        )
         db.flush()
 
         resp = admin_client.post(f"/api/deals/{deal.id}/runs/{run.id}/reextract-variable/{v.id}")
@@ -175,8 +205,11 @@ def test_reextract_variable_no_mapping(admin_client, db):
     tape_path = _make_tape_file({"Sheet1": [[1]]})
     try:
         run = ProcessingRun(
-            deal_id=deal.id, report_period="2026-04", created_by="testuser",
-            status="extracted", tape_file_path=tape_path,
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="testuser",
+            status="extracted",
+            tape_file_path=tape_path,
         )
         db.add(run)
         db.flush()

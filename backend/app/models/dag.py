@@ -1,4 +1,5 @@
 """DAG models — nodes, edges, and versions."""
+
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
@@ -8,6 +9,7 @@ from app.core.database import Base
 
 class DagVersion(Base):
     """Snapshot version of a deal's DAG. Every save creates a new row."""
+
     __tablename__ = "dag_version"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -21,6 +23,7 @@ class DagVersion(Base):
 
 class DagNode(Base):
     """A single node in the calculation DAG."""
+
     __tablename__ = "dag_node"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -73,15 +76,12 @@ class DagNode(Base):
 
 class DagEdge(Base):
     """Directed edge between two DAG nodes."""
+
     __tablename__ = "dag_edge"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     dag_version_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("dag_version.id"), nullable=False
     )
-    source_node_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("dag_node.id"), nullable=False
-    )
-    target_node_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("dag_node.id"), nullable=False
-    )
+    source_node_id: Mapped[int] = mapped_column(Integer, ForeignKey("dag_node.id"), nullable=False)
+    target_node_id: Mapped[int] = mapped_column(Integer, ForeignKey("dag_node.id"), nullable=False)

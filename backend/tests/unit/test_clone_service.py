@@ -1,4 +1,5 @@
 """Clone service unit tests."""
+
 from app.services.clone_service import CloneService
 from app.dag.service import DagService
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
@@ -19,13 +20,22 @@ def _setup(db):
     v = VariableDefinition(name="test_var", scope="system", data_type="decimal")
     db.add(v)
     db.flush()
-    db.add(VariableMapping(deal_id=deal.id, variable_id=v.id, sheet_name="S1", column_letter="A", row_number=1))
+    db.add(
+        VariableMapping(
+            deal_id=deal.id, variable_id=v.id, sheet_name="S1", column_letter="A", row_number=1
+        )
+    )
     db.add(DealTranche(deal_id=deal.id, class_label="A", regulation_type="combined"))
     db.flush()
-    DagService(db).save(deal.id, [
-        DagNodeCreate(key="n1", name="N1", node_type="input_value", input_source="tape"),
-        DagNodeCreate(key="n2", name="N2", node_type="calculation", formula="n1 * 2"),
-    ], [DagEdgeCreate(source_key="n1", target_key="n2")], "test")
+    DagService(db).save(
+        deal.id,
+        [
+            DagNodeCreate(key="n1", name="N1", node_type="input_value", input_source="tape"),
+            DagNodeCreate(key="n2", name="N2", node_type="calculation", formula="n1 * 2"),
+        ],
+        [DagEdgeCreate(source_key="n1", target_key="n2")],
+        "test",
+    )
     return deal
 
 

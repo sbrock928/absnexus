@@ -1,4 +1,5 @@
 """Functional tests for deal status transitions and permission guards."""
+
 from app.models.deal import Deal
 from app.models.user import User
 from app.models.variable_mapping import VariableMapping
@@ -7,12 +8,19 @@ from app.models.variable_mapping import VariableMapping
 def _make_deal(db, name="Test Deal", status="draft"):
     """Create a deal with a seeded servicer."""
     from app.models.servicer import Servicer
+
     svc = db.query(Servicer).first()
     if not svc:
         svc = Servicer(name="TestSvc", short_code="TS")
         db.add(svc)
         db.flush()
-    d = Deal(name=name, servicer_id=svc.id, product_type="ABS Auto", status=status, created_by="testuser")
+    d = Deal(
+        name=name,
+        servicer_id=svc.id,
+        product_type="ABS Auto",
+        status=status,
+        created_by="testuser",
+    )
     db.add(d)
     db.flush()
     return d
@@ -72,9 +80,15 @@ def test_same_status_is_allowed(client, db):
 
 def test_archived_deal_blocks_mapping_create(client, db):
     deal = _make_deal(db, status="archived")
-    r = client.post(f"/api/deals/{deal.id}/mappings", json={
-        "variable_id": 1, "sheet_name": "Sheet1", "column_letter": "A", "row_number": 1,
-    })
+    r = client.post(
+        f"/api/deals/{deal.id}/mappings",
+        json={
+            "variable_id": 1,
+            "sheet_name": "Sheet1",
+            "column_letter": "A",
+            "row_number": 1,
+        },
+    )
     assert r.status_code == 403
     assert "archived" in r.json()["detail"].lower()
 
@@ -87,21 +101,35 @@ def test_archived_deal_blocks_dag_save(client, db):
 
 def test_archived_deal_blocks_tranche_create(client, db):
     deal = _make_deal(db, status="archived")
-    r = client.post(f"/api/deals/{deal.id}/tranches", json={
-        "class_label": "A", "cusip": "TEST123", "note_rate": "0.05",
-    })
+    r = client.post(
+        f"/api/deals/{deal.id}/tranches",
+        json={
+            "class_label": "A",
+            "cusip": "TEST123",
+            "note_rate": "0.05",
+        },
+    )
     assert r.status_code == 403
 
 
 def test_active_deal_allows_mapping_create(client, db):
     from app.models.variable import VariableDefinition
-    v = VariableDefinition(name="test_var", display_name="Test", scope="system", data_type="decimal")
+
+    v = VariableDefinition(
+        name="test_var", display_name="Test", scope="system", data_type="decimal"
+    )
     db.add(v)
     db.flush()
     deal = _make_deal(db, status="active")
-    r = client.post(f"/api/deals/{deal.id}/mappings", json={
-        "variable_id": v.id, "sheet_name": "Sheet1", "column_letter": "A", "row_number": 1,
-    })
+    r = client.post(
+        f"/api/deals/{deal.id}/mappings",
+        json={
+            "variable_id": v.id,
+            "sheet_name": "Sheet1",
+            "column_letter": "A",
+            "row_number": 1,
+        },
+    )
     assert r.status_code == 201
 
 

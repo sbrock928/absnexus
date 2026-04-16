@@ -1,4 +1,5 @@
 """Tranche endpoints — nested under /api/deals/{deal_id}/tranches."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,8 +8,11 @@ from app.dependencies import require_role, require_editable_deal
 from app.models.deal import Deal
 from app.models.user import User
 from app.schemas.tranche import (
-    TrancheCreate, TrancheUpdate, TrancheResponse,
-    BalanceSet, BalanceResponse,
+    TrancheCreate,
+    TrancheUpdate,
+    TrancheResponse,
+    BalanceSet,
+    BalanceResponse,
 )
 from app.tranches.dao import TrancheDAO
 from app.tranches.service import TrancheService

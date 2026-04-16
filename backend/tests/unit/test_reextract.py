@@ -1,4 +1,5 @@
 """Reextract variable unit tests."""
+
 import os
 import tempfile
 from decimal import Decimal
@@ -48,17 +49,40 @@ def test_reextract_success(db):
 
     tape_path = _make_tape({"Fees": {"C13": 11303.35}})
     try:
-        run = ProcessingRun(deal_id=deal.id, report_period="2026-04", created_by="t", status="extracted", tape_file_path=tape_path)
+        run = ProcessingRun(
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="t",
+            status="extracted",
+            tape_file_path=tape_path,
+        )
         db.add(run)
         db.flush()
 
-        db.add(VariableMapping(deal_id=deal.id, variable_id=var.id, sheet_name="Fees", column_letter="C", row_number=13))
+        db.add(
+            VariableMapping(
+                deal_id=deal.id,
+                variable_id=var.id,
+                sheet_name="Fees",
+                column_letter="C",
+                row_number=13,
+            )
+        )
         db.flush()
 
         # Add existing extracted value (old cell)
-        db.add(ExtractedValue(run_id=run.id, variable_id=var.id, variable_name="svc_fee",
-                              sheet_name="Fees", cell_ref="C7", raw_value="500", parsed_value=Decimal("500"),
-                              data_type="decimal"))
+        db.add(
+            ExtractedValue(
+                run_id=run.id,
+                variable_id=var.id,
+                variable_name="svc_fee",
+                sheet_name="Fees",
+                cell_ref="C7",
+                raw_value="500",
+                parsed_value=Decimal("500"),
+                data_type="decimal",
+            )
+        )
         db.flush()
 
         svc = ProcessingService(db)
@@ -76,13 +100,20 @@ def test_reextract_missing_mapping(db):
     deal, var = _setup(db)
     tape_path = _make_tape({"Sheet1": {"A1": 1}})
     try:
-        run = ProcessingRun(deal_id=deal.id, report_period="2026-04", created_by="t", status="extracted", tape_file_path=tape_path)
+        run = ProcessingRun(
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="t",
+            status="extracted",
+            tape_file_path=tape_path,
+        )
         db.add(run)
         db.flush()
         # No mapping added
 
         svc = ProcessingService(db)
         import pytest
+
         with pytest.raises(ValueError, match="No mapping"):
             svc.reextract_variable(run.id, var.id)
     finally:
@@ -93,11 +124,25 @@ def test_reextract_empty_cell(db):
     deal, var = _setup(db)
     tape_path = _make_tape({"Fees": {}})  # C13 is empty
     try:
-        run = ProcessingRun(deal_id=deal.id, report_period="2026-04", created_by="t", status="extracted", tape_file_path=tape_path)
+        run = ProcessingRun(
+            deal_id=deal.id,
+            report_period="2026-04",
+            created_by="t",
+            status="extracted",
+            tape_file_path=tape_path,
+        )
         db.add(run)
         db.flush()
 
-        db.add(VariableMapping(deal_id=deal.id, variable_id=var.id, sheet_name="Fees", column_letter="C", row_number=13))
+        db.add(
+            VariableMapping(
+                deal_id=deal.id,
+                variable_id=var.id,
+                sheet_name="Fees",
+                column_letter="C",
+                row_number=13,
+            )
+        )
         db.flush()
 
         svc = ProcessingService(db)

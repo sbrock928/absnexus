@@ -1,4 +1,5 @@
 """Tape extractor unit tests."""
+
 from decimal import Decimal
 from app.services.tape_extractor import TapeExtractor
 from app.models.processing import ProcessingRun
@@ -18,7 +19,11 @@ def _make_deal_with_mapping(db):
     v = VariableDefinition(name="total_collections", scope="system", data_type="decimal")
     db.add(v)
     db.flush()
-    db.add(VariableMapping(deal_id=deal.id, variable_id=v.id, sheet_name="Sheet1", column_letter="B", row_number=2))
+    db.add(
+        VariableMapping(
+            deal_id=deal.id, variable_id=v.id, sheet_name="Sheet1", column_letter="B", row_number=2
+        )
+    )
     db.flush()
     return deal
 
@@ -61,14 +66,24 @@ def test_extract_missing_cell(db):
 def test_large_delta_warning(db):
     deal = _make_deal_with_mapping(db)
     # Create a prior run
-    prior = ProcessingRun(deal_id=deal.id, report_period="2026-03", status="completed", created_by="t")
+    prior = ProcessingRun(
+        deal_id=deal.id, report_period="2026-03", status="completed", created_by="t"
+    )
     db.add(prior)
     db.flush()
     from app.models.processing import ExtractedValue
-    db.add(ExtractedValue(
-        run_id=prior.id, variable_name="total_collections", variable_id=1,
-        sheet_name="Sheet1", cell_ref="B2", parsed_value=Decimal("1000"), data_type="decimal",
-    ))
+
+    db.add(
+        ExtractedValue(
+            run_id=prior.id,
+            variable_name="total_collections",
+            variable_id=1,
+            sheet_name="Sheet1",
+            cell_ref="B2",
+            parsed_value=Decimal("1000"),
+            data_type="decimal",
+        )
+    )
     db.flush()
     # Now extract with very different value
     path = _make_tape(5000)

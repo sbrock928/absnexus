@@ -1,4 +1,5 @@
 """User data access layer."""
+
 from sqlalchemy.orm import Session
 
 from app.models.user import User

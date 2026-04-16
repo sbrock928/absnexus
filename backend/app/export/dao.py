@@ -14,7 +14,7 @@ class ExportDAO:
             .filter(ExportColumn.deal_id == deal_id)
             .order_by(ExportColumn.position)
             .all()
-        )  # type: ignore[return-value]
+        )
 
     def get_column(self, column_id: int) -> ExportColumn | None:
         return self.db.query(ExportColumn).filter(ExportColumn.id == column_id).first()

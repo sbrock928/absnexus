@@ -1,4 +1,5 @@
 """Tranche models — deal tranches and monthly balance snapshots."""
+
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
@@ -27,12 +28,12 @@ class TrancheBalance(Base):
     __tablename__ = "tranche_balance"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tranche_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("deal_tranche.id"), nullable=False
-    )
+    tranche_id: Mapped[int] = mapped_column(Integer, ForeignKey("deal_tranche.id"), nullable=False)
     period: Mapped[str] = mapped_column(String(10), nullable=False)  # YYYY-MM
     balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")  # manual|oracle
+    source: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="manual"
+    )  # manual|oracle
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )

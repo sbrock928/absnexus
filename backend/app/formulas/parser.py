@@ -1,4 +1,5 @@
 """Recursive descent parser — builds AST from tokens."""
+
 from dataclasses import dataclass, field
 from app.formulas.tokenizer import Token, TokenType
 
@@ -38,7 +39,9 @@ class UnaryMinusNode:
     operand: "ASTNode"
 
 
-ASTNode = NumberNode | VariableNode | BinaryOpNode | ComparisonNode | FunctionCallNode | UnaryMinusNode
+ASTNode = (
+    NumberNode | VariableNode | BinaryOpNode | ComparisonNode | FunctionCallNode | UnaryMinusNode
+)
 
 
 class Parser:
@@ -137,11 +140,14 @@ class Parser:
         name = self.consume().value
         self.expect(TokenType.LPAREN)
         args: list[ASTNode] = []
-        if self.peek() and self.peek().type != TokenType.RPAREN:
+        tok = self.peek()
+        if tok is not None and tok.type != TokenType.RPAREN:
             args.append(self.parse_comparison())
-            while self.peek() and self.peek().type == TokenType.COMMA:
+            tok = self.peek()
+            while tok is not None and tok.type == TokenType.COMMA:
                 self.consume()
                 args.append(self.parse_comparison())
+                tok = self.peek()
         self.expect(TokenType.RPAREN)
         return FunctionCallNode(name, args)
 

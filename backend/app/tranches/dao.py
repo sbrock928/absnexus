@@ -1,4 +1,5 @@
 """Tranche data access."""
+
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.models.tranche import DealTranche, TrancheBalance
@@ -32,7 +33,9 @@ class TrancheDAO:
         self.db.flush()
         return t
 
-    def set_balance(self, tranche_id: int, period: str, balance: Decimal, source: str = "manual") -> TrancheBalance:
+    def set_balance(
+        self, tranche_id: int, period: str, balance: Decimal, source: str = "manual"
+    ) -> TrancheBalance:
         existing = (
             self.db.query(TrancheBalance)
             .filter(TrancheBalance.tranche_id == tranche_id, TrancheBalance.period == period)

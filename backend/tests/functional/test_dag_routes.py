@@ -22,7 +22,10 @@ def test_save_and_load_dag(client, db, test_deal):
 
 
 def test_version_history(client, db, test_deal):
-    body = {"nodes": [{"key": "n1", "name": "N1", "node_type": "input_value", "input_source": "tape"}], "edges": []}
+    body = {
+        "nodes": [{"key": "n1", "name": "N1", "node_type": "input_value", "input_source": "tape"}],
+        "edges": [],
+    }
     client.post(f"/api/deals/{test_deal.id}/dag", json=body)
     client.post(f"/api/deals/{test_deal.id}/dag", json=body)
     r = client.get(f"/api/deals/{test_deal.id}/dag/versions")
@@ -33,7 +36,14 @@ def test_validate_dag(client, db, test_deal):
     body = {
         "nodes": [
             {"key": "in1", "name": "Input", "node_type": "input_value", "input_source": "tape"},
-            {"key": "dist1", "name": "Dist", "node_type": "distribution", "formula": "in1", "export_field": "INT_PMT_A", "payment_type": "interest"},
+            {
+                "key": "dist1",
+                "name": "Dist",
+                "node_type": "distribution",
+                "formula": "in1",
+                "export_field": "INT_PMT_A",
+                "payment_type": "interest",
+            },
         ],
         "edges": [{"source_key": "in1", "target_key": "dist1"}],
     }

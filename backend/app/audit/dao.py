@@ -1,4 +1,5 @@
 """Audit log data access layer."""
+
 from datetime import datetime
 
 from sqlalchemy import func
@@ -24,10 +25,7 @@ class AuditLogDAO:
         limit: int = 50,
     ) -> tuple[list[tuple[AuditLog, str]], int]:
         """Return filtered audit log rows with user display names, plus total count."""
-        query = (
-            self.db.query(AuditLog, User.display_name)
-            .join(User, User.id == AuditLog.user_id)
-        )
+        query = self.db.query(AuditLog, User.display_name).join(User, User.id == AuditLog.user_id)
 
         if entity_type is not None:
             query = query.filter(AuditLog.entity_type == entity_type)
@@ -44,12 +42,6 @@ class AuditLogDAO:
 
         total = query.with_entities(func.count(AuditLog.id)).scalar() or 0
 
-        rows = (
-            query
-            .order_by(AuditLog.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        rows = query.order_by(AuditLog.created_at.desc()).offset(skip).limit(limit).all()
 
         return rows, total

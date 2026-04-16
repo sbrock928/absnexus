@@ -1,4 +1,5 @@
 """Global export service — templates, row configs, CSV generation."""
+
 import csv
 import hashlib
 import io
@@ -61,23 +62,25 @@ class GlobalExportService:
         for row in rows:
             cells = self.dao.list_cells_for_row(row.id)
             node = self.db.query(DagNode).filter(DagNode.id == row.node_id).first()
-            row_responses.append(DealExportRowResponse(
-                id=row.id,
-                node_id=row.node_id,
-                node_key=node.key if node else None,
-                node_name=node.name if node else None,
-                row_order=row.row_order,
-                identifier_group=row.identifier_group,
-                cells=[
-                    DealExportCellResponse(
-                        id=c.id,
-                        column_id=c.column_id,
-                        value_source=c.value_source,
-                        source_ref=c.source_ref,
-                    )
-                    for c in cells
-                ],
-            ))
+            row_responses.append(
+                DealExportRowResponse(
+                    id=row.id,
+                    node_id=row.node_id,
+                    node_key=node.key if node else None,
+                    node_name=node.name if node else None,
+                    row_order=row.row_order,
+                    identifier_group=row.identifier_group,
+                    cells=[
+                        DealExportCellResponse(
+                            id=c.id,
+                            column_id=c.column_id,
+                            value_source=c.value_source,
+                            source_ref=c.source_ref,
+                        )
+                        for c in cells
+                    ],
+                )
+            )
         return DealExportConfigResponse(rows=row_responses)
 
     def save_deal_config(
@@ -115,7 +118,7 @@ class GlobalExportService:
         os.makedirs(dest_dir, exist_ok=True)
         file_path = os.path.join(dest_dir, filename)
 
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         file_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -162,7 +165,9 @@ class GlobalExportService:
         for idx, col in enumerate(cols, start=1):
             ws.cell(row=1, column=idx, value=col.header_label)
 
-        for row_idx, row_values in enumerate(self._placeholder_rows(deal_id, template_id, cols), start=2):
+        for row_idx, row_values in enumerate(
+            self._placeholder_rows(deal_id, template_id, cols), start=2
+        ):
             for col_idx, value in enumerate(row_values, start=1):
                 ws.cell(row=row_idx, column=col_idx, value=value)
 
@@ -200,7 +205,9 @@ class GlobalExportService:
                     values.append(cell.source_ref or "")
                 else:
                     # node/variable/formula/run_meta/deal_meta — show the ref as a placeholder token
-                    values.append(f"<{cell.source_ref}>" if cell.source_ref else self._placeholder(col))
+                    values.append(
+                        f"<{cell.source_ref}>" if cell.source_ref else self._placeholder(col)
+                    )
             rendered.append(values)
         return rendered
 
@@ -209,29 +216,23 @@ class GlobalExportService:
         context: dict[str, Decimal] = {}
 
         # Tape values
-        extracted = (
-            self.db.query(ExtractedValue)
-            .filter(ExtractedValue.run_id == run.id)
-            .all()
-        )
+        extracted = self.db.query(ExtractedValue).filter(ExtractedValue.run_id == run.id).all()
         for ev in extracted:
             if ev.parsed_value is not None:
                 context[ev.variable_name] = ev.parsed_value
 
         # Execution step results (by node key)
-        steps = (
-            self.db.query(ExecutionStep)
-            .filter(ExecutionStep.run_id == run.id)
-            .all()
-        )
+        steps = self.db.query(ExecutionStep).filter(ExecutionStep.run_id == run.id).all()
         for s in steps:
             if s.result is not None:
                 context[s.node_key] = s.result
 
         # Tranche context
         from app.tranches.service import TrancheService
+
         tranche_ctx = TrancheService(self.db).build_tranche_context(
-            run.deal_id, run.report_period or "",
+            run.deal_id,
+            run.report_period or "",
         )
         context.update(tranche_ctx)
 
@@ -257,6 +258,7 @@ class GlobalExportService:
 
         # Group rows by node_id, preserving order
         from collections import OrderedDict
+
         rows_by_node: OrderedDict[int, list[DealExportRow]] = OrderedDict()
         for row in deal_rows:
             rows_by_node.setdefault(row.node_id, []).append(row)

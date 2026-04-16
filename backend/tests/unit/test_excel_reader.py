@@ -1,4 +1,5 @@
 """ExcelReader grid mode unit tests."""
+
 import os
 import tempfile
 import openpyxl
@@ -25,13 +26,15 @@ def _make_workbook(sheets: dict[str, list[list]]) -> str:
 
 
 def test_read_sheet_grid_normal():
-    path = _make_workbook({
-        "Summary": [
-            ["Deal Name", "AMORT 2024-1", None],
-            ["Report Date", "04/01/2026", None],
-            ["Total Collections", 4521338.42, None],
-        ],
-    })
+    path = _make_workbook(
+        {
+            "Summary": [
+                ["Deal Name", "AMORT 2024-1", None],
+                ["Report Date", "04/01/2026", None],
+                ["Total Collections", 4521338.42, None],
+            ],
+        }
+    )
     try:
         with ExcelReader(path) as reader:
             grid = reader.read_sheet_grid("Summary")
@@ -48,9 +51,11 @@ def test_read_sheet_grid_normal():
 
 def test_read_sheet_grid_respects_limits():
     """Grid should cap at max_rows and max_cols."""
-    path = _make_workbook({
-        "Big": [[f"r{r}c{c}" for c in range(30)] for r in range(150)],
-    })
+    path = _make_workbook(
+        {
+            "Big": [[f"r{r}c{c}" for c in range(30)] for r in range(150)],
+        }
+    )
     try:
         with ExcelReader(path) as reader:
             grid = reader.read_sheet_grid("Big", max_rows=10, max_cols=5)
@@ -69,10 +74,12 @@ def test_col_num_to_letter():
 
 
 def test_read_sheet_grid_multiple_sheets():
-    path = _make_workbook({
-        "Sheet1": [[1, 2], [3, 4]],
-        "Sheet2": [["a", "b"]],
-    })
+    path = _make_workbook(
+        {
+            "Sheet1": [[1, 2], [3, 4]],
+            "Sheet2": [["a", "b"]],
+        }
+    )
     try:
         with ExcelReader(path) as reader:
             names = reader.get_sheet_names()

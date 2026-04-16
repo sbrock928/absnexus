@@ -1,4 +1,5 @@
 """Audit log — HTTP routing layer."""
+
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query

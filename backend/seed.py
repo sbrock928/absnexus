@@ -16,7 +16,6 @@ Run from repo root:
 Safe to re-run — skips anything that already exists by name/key.
 """
 
-from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -32,10 +31,13 @@ from app.models.variable_mapping import VariableMapping
 from app.models.servicer import Servicer
 from app.models.tranche import DealTranche, TrancheBalance
 from app.models.user import User
-from app.models.global_export import GlobalExportTemplate, GlobalExportColumn, DealExportRow, DealExportCell
+from app.models.global_export import (
+    GlobalExportTemplate,
+    GlobalExportColumn,
+    DealExportRow,
+    DealExportCell,
+)
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
-from app.tranches.service import TrancheService
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Users
@@ -107,29 +109,28 @@ SYSTEM_VARIABLES = [
     ("unsched_principal", "Unscheduled Principal", "decimal", "Prepayments + curtailments"),
     ("liquidation_proceeds", "Liquidation Proceeds", "decimal", "Net from liquidations"),
     ("total_available_funds", "Total Available Funds", "decimal", "Total funds to distribute"),
-    ("end_available_funds", "End Available Funds", "decimal", "Remaining funds after all distributions (tape-reported, used for waterfall reconciliation)"),
-
+    (
+        "end_available_funds",
+        "End Available Funds",
+        "decimal",
+        "Remaining funds after all distributions (tape-reported, used for waterfall reconciliation)",
+    ),
     # Fees (tape)
     ("svc_fee_tape", "Servicing Fee (tape)", "decimal", "Servicing fee as reported on tape"),
     ("trustee_fee_tape", "Trustee Fee (tape)", "decimal", "Trustee fee as reported on tape"),
     ("backup_svc_fee_tape", "Backup Svc Fee (tape)", "decimal", "Backup servicer fee from tape"),
-
     # Rates
     ("svc_fee_rate", "Servicing Fee Rate", "percentage", "Annual servicing fee rate"),
     ("trustee_fee_rate", "Trustee Fee Rate", "percentage", "Annual trustee fee rate"),
-
     # Pool
     ("cur_pool_bal", "Current Pool Balance", "decimal", "End-of-period pool balance"),
     ("end_pool_bal", "End Pool Balance", "decimal", "End pool balance after distribution"),
-
     # OC / triggers
     ("reported_oc", "Reported OC", "decimal", "Overcollateralization as servicer reports"),
     ("oc_floor", "OC Floor", "decimal", "OC floor threshold"),
     ("target_oc_pct", "Target OC %", "percentage", "Target overcollateralization %"),
-
     # Shortfalls
     ("int_shortfall_prior", "Int Shortfall Prior", "decimal", "Prior period interest shortfall"),
-
     # Bond note rates (tape)
     ("class_a_note_rate", "Class A Note Rate", "percentage", "Class A coupon"),
     ("class_b_note_rate", "Class B Note Rate", "percentage", "Class B coupon"),
@@ -137,7 +138,6 @@ SYSTEM_VARIABLES = [
     ("class_d_note_rate", "Class D Note Rate", "percentage", "Class D coupon"),
     ("class_e_note_rate", "Class E Note Rate", "percentage", "Class E coupon"),
     ("class_f_note_rate", "Class F Note Rate", "percentage", "Class F coupon"),
-
     # Bond balances reported on tape
     ("class_a_note_balance", "Class A Note Balance", "decimal", "Class A outstanding balance"),
     ("class_b_note_balance", "Class B Note Balance", "decimal", "Class B outstanding balance"),
@@ -145,16 +145,45 @@ SYSTEM_VARIABLES = [
     ("class_d_note_balance", "Class D Note Balance", "decimal", "Class D outstanding balance"),
     ("class_e_note_balance", "Class E Note Balance", "decimal", "Class E outstanding balance"),
     ("class_f_note_balance", "Class F Note Balance", "decimal", "Class F outstanding balance"),
-
     # Reported interest amounts from the tape (per-class). The calculated
     # counterparts live on DAG nodes (class_X_interest_amount_calc); per-class
     # validation nodes reconcile the two.
-    ("class_a_interest_amount", "Class A Interest Amount", "decimal", "Class A interest reported on tape"),
-    ("class_b_interest_amount", "Class B Interest Amount", "decimal", "Class B interest reported on tape"),
-    ("class_c_interest_amount", "Class C Interest Amount", "decimal", "Class C interest reported on tape"),
-    ("class_d_interest_amount", "Class D Interest Amount", "decimal", "Class D interest reported on tape"),
-    ("class_e_interest_amount", "Class E Interest Amount", "decimal", "Class E interest reported on tape"),
-    ("class_f_interest_amount", "Class F Interest Amount", "decimal", "Class F interest reported on tape"),
+    (
+        "class_a_interest_amount",
+        "Class A Interest Amount",
+        "decimal",
+        "Class A interest reported on tape",
+    ),
+    (
+        "class_b_interest_amount",
+        "Class B Interest Amount",
+        "decimal",
+        "Class B interest reported on tape",
+    ),
+    (
+        "class_c_interest_amount",
+        "Class C Interest Amount",
+        "decimal",
+        "Class C interest reported on tape",
+    ),
+    (
+        "class_d_interest_amount",
+        "Class D Interest Amount",
+        "decimal",
+        "Class D interest reported on tape",
+    ),
+    (
+        "class_e_interest_amount",
+        "Class E Interest Amount",
+        "decimal",
+        "Class E interest reported on tape",
+    ),
+    (
+        "class_f_interest_amount",
+        "Class F Interest Amount",
+        "decimal",
+        "Class F interest reported on tape",
+    ),
 ]
 
 
@@ -196,7 +225,13 @@ DEAL_A_MAPPINGS = [
     # (variable_name, sheet, col, row, tape_label)
     # All on single "Sheet 1", values in column J
     ("total_available_funds", "Sheet 1", "J", 147, "Total Available Funds"),
-    ("end_available_funds", "Sheet 1", "J", 175, "Remaining Available Funds (placeholder — verify cell)"),
+    (
+        "end_available_funds",
+        "Sheet 1",
+        "J",
+        175,
+        "Remaining Available Funds (placeholder — verify cell)",
+    ),
     ("total_collections", "Sheet 1", "J", 127, "Total Collections Remitted by Servicer"),
     ("svc_fee_tape", "Sheet 1", "J", 151, "Servicing Fee"),
     ("backup_svc_fee_tape", "Sheet 1", "J", 153, "Backup Servicing Fee"),
@@ -237,72 +272,202 @@ DEAL_A_DIST_NODES = [
     ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, 300, 50),
     ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, 500, 50),
     ("backup_svc_fee_tape_in", "Backup Svc Fee (tape)", "input_value", None, None, 700, 50),
-
     # Row 2: fee aggregation
-    ("total_fees", "Total Fees", "calculation",
-     "svc_fee_tape + trustee_fee_tape + backup_svc_fee_tape", None, 400, 180),
-
+    (
+        "total_fees",
+        "Total Fees",
+        "calculation",
+        "svc_fee_tape + trustee_fee_tape + backup_svc_fee_tape",
+        None,
+        400,
+        180,
+    ),
     # Row 3: net distributable
-    ("net_available", "Net Available for Distribution", "calculation",
-     "total_available_funds - total_fees", None, 400, 280),
-
+    (
+        "net_available",
+        "Net Available for Distribution",
+        "calculation",
+        "total_available_funds - total_fees",
+        None,
+        400,
+        280,
+    ),
     # Row 4: interest calculations per class
-    ("class_a_interest_amount_calc", "Class A Interest (calc)", "calculation",
-     "class_a_note_balance * class_a_note_rate / 12", None, 100, 400),
-    ("class_b_interest_amount_calc", "Class B Interest (calc)", "calculation",
-     "class_b_note_balance * class_b_note_rate / 12", None, 300, 400),
-    ("class_c_interest_amount_calc", "Class C Interest (calc)", "calculation",
-     "class_c_note_balance * class_c_note_rate / 12", None, 500, 400),
-    ("class_d_interest_amount_calc", "Class D Interest (calc)", "calculation",
-     "class_d_note_balance * class_d_note_rate / 12", None, 700, 400),
-
+    (
+        "class_a_interest_amount_calc",
+        "Class A Interest (calc)",
+        "calculation",
+        "class_a_note_balance * class_a_note_rate / 12",
+        None,
+        100,
+        400,
+    ),
+    (
+        "class_b_interest_amount_calc",
+        "Class B Interest (calc)",
+        "calculation",
+        "class_b_note_balance * class_b_note_rate / 12",
+        None,
+        300,
+        400,
+    ),
+    (
+        "class_c_interest_amount_calc",
+        "Class C Interest (calc)",
+        "calculation",
+        "class_c_note_balance * class_c_note_rate / 12",
+        None,
+        500,
+        400,
+    ),
+    (
+        "class_d_interest_amount_calc",
+        "Class D Interest (calc)",
+        "calculation",
+        "class_d_note_balance * class_d_note_rate / 12",
+        None,
+        700,
+        400,
+    ),
     # Row 5: remaining after interest
-    ("remaining_after_int", "Remaining After Interest", "calculation",
-     "MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc, 0)",
-     None, 400, 520),
-
+    (
+        "remaining_after_int",
+        "Remaining After Interest",
+        "calculation",
+        "MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc, 0)",
+        None,
+        400,
+        520,
+    ),
     # Row 6: distribution nodes — sequential waterfall
-    ("svc_fee_pmt", "Servicing Fee Pmt", "distribution",
-     "svc_fee_tape", "SVC_FEE", 50, 640),
-    ("class_a_int_pmt", "Class A Interest Pmt", "distribution",
-     "MIN(net_available, class_a_interest_amount_calc)", "INT_PMT_A", 175, 640),
-    ("class_b_int_pmt", "Class B Interest Pmt", "distribution",
-     "MIN(MAX(net_available - class_a_interest_amount_calc, 0), class_b_interest_amount_calc)",
-     "INT_PMT_B", 300, 640),
-    ("class_c_int_pmt", "Class C Interest Pmt", "distribution",
-     "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc, 0), class_c_interest_amount_calc)",
-     "INT_PMT_C", 425, 640),
-    ("class_d_int_pmt", "Class D Interest Pmt", "distribution",
-     "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc, 0), class_d_interest_amount_calc)",
-     "INT_PMT_D", 550, 640),
-
+    ("svc_fee_pmt", "Servicing Fee Pmt", "distribution", "svc_fee_tape", "SVC_FEE", 50, 640),
+    (
+        "class_a_int_pmt",
+        "Class A Interest Pmt",
+        "distribution",
+        "MIN(net_available, class_a_interest_amount_calc)",
+        "INT_PMT_A",
+        175,
+        640,
+    ),
+    (
+        "class_b_int_pmt",
+        "Class B Interest Pmt",
+        "distribution",
+        "MIN(MAX(net_available - class_a_interest_amount_calc, 0), class_b_interest_amount_calc)",
+        "INT_PMT_B",
+        300,
+        640,
+    ),
+    (
+        "class_c_int_pmt",
+        "Class C Interest Pmt",
+        "distribution",
+        "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc, 0), class_c_interest_amount_calc)",
+        "INT_PMT_C",
+        425,
+        640,
+    ),
+    (
+        "class_d_int_pmt",
+        "Class D Interest Pmt",
+        "distribution",
+        "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc, 0), class_d_interest_amount_calc)",
+        "INT_PMT_D",
+        550,
+        640,
+    ),
     # Row 7: principal distributions — sequential A→B→C→D
-    ("class_a_prin_pmt", "Class A Principal Pmt", "distribution",
-     "MIN(remaining_after_int, class_a_note_balance)", "PRIN_PMT_A", 100, 760),
-    ("class_b_prin_pmt", "Class B Principal Pmt", "distribution",
-     "MIN(MAX(remaining_after_int - class_a_prin_pmt, 0), class_b_note_balance)",
-     "PRIN_PMT_B", 300, 760),
-    ("class_c_prin_pmt", "Class C Principal Pmt", "distribution",
-     "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt, 0), class_c_note_balance)",
-     "PRIN_PMT_C", 500, 760),
-    ("class_d_prin_pmt", "Class D Principal Pmt", "distribution",
-     "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt - class_c_prin_pmt, 0), class_d_note_balance)",
-     "PRIN_PMT_D", 700, 760),
+    (
+        "class_a_prin_pmt",
+        "Class A Principal Pmt",
+        "distribution",
+        "MIN(remaining_after_int, class_a_note_balance)",
+        "PRIN_PMT_A",
+        100,
+        760,
+    ),
+    (
+        "class_b_prin_pmt",
+        "Class B Principal Pmt",
+        "distribution",
+        "MIN(MAX(remaining_after_int - class_a_prin_pmt, 0), class_b_note_balance)",
+        "PRIN_PMT_B",
+        300,
+        760,
+    ),
+    (
+        "class_c_prin_pmt",
+        "Class C Principal Pmt",
+        "distribution",
+        "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt, 0), class_c_note_balance)",
+        "PRIN_PMT_C",
+        500,
+        760,
+    ),
+    (
+        "class_d_prin_pmt",
+        "Class D Principal Pmt",
+        "distribution",
+        "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt - class_c_prin_pmt, 0), class_d_note_balance)",
+        "PRIN_PMT_D",
+        700,
+        760,
+    ),
 ]
 
 DEAL_A_VALIDATION_NODES = [
-    ("total_distribution_check", "Total Distribution Check", "validation",
-     "ABS(svc_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_a_prin_pmt + class_b_prin_pmt + class_c_prin_pmt + class_d_prin_pmt)",
-     "total_available_funds", Decimal("0.01"), 400, 100),
+    (
+        "total_distribution_check",
+        "Total Distribution Check",
+        "validation",
+        "ABS(svc_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_a_prin_pmt + class_b_prin_pmt + class_c_prin_pmt + class_d_prin_pmt)",
+        "total_available_funds",
+        Decimal("0.01"),
+        400,
+        100,
+    ),
     # Per-class interest reconciliation: compare calc against tape-reported.
-    ("class_a_interest_amount_check", "Class A Interest Amount Check", "validation",
-     "class_a_interest_amount_calc", "class_a_interest_amount", Decimal("0.01"), 50, 100),
-    ("class_b_interest_amount_check", "Class B Interest Amount Check", "validation",
-     "class_b_interest_amount_calc", "class_b_interest_amount", Decimal("0.01"), 175, 100),
-    ("class_c_interest_amount_check", "Class C Interest Amount Check", "validation",
-     "class_c_interest_amount_calc", "class_c_interest_amount", Decimal("0.01"), 300, 100),
-    ("class_d_interest_amount_check", "Class D Interest Amount Check", "validation",
-     "class_d_interest_amount_calc", "class_d_interest_amount", Decimal("0.01"), 525, 100),
+    (
+        "class_a_interest_amount_check",
+        "Class A Interest Amount Check",
+        "validation",
+        "class_a_interest_amount_calc",
+        "class_a_interest_amount",
+        Decimal("0.01"),
+        50,
+        100,
+    ),
+    (
+        "class_b_interest_amount_check",
+        "Class B Interest Amount Check",
+        "validation",
+        "class_b_interest_amount_calc",
+        "class_b_interest_amount",
+        Decimal("0.01"),
+        175,
+        100,
+    ),
+    (
+        "class_c_interest_amount_check",
+        "Class C Interest Amount Check",
+        "validation",
+        "class_c_interest_amount_calc",
+        "class_c_interest_amount",
+        Decimal("0.01"),
+        300,
+        100,
+    ),
+    (
+        "class_d_interest_amount_check",
+        "Class D Interest Amount Check",
+        "validation",
+        "class_d_interest_amount_calc",
+        "class_d_interest_amount",
+        Decimal("0.01"),
+        525,
+        100,
+    ),
 ]
 
 DEAL_A_EDGES = [
@@ -374,7 +539,13 @@ DEAL_B_MAPPINGS = [
     # (variable_name, sheet, col, row, tape_label)
     # "Sheet 1" (with space) — Servicer B's report format
     ("total_available_funds", "Sheet 1", "K", 81, "Total Available Funds"),
-    ("end_available_funds", "Sheet 1", "K", 100, "Remaining Available Funds (placeholder — verify cell)"),
+    (
+        "end_available_funds",
+        "Sheet 1",
+        "K",
+        100,
+        "Remaining Available Funds (placeholder — verify cell)",
+    ),
     ("svc_fee_tape", "Sheet 1", "J", 84, "Servicing Fee"),
     ("backup_svc_fee_tape", "Sheet 1", "J", 85, "Backup Servicing Fees"),
     ("trustee_fee_tape", "Sheet 1", "J", 86, "Indenture Trustee Fees"),
@@ -400,7 +571,13 @@ DEAL_B_MAPPINGS = [
 DEAL_C_MAPPINGS = [
     # "Sheet1" (no space) — Servicer C's report format, same data different layout
     ("total_available_funds", "Sheet1", "K", 80, "Total Available Funds"),
-    ("end_available_funds", "Sheet1", "K", 99, "Remaining Available Funds (placeholder — verify cell)"),
+    (
+        "end_available_funds",
+        "Sheet1",
+        "K",
+        99,
+        "Remaining Available Funds (placeholder — verify cell)",
+    ),
     ("svc_fee_tape", "Sheet1", "J", 83, "Servicing Fee"),
     ("backup_svc_fee_tape", "Sheet1", "J", 84, "Backup Servicing Fees"),
     ("trustee_fee_tape", "Sheet1", "J", 85, "Indenture Trustee Fees"),
@@ -465,80 +642,241 @@ def _build_6class_dag():
         ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, 350, 50),
         ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, 550, 50),
         ("backup_svc_fee_tape_in", "Backup Svc Fee (tape)", "input_value", None, None, 750, 50),
-
         # Fee aggregation
-        ("total_fees", "Total Fees", "calculation",
-         "svc_fee_tape + trustee_fee_tape + backup_svc_fee_tape", None, 450, 180),
-
+        (
+            "total_fees",
+            "Total Fees",
+            "calculation",
+            "svc_fee_tape + trustee_fee_tape + backup_svc_fee_tape",
+            None,
+            450,
+            180,
+        ),
         # Net distributable
-        ("net_available", "Net Available for Distribution", "calculation",
-         "total_available_funds - total_fees", None, 400, 280),
-
+        (
+            "net_available",
+            "Net Available for Distribution",
+            "calculation",
+            "total_available_funds - total_fees",
+            None,
+            400,
+            280,
+        ),
         # Interest calculations for all 6 classes
-        ("class_a_interest_amount_calc", "Class A Interest (calc)", "calculation",
-         "class_a_note_balance * class_a_note_rate / 12", None, 50, 400),
-        ("class_b_interest_amount_calc", "Class B Interest (calc)", "calculation",
-         "class_b_note_balance * class_b_note_rate / 12", None, 200, 400),
-        ("class_c_interest_amount_calc", "Class C Interest (calc)", "calculation",
-         "class_c_note_balance * class_c_note_rate / 12", None, 350, 400),
-        ("class_d_interest_amount_calc", "Class D Interest (calc)", "calculation",
-         "class_d_note_balance * class_d_note_rate / 12", None, 500, 400),
-        ("class_e_interest_amount_calc", "Class E Interest (calc)", "calculation",
-         "class_e_note_balance * class_e_note_rate / 12", None, 650, 400),
-        ("class_f_interest_amount_calc", "Class F Interest (calc)", "calculation",
-         "class_f_note_balance * class_f_note_rate / 12", None, 800, 400),
-
+        (
+            "class_a_interest_amount_calc",
+            "Class A Interest (calc)",
+            "calculation",
+            "class_a_note_balance * class_a_note_rate / 12",
+            None,
+            50,
+            400,
+        ),
+        (
+            "class_b_interest_amount_calc",
+            "Class B Interest (calc)",
+            "calculation",
+            "class_b_note_balance * class_b_note_rate / 12",
+            None,
+            200,
+            400,
+        ),
+        (
+            "class_c_interest_amount_calc",
+            "Class C Interest (calc)",
+            "calculation",
+            "class_c_note_balance * class_c_note_rate / 12",
+            None,
+            350,
+            400,
+        ),
+        (
+            "class_d_interest_amount_calc",
+            "Class D Interest (calc)",
+            "calculation",
+            "class_d_note_balance * class_d_note_rate / 12",
+            None,
+            500,
+            400,
+        ),
+        (
+            "class_e_interest_amount_calc",
+            "Class E Interest (calc)",
+            "calculation",
+            "class_e_note_balance * class_e_note_rate / 12",
+            None,
+            650,
+            400,
+        ),
+        (
+            "class_f_interest_amount_calc",
+            "Class F Interest (calc)",
+            "calculation",
+            "class_f_note_balance * class_f_note_rate / 12",
+            None,
+            800,
+            400,
+        ),
         # Remaining after all interest
-        ("remaining_after_int", "Remaining After Interest", "calculation",
-         "MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc - class_e_interest_amount_calc - class_f_interest_amount_calc, 0)",
-         None, 400, 520),
-
+        (
+            "remaining_after_int",
+            "Remaining After Interest",
+            "calculation",
+            "MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc - class_e_interest_amount_calc - class_f_interest_amount_calc, 0)",
+            None,
+            400,
+            520,
+        ),
         # Distribution nodes — interleaved interest then principal
-        ("svc_fee_pmt", "Servicing Fee Pmt", "distribution",
-         "svc_fee_tape", "SVC_FEE", 50, 640),
-        ("class_a_int_pmt", "Class A Interest Pmt", "distribution",
-         "MIN(net_available, class_a_interest_amount_calc)", "INT_PMT_A", 150, 640),
-        ("class_b_int_pmt", "Class B Interest Pmt", "distribution",
-         "MIN(MAX(net_available - class_a_interest_amount_calc, 0), class_b_interest_amount_calc)",
-         "INT_PMT_B", 270, 640),
-        ("class_c_int_pmt", "Class C Interest Pmt", "distribution",
-         "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc, 0), class_c_interest_amount_calc)",
-         "INT_PMT_C", 390, 640),
-        ("class_d_int_pmt", "Class D Interest Pmt", "distribution",
-         "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc, 0), class_d_interest_amount_calc)",
-         "INT_PMT_D", 510, 640),
-        ("class_e_int_pmt", "Class E Interest Pmt", "distribution",
-         "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc, 0), class_e_interest_amount_calc)",
-         "INT_PMT_E", 630, 640),
-        ("class_f_int_pmt", "Class F Interest Pmt", "distribution",
-         "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc - class_e_interest_amount_calc, 0), class_f_interest_amount_calc)",
-         "INT_PMT_F", 750, 640),
-
+        ("svc_fee_pmt", "Servicing Fee Pmt", "distribution", "svc_fee_tape", "SVC_FEE", 50, 640),
+        (
+            "class_a_int_pmt",
+            "Class A Interest Pmt",
+            "distribution",
+            "MIN(net_available, class_a_interest_amount_calc)",
+            "INT_PMT_A",
+            150,
+            640,
+        ),
+        (
+            "class_b_int_pmt",
+            "Class B Interest Pmt",
+            "distribution",
+            "MIN(MAX(net_available - class_a_interest_amount_calc, 0), class_b_interest_amount_calc)",
+            "INT_PMT_B",
+            270,
+            640,
+        ),
+        (
+            "class_c_int_pmt",
+            "Class C Interest Pmt",
+            "distribution",
+            "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc, 0), class_c_interest_amount_calc)",
+            "INT_PMT_C",
+            390,
+            640,
+        ),
+        (
+            "class_d_int_pmt",
+            "Class D Interest Pmt",
+            "distribution",
+            "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc, 0), class_d_interest_amount_calc)",
+            "INT_PMT_D",
+            510,
+            640,
+        ),
+        (
+            "class_e_int_pmt",
+            "Class E Interest Pmt",
+            "distribution",
+            "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc, 0), class_e_interest_amount_calc)",
+            "INT_PMT_E",
+            630,
+            640,
+        ),
+        (
+            "class_f_int_pmt",
+            "Class F Interest Pmt",
+            "distribution",
+            "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc - class_e_interest_amount_calc, 0), class_f_interest_amount_calc)",
+            "INT_PMT_F",
+            750,
+            640,
+        ),
         # Regular principal distribution (whatever remains after interest)
-        ("regular_prin_dist", "Regular Principal Distribution", "distribution",
-         "remaining_after_int", "PRIN_DIST", 400, 760),
+        (
+            "regular_prin_dist",
+            "Regular Principal Distribution",
+            "distribution",
+            "remaining_after_int",
+            "PRIN_DIST",
+            400,
+            760,
+        ),
     ]
 
     validation_nodes = [
-        ("oc_amount_check", "OC Amount Check", "validation",
-         "ABS(cur_pool_bal - class_a_note_balance - class_b_note_balance - class_c_note_balance - class_d_note_balance - class_e_note_balance - class_f_note_balance)",
-         "reported_oc", Decimal("0.01"), 100, 100),
-        ("total_distribution_check", "Total Distribution Check", "validation",
-         "ABS(svc_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_e_int_pmt + class_f_int_pmt + regular_prin_dist)",
-         "total_available_funds", Decimal("0.01"), 500, 100),
+        (
+            "oc_amount_check",
+            "OC Amount Check",
+            "validation",
+            "ABS(cur_pool_bal - class_a_note_balance - class_b_note_balance - class_c_note_balance - class_d_note_balance - class_e_note_balance - class_f_note_balance)",
+            "reported_oc",
+            Decimal("0.01"),
+            100,
+            100,
+        ),
+        (
+            "total_distribution_check",
+            "Total Distribution Check",
+            "validation",
+            "ABS(svc_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_e_int_pmt + class_f_int_pmt + regular_prin_dist)",
+            "total_available_funds",
+            Decimal("0.01"),
+            500,
+            100,
+        ),
         # Per-class interest reconciliation: compare calc against tape-reported.
-        ("class_a_interest_amount_check", "Class A Interest Amount Check", "validation",
-         "class_a_interest_amount_calc", "class_a_interest_amount", Decimal("0.01"), 50, 200),
-        ("class_b_interest_amount_check", "Class B Interest Amount Check", "validation",
-         "class_b_interest_amount_calc", "class_b_interest_amount", Decimal("0.01"), 170, 200),
-        ("class_c_interest_amount_check", "Class C Interest Amount Check", "validation",
-         "class_c_interest_amount_calc", "class_c_interest_amount", Decimal("0.01"), 290, 200),
-        ("class_d_interest_amount_check", "Class D Interest Amount Check", "validation",
-         "class_d_interest_amount_calc", "class_d_interest_amount", Decimal("0.01"), 410, 200),
-        ("class_e_interest_amount_check", "Class E Interest Amount Check", "validation",
-         "class_e_interest_amount_calc", "class_e_interest_amount", Decimal("0.01"), 530, 200),
-        ("class_f_interest_amount_check", "Class F Interest Amount Check", "validation",
-         "class_f_interest_amount_calc", "class_f_interest_amount", Decimal("0.01"), 650, 200),
+        (
+            "class_a_interest_amount_check",
+            "Class A Interest Amount Check",
+            "validation",
+            "class_a_interest_amount_calc",
+            "class_a_interest_amount",
+            Decimal("0.01"),
+            50,
+            200,
+        ),
+        (
+            "class_b_interest_amount_check",
+            "Class B Interest Amount Check",
+            "validation",
+            "class_b_interest_amount_calc",
+            "class_b_interest_amount",
+            Decimal("0.01"),
+            170,
+            200,
+        ),
+        (
+            "class_c_interest_amount_check",
+            "Class C Interest Amount Check",
+            "validation",
+            "class_c_interest_amount_calc",
+            "class_c_interest_amount",
+            Decimal("0.01"),
+            290,
+            200,
+        ),
+        (
+            "class_d_interest_amount_check",
+            "Class D Interest Amount Check",
+            "validation",
+            "class_d_interest_amount_calc",
+            "class_d_interest_amount",
+            Decimal("0.01"),
+            410,
+            200,
+        ),
+        (
+            "class_e_interest_amount_check",
+            "Class E Interest Amount Check",
+            "validation",
+            "class_e_interest_amount_calc",
+            "class_e_interest_amount",
+            Decimal("0.01"),
+            530,
+            200,
+        ),
+        (
+            "class_f_interest_amount_check",
+            "Class F Interest Amount Check",
+            "validation",
+            "class_f_interest_amount_calc",
+            "class_f_interest_amount",
+            Decimal("0.01"),
+            650,
+            200,
+        ),
     ]
 
     edges = [
@@ -611,6 +949,7 @@ def _build_6class_dag():
 # Generic deal seeder (used for all 3 deals)
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _seed_deal(
     db: Session,
     deal_name: str,
@@ -652,32 +991,32 @@ def _seed_deal(
         print(f"  + Deal id={deal.id}")
 
     # Variable mappings
-    existing_mappings = db.query(VariableMapping).filter(
-        VariableMapping.deal_id == deal.id
-    ).count()
+    existing_mappings = (
+        db.query(VariableMapping).filter(VariableMapping.deal_id == deal.id).count()
+    )
     if existing_mappings == 0:
         for var_name, sheet, col, row, label in mappings:
             var = variables.get(var_name)
             if var is None:
                 print(f"    ! Variable not found: {var_name}")
                 continue
-            db.add(VariableMapping(
-                deal_id=deal.id,
-                variable_id=var.id,
-                sheet_name=sheet,
-                column_letter=col,
-                row_number=row,
-                tape_label=label,
-            ))
+            db.add(
+                VariableMapping(
+                    deal_id=deal.id,
+                    variable_id=var.id,
+                    sheet_name=sheet,
+                    column_letter=col,
+                    row_number=row,
+                    tape_label=label,
+                )
+            )
         db.flush()
         print(f"  + {len(mappings)} variable mappings")
     else:
         print(f"  = {existing_mappings} mappings already exist")
 
     # Tranches
-    existing_tranches = db.query(DealTranche).filter(
-        DealTranche.deal_id == deal.id
-    ).count()
+    existing_tranches = db.query(DealTranche).filter(DealTranche.deal_id == deal.id).count()
     if existing_tranches == 0:
         for class_label, cusip, reg_type, rate, orig_bal in tranches:
             t = DealTranche(
@@ -694,12 +1033,14 @@ def _seed_deal(
 
             bal = balances.get(class_label)
             if bal is not None:
-                db.add(TrancheBalance(
-                    tranche_id=t.id,
-                    period=balance_period,
-                    balance=bal,
-                    source="manual",
-                ))
+                db.add(
+                    TrancheBalance(
+                        tranche_id=t.id,
+                        period=balance_period,
+                        balance=bal,
+                        source="manual",
+                    )
+                )
         db.flush()
         print(f"  + {len(tranches)} tranches with balances")
     else:
@@ -710,18 +1051,33 @@ def _seed_deal(
 
     node_creates: list[DagNodeCreate] = []
     for key, name, ntype, formula, payment_type, px, py in dist_nodes:
-        node_creates.append(DagNodeCreate(
-            key=key, name=name, node_type=ntype, stream="distribution",
-            formula=formula, payment_type=payment_type,
-            waterfall_order=waterfall_order.get(key),
-            position_x=px, position_y=py,
-        ))
+        node_creates.append(
+            DagNodeCreate(
+                key=key,
+                name=name,
+                node_type=ntype,
+                stream="distribution",
+                formula=formula,
+                payment_type=payment_type,
+                waterfall_order=waterfall_order.get(key),
+                position_x=px,
+                position_y=py,
+            )
+        )
     for key, name, ntype, formula, comp_var, tolerance, px, py in validation_nodes:
-        node_creates.append(DagNodeCreate(
-            key=key, name=name, node_type=ntype, stream="validation",
-            formula=formula, comparison_variable=comp_var, tolerance=tolerance,
-            position_x=px, position_y=py,
-        ))
+        node_creates.append(
+            DagNodeCreate(
+                key=key,
+                name=name,
+                node_type=ntype,
+                stream="validation",
+                formula=formula,
+                comparison_variable=comp_var,
+                tolerance=tolerance,
+                position_x=px,
+                position_y=py,
+            )
+        )
 
     edge_creates: list[DagEdgeCreate] = [
         DagEdgeCreate(source_key=src, target_key=tgt) for src, tgt in edges
@@ -734,12 +1090,12 @@ def _seed_deal(
         created_by="root",
         description="Initial waterfall setup from seed",
     )
-    print(f"  + {len(node_creates)} nodes + {len(edge_creates)} edges saved as v{version.version_number}")
+    print(
+        f"  + {len(node_creates)} nodes + {len(edge_creates)} edges saved as v{version.version_number}"
+    )
 
     # Export columns (System A layout)
-    existing_cols = db.query(ExportColumn).filter(
-        ExportColumn.deal_id == deal.id
-    ).count()
+    existing_cols = db.query(ExportColumn).filter(ExportColumn.deal_id == deal.id).count()
     if existing_cols == 0:
         export_svc = ExportColumnService(db)
         saved_nodes = dag_svc.load(deal.id)
@@ -751,12 +1107,33 @@ def _seed_deal(
                     break
 
         pos = 1
-        export_svc.create_column(deal.id, "DEAL_ID", "deal_meta", meta_field="deal_id", position=pos); pos += 1
-        export_svc.create_column(deal.id, "PAYMENT_DATE", "run_meta", meta_field="payment_date", position=pos); pos += 1
-        export_svc.create_column(deal.id, "PAYMENT_TYPE", "literal", literal_value="DISTRIBUTION", position=pos); pos += 1
-        export_svc.create_column(deal.id, "FIELD_CODE", "literal", literal_value="", position=pos); pos += 1
-        export_svc.create_column(deal.id, "AMOUNT", "distribution_node", node_id=anchor_node_id, format_type="decimal", decimal_places=2, position=pos); pos += 1
-        export_svc.create_column(deal.id, "RUN_ID", "run_meta", meta_field="run_code", position=pos)
+        export_svc.create_column(
+            deal.id, "DEAL_ID", "deal_meta", meta_field="deal_id", position=pos
+        )
+        pos += 1
+        export_svc.create_column(
+            deal.id, "PAYMENT_DATE", "run_meta", meta_field="payment_date", position=pos
+        )
+        pos += 1
+        export_svc.create_column(
+            deal.id, "PAYMENT_TYPE", "literal", literal_value="DISTRIBUTION", position=pos
+        )
+        pos += 1
+        export_svc.create_column(deal.id, "FIELD_CODE", "literal", literal_value="", position=pos)
+        pos += 1
+        export_svc.create_column(
+            deal.id,
+            "AMOUNT",
+            "distribution_node",
+            node_id=anchor_node_id,
+            format_type="decimal",
+            decimal_places=2,
+            position=pos,
+        )
+        pos += 1
+        export_svc.create_column(
+            deal.id, "RUN_ID", "run_meta", meta_field="run_code", position=pos
+        )
         db.flush()
         print(f"  + 6 export columns")
     else:
@@ -768,6 +1145,7 @@ def _seed_deal(
 # ══════════════════════════════════════════════════════════════════════════════
 # Drop all records
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def drop_all_records(db: Session) -> None:
     """Delete all records from tables in reverse dependency order."""
@@ -804,37 +1182,132 @@ GLOBAL_TEMPLATES = [
         "name": "System A",
         "description": "Row per payment — standard format",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "DISTRIBUTION", "format_type": "text"},
-            {"header_label": "FIELD_CODE", "value_type": "distribution_node", "format_type": "text"},
-            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_TYPE",
+                "value_type": "literal",
+                "literal_value": "DISTRIBUTION",
+                "format_type": "text",
+            },
+            {
+                "header_label": "FIELD_CODE",
+                "value_type": "distribution_node",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
     {
         "name": "System B",
         "description": "Wide format with 144A/RegS split columns",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "FIELD_CODE", "value_type": "distribution_node", "format_type": "text"},
-            {"header_label": "AMOUNT_144A", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2, "prorate_by": "144a"},
-            {"header_label": "AMOUNT_REGS", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2, "prorate_by": "regs"},
-            {"header_label": "AMOUNT_TOTAL", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "FIELD_CODE",
+                "value_type": "distribution_node",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT_144A",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+                "prorate_by": "144a",
+            },
+            {
+                "header_label": "AMOUNT_REGS",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+                "prorate_by": "regs",
+            },
+            {
+                "header_label": "AMOUNT_TOTAL",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
     {
         "name": "System C",
         "description": "CUSIP-level detail format",
         "columns": [
-            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
-            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
-            {"header_label": "CUSIP", "value_type": "literal", "literal_value": "", "format_type": "text"},
-            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "DISTRIBUTION", "format_type": "text"},
-            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
-            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+            {
+                "header_label": "DEAL_ID",
+                "value_type": "deal_meta",
+                "meta_field": "deal_id",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_DATE",
+                "value_type": "run_meta",
+                "meta_field": "payment_date",
+                "format_type": "text",
+            },
+            {
+                "header_label": "CUSIP",
+                "value_type": "literal",
+                "literal_value": "",
+                "format_type": "text",
+            },
+            {
+                "header_label": "PAYMENT_TYPE",
+                "value_type": "literal",
+                "literal_value": "DISTRIBUTION",
+                "format_type": "text",
+            },
+            {
+                "header_label": "AMOUNT",
+                "value_type": "distribution_node",
+                "format_type": "decimal",
+                "decimal_places": 2,
+            },
+            {
+                "header_label": "RUN_ID",
+                "value_type": "run_meta",
+                "meta_field": "run_code",
+                "format_type": "text",
+            },
         ],
     },
 ]
@@ -877,6 +1350,7 @@ def seed_global_templates(db: Session) -> list[GlobalExportTemplate]:
 # ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def run_seed() -> None:
     db = SessionLocal()

@@ -1,10 +1,9 @@
 """Export service — generate CSV payment files from distribution nodes."""
+
 import csv
 import hashlib
 import io
 import os
-from datetime import datetime
-from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.models.processing import ProcessingRun, ExecutionStep
@@ -25,6 +24,7 @@ class ExportService:
 
         # Check waterfall reconciliation before allowing export
         from app.processing.service import ProcessingService
+
         try:
             waterfall = ProcessingService(self.db).get_waterfall(run.id)
         except ValueError:
@@ -65,7 +65,7 @@ class ExportService:
         dest_dir = os.path.join(settings.export_directory, str(run.deal_id), run.report_period)
         os.makedirs(dest_dir, exist_ok=True)
         file_path = os.path.join(dest_dir, filename)
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         run.export_file_path = file_path
@@ -117,18 +117,22 @@ class ExportService:
         if template.format_type == "row_per_payment":
             for step in dist_steps:
                 mapping = key_to_mapping.get(step.node_key)
-                field_code = mapping.field_code if mapping else (step.export_field or step.node_key)
+                field_code = (
+                    mapping.field_code if mapping else (step.export_field or step.node_key)
+                )
                 pmt_type = mapping.payment_type if mapping else (step.payment_type or "")
                 tranche = mapping.tranche_class if mapping else ""
 
-                rows.append({
-                    "DEAL_ID": deal_name,
-                    "PAYMENT_DATE": period_str,
-                    "PAYMENT_TYPE": pmt_type.upper() if pmt_type else "",
-                    "CLASS": tranche or "",
-                    "FIELD_CODE": field_code,
-                    "AMOUNT": str(step.result or 0),
-                    "RUN_ID": f"RUN-{run.id}",
-                })
+                rows.append(
+                    {
+                        "DEAL_ID": deal_name,
+                        "PAYMENT_DATE": period_str,
+                        "PAYMENT_TYPE": pmt_type.upper() if pmt_type else "",
+                        "CLASS": tranche or "",
+                        "FIELD_CODE": field_code,
+                        "AMOUNT": str(step.result or 0),
+                        "RUN_ID": f"RUN-{run.id}",
+                    }
+                )
 
         return rows

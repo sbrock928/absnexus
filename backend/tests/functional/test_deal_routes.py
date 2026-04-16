@@ -1,4 +1,5 @@
 """Deal route functional tests."""
+
 from app.models.servicer import Servicer
 
 

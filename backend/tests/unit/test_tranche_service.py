@@ -1,4 +1,5 @@
 """Tranche service unit tests."""
+
 from decimal import Decimal
 from app.tranches.service import TrancheService
 from app.tranches.dao import TrancheDAO
@@ -19,7 +20,9 @@ def _make_deal(db):
 def test_build_context_combined(db):
     deal = _make_deal(db)
     dao = TrancheDAO(db)
-    t = dao.create(deal_id=deal.id, class_label="A", regulation_type="combined", note_rate=Decimal("0.0425"))
+    t = dao.create(
+        deal_id=deal.id, class_label="A", regulation_type="combined", note_rate=Decimal("0.0425")
+    )
     dao.set_balance(t.id, "2026-04", Decimal("182255600"))
     ctx = TrancheService(db).build_tranche_context(deal.id, "2026-04")
     assert ctx["class_a_balance"] == Decimal("182255600")
@@ -29,8 +32,12 @@ def test_build_context_combined(db):
 def test_build_context_with_split(db):
     deal = _make_deal(db)
     dao = TrancheDAO(db)
-    t144 = dao.create(deal_id=deal.id, class_label="A", regulation_type="144a", note_rate=Decimal("0.0425"))
-    tregs = dao.create(deal_id=deal.id, class_label="A", regulation_type="regs", note_rate=Decimal("0.0425"))
+    t144 = dao.create(
+        deal_id=deal.id, class_label="A", regulation_type="144a", note_rate=Decimal("0.0425")
+    )
+    tregs = dao.create(
+        deal_id=deal.id, class_label="A", regulation_type="regs", note_rate=Decimal("0.0425")
+    )
     dao.set_balance(t144.id, "2026-04", Decimal("100000000"))
     dao.set_balance(tregs.id, "2026-04", Decimal("82255600"))
     ctx = TrancheService(db).build_tranche_context(deal.id, "2026-04")

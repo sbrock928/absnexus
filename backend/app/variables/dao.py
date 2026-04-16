@@ -1,4 +1,5 @@
 """Variable data access."""
+
 from sqlalchemy.orm import Session
 from app.models.variable import VariableDefinition, VariableAlias
 
@@ -89,8 +90,11 @@ class VariableDAO:
 
     # Aliases
     def set_alias(
-        self, variable_id: int, display_alias: str,
-        servicer_id: int | None = None, deal_id: int | None = None,
+        self,
+        variable_id: int,
+        display_alias: str,
+        servicer_id: int | None = None,
+        deal_id: int | None = None,
     ) -> VariableAlias:
         existing = (
             self.db.query(VariableAlias)

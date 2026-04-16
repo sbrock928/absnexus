@@ -1,4 +1,5 @@
 """Functional tests for user management routes."""
+
 from app.models.user import User
 
 
@@ -13,14 +14,20 @@ def _seed_user(db, username, display_name="User", role="analyst", is_active=True
 # POST /api/auth/users — create (admin only)
 # ---------------------------------------------------------------------------
 
+
 def test_create_user_requires_admin(client):
     """analytics role should be denied."""
-    r = client.post("/api/auth/users", json={"username": "new", "display_name": "New", "role": "analyst"})
+    r = client.post(
+        "/api/auth/users", json={"username": "new", "display_name": "New", "role": "analyst"}
+    )
     assert r.status_code == 403
 
 
 def test_create_user_as_admin(admin_client):
-    r = admin_client.post("/api/auth/users", json={"username": "newuser", "display_name": "New User", "role": "analyst"})
+    r = admin_client.post(
+        "/api/auth/users",
+        json={"username": "newuser", "display_name": "New User", "role": "analyst"},
+    )
     assert r.status_code == 201
     body = r.json()
     assert body["username"] == "newuser"
@@ -31,6 +38,7 @@ def test_create_user_as_admin(admin_client):
 # ---------------------------------------------------------------------------
 # GET /api/users/ — list (admin only)
 # ---------------------------------------------------------------------------
+
 
 def test_list_users_requires_admin(client):
     r = client.get("/api/users/")
@@ -59,6 +67,7 @@ def test_list_users_includes_admin_user(admin_client):
 # ---------------------------------------------------------------------------
 # PATCH /api/users/{id} — update role / deactivate (admin only)
 # ---------------------------------------------------------------------------
+
 
 def test_update_user_requires_admin(client, db):
     u = _seed_user(db, "target")

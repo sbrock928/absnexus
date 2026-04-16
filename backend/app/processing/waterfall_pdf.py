@@ -1,4 +1,5 @@
 """Waterfall comparison PDF — generates a print-friendly HTML document."""
+
 from datetime import datetime
 
 
@@ -39,7 +40,9 @@ def render_waterfall_html(data: dict) -> str:
     reconciled = data.get("reconciled")
 
     if all_ok and reconciled:
-        overall = '<span style="color: #16a34a; font-weight: 700; font-size: 16px;">ALL MATCHED</span>'
+        overall = (
+            '<span style="color: #16a34a; font-weight: 700; font-size: 16px;">ALL MATCHED</span>'
+        )
     elif reconciled is False or (comp_count > 0 and not all_ok):
         overall = '<span style="color: #dc2626; font-weight: 700; font-size: 16px;">DISCREPANCIES FOUND</span>'
     else:

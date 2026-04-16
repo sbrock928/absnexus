@@ -1,4 +1,5 @@
 """Mapping data access."""
+
 from sqlalchemy.orm import Session
 from app.models.variable_mapping import VariableMapping
 

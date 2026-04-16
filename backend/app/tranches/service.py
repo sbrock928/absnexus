@@ -1,4 +1,5 @@
 """Tranche service — balance management and context building."""
+
 import re
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -22,7 +23,9 @@ class TrancheService:
         self.db = db
         self.dao = TrancheDAO(db)
 
-    def build_tranche_context(self, deal_id: int, period: str, prior_period: str | None = None) -> dict[str, Decimal]:
+    def build_tranche_context(
+        self, deal_id: int, period: str, prior_period: str | None = None
+    ) -> dict[str, Decimal]:
         """Build deterministic formula variables from tranches.
 
         Returns keys like: class_a_balance, class_a_note_rate,

@@ -21,10 +21,12 @@ from app.global_export.router import router as global_export_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app_instance: FastAPI):
     from app.core import settings
+
     if not settings.testing:
         import app.models  # noqa: F401
+
         Base.metadata.create_all(bind=engine)
     yield
 
