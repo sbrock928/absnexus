@@ -22,6 +22,7 @@ export function Sidebar() {
             <SidebarLink to="/deals" label="Deals" />
             <SidebarLink to="/variables" label="Variables" />
             <SidebarLink to="/variable-map" label="Variable Map" />
+            <SidebarLink to="/export-templates" label="Export Templates" />
 
             <div className="sidebar-section">Monthly Processing</div>
             <SidebarLink to="/processing" label="Processing" />

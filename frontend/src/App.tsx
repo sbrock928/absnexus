@@ -16,6 +16,7 @@ import { BatchResultsPage } from "./pages/BatchResultsPage";
 import { BatchHistoryPage } from "./pages/BatchHistoryPage";
 import { CellMapperPage } from "./pages/CellMapperPage";
 import { UsersPage } from "./pages/UsersPage";
+import { GlobalExportPage } from "./pages/GlobalExportPage";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/batches/:batchId" element={<BatchResultsPage />} />
           <Route path="/audit" element={<AuditLogPage />} />
           <Route path="/users" element={<UsersPage />} />
+          <Route path="/export-templates" element={<GlobalExportPage />} />
           <Route path="/" element={<Navigate to="/deals" replace />} />
         </Route>
       </Routes>

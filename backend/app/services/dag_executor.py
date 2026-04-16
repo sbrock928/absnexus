@@ -136,6 +136,15 @@ class DagExecutor:
 
                 if node.node_type == "distribution":
                     result.distribution_total += step.result or Decimal("0")
+                    # Compare against tape value if comparison_variable is set
+                    if node.comparison_variable:
+                        comp_val = context.get(node.comparison_variable)
+                        if comp_val is not None:
+                            step.comparison_value = comp_val
+                            step.difference = abs((step.result or Decimal("0")) - comp_val)
+                            step.tolerance = Decimal("0.01")
+                            step.tolerance_type = "absolute"
+                            step.passed = 1 if step.difference <= step.tolerance else 0
 
             elif node.node_type == "validation":
                 result.validations_total += 1

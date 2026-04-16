@@ -319,6 +319,7 @@ export function DagEditorPage() {
               <th>Formula</th>
               <th>Export</th>
               <th>WF #</th>
+              <th>Tape Compare</th>
               {isEditable && <th></th>}
             </tr>
           </thead>
@@ -388,6 +389,42 @@ export function DagEditorPage() {
                         fontSize: 12,
                       }}
                     />
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {node.node_type === "distribution" ? (
+                    isEditable ? (
+                      <select
+                        value={node.comparison_variable ?? ""}
+                        onChange={(e) => {
+                          updateNodeMut.mutate({
+                            nodeId: node.id,
+                            fields: { comparison_variable: e.target.value || null },
+                          });
+                        }}
+                        style={{
+                          width: 160,
+                          padding: "2px 6px",
+                          background: "var(--bg-tertiary)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 4,
+                          color: node.comparison_variable ? "var(--accent-green)" : "var(--text-muted)",
+                          fontSize: 11,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        <option value="">— none —</option>
+                        {variables.map((v) => (
+                          <option key={v.id} value={v.name}>{v.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <code style={{ fontSize: 11, color: node.comparison_variable ? "var(--accent-green)" : "var(--text-muted)" }}>
+                        {node.comparison_variable ?? "—"}
+                      </code>
+                    )
                   ) : (
                     "—"
                   )}

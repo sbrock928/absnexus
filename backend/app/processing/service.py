@@ -89,12 +89,29 @@ class ProcessingService:
 
         distributions.sort(key=sort_key)
 
-        # Build steps
+        # Build steps with comparison data
         steps = []
         running = starting_balance
+        comparison_count = 0
+        comparison_matched = 0
+
         for idx, step in enumerate(distributions, start=1):
             amount = step.result or Decimal("0")
             running = running - amount
+
+            # Comparison data (populated by DagExecutor for distribution nodes
+            # with comparison_variable set)
+            node = nodes_by_id.get(step.node_id)
+            tape_value = str(step.comparison_value) if step.comparison_value is not None else None
+            step_diff = str(step.difference) if step.difference is not None else None
+            matched = True if step.passed == 1 else (False if step.passed == 0 else None)
+            comp_var = node.comparison_variable if node else None
+
+            if tape_value is not None:
+                comparison_count += 1
+                if matched:
+                    comparison_matched += 1
+
             steps.append({
                 "step": idx,
                 "node_key": step.node_key,
@@ -103,6 +120,10 @@ class ProcessingService:
                 "remaining_after": str(running),
                 "export_field": step.export_field,
                 "payment_type": step.payment_type,
+                "tape_value": tape_value,
+                "difference": step_diff,
+                "matched": matched,
+                "comparison_variable": comp_var,
             })
 
         final_remainder = running
@@ -116,6 +137,8 @@ class ProcessingService:
         return {
             "run_id": run.id,
             "run_code": f"RUN-{run.id}",
+            "deal_name": deal.name,
+            "report_period": run.report_period,
             "starting_var": starting_var,
             "starting_balance": str(starting_balance),
             "ending_var": ending_var,
@@ -129,6 +152,9 @@ class ProcessingService:
             "difference": str(difference) if difference is not None else None,
             "reconciled": reconciled,
             "has_tape_value": tape_ending_balance is not None,
+            "comparison_count": comparison_count,
+            "comparison_matched": comparison_matched,
+            "all_compared": comparison_count > 0 and comparison_count == comparison_matched,
         }
 
     # ── Single-variable re-extraction ──

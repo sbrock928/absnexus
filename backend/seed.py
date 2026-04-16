@@ -32,6 +32,7 @@ from app.models.variable_mapping import VariableMapping
 from app.models.servicer import Servicer
 from app.models.tranche import DealTranche, TrancheBalance
 from app.models.user import User
+from app.models.global_export import GlobalExportTemplate, GlobalExportColumn, DealExportMapping
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
 from app.tranches.service import TrancheService
 
@@ -736,6 +737,9 @@ def drop_all_records(db: Session) -> None:
     """Delete all records from tables in reverse dependency order."""
     print("\n── Dropping all records ──")
     tables_to_clear = [
+        DealExportMapping,
+        GlobalExportColumn,
+        GlobalExportTemplate,
         ExportColumn,
         DagEdge,
         DagNode,
@@ -755,6 +759,85 @@ def drop_all_records(db: Session) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Global Export Templates (3 fixed)
+# ══════════════════════════════════════════════════════════════════════════════
+
+GLOBAL_TEMPLATES = [
+    {
+        "name": "System A",
+        "description": "Row per payment — standard format",
+        "columns": [
+            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
+            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
+            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "DISTRIBUTION", "format_type": "text"},
+            {"header_label": "FIELD_CODE", "value_type": "distribution_node", "format_type": "text"},
+            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
+            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+        ],
+    },
+    {
+        "name": "System B",
+        "description": "Wide format with 144A/RegS split columns",
+        "columns": [
+            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
+            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
+            {"header_label": "FIELD_CODE", "value_type": "distribution_node", "format_type": "text"},
+            {"header_label": "AMOUNT_144A", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2, "prorate_by": "144a"},
+            {"header_label": "AMOUNT_REGS", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2, "prorate_by": "regs"},
+            {"header_label": "AMOUNT_TOTAL", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
+            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+        ],
+    },
+    {
+        "name": "System C",
+        "description": "CUSIP-level detail format",
+        "columns": [
+            {"header_label": "DEAL_ID", "value_type": "deal_meta", "meta_field": "deal_id", "format_type": "text"},
+            {"header_label": "PAYMENT_DATE", "value_type": "run_meta", "meta_field": "payment_date", "format_type": "text"},
+            {"header_label": "CUSIP", "value_type": "literal", "literal_value": "", "format_type": "text"},
+            {"header_label": "PAYMENT_TYPE", "value_type": "literal", "literal_value": "DISTRIBUTION", "format_type": "text"},
+            {"header_label": "AMOUNT", "value_type": "distribution_node", "format_type": "decimal", "decimal_places": 2},
+            {"header_label": "RUN_ID", "value_type": "run_meta", "meta_field": "run_code", "format_type": "text"},
+        ],
+    },
+]
+
+
+def seed_global_templates(db: Session) -> list[GlobalExportTemplate]:
+    """Create the 3 fixed global export templates with their columns."""
+    print("\n── Global export templates ──")
+    templates = []
+    for tmpl_data in GLOBAL_TEMPLATES:
+        t = GlobalExportTemplate(
+            name=tmpl_data["name"],
+            description=tmpl_data["description"],
+        )
+        db.add(t)
+        db.flush()
+        templates.append(t)
+
+        for pos, col_data in enumerate(tmpl_data["columns"], start=1):
+            col = GlobalExportColumn(
+                template_id=t.id,
+                position=pos,
+                header_label=col_data["header_label"],
+                value_type=col_data["value_type"],
+                literal_value=col_data.get("literal_value"),
+                meta_field=col_data.get("meta_field"),
+                format_type=col_data.get("format_type", "text"),
+                decimal_places=col_data.get("decimal_places"),
+                prorate_by=col_data.get("prorate_by"),
+                prorate_class_label=col_data.get("prorate_class_label"),
+            )
+            db.add(col)
+
+        db.flush()
+        print(f"  + {tmpl_data['name']} ({len(tmpl_data['columns'])} columns)")
+
+    return templates
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -765,6 +848,7 @@ def run_seed() -> None:
         users = seed_users(db)
         servicers = seed_servicers(db)
         variables = seed_system_variables(db)
+        seed_global_templates(db)
 
         # Deal A: Servicer A Deal 3 — 4-class sequential waterfall
         _seed_deal(

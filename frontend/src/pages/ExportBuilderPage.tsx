@@ -1,52 +1,23 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth";
+import { useToast } from "@/components/Toast";
 import { api } from "@/api/client";
 import type { Deal } from "@/types";
 import { fetchNodes, type DagNode } from "@/api/dag";
 import {
-  listColumns,
-  createColumn,
-  updateColumn,
-  deleteColumn,
-  reorderColumns,
-  copyPreset,
-  listPresets,
-  previewExport,
-  type ExportColumn,
-} from "@/api/export";
-import styles from "./ExportBuilderPage.module.css";
-
-const VALUE_TYPE_OPTIONS = [
-  { value: "distribution_node", label: "Distribution node" },
-  { value: "literal", label: "Literal value" },
-  { value: "run_meta", label: "Run metadata" },
-  { value: "deal_meta", label: "Deal metadata" },
-];
-
-const FORMAT_OPTIONS = [
-  { value: "text", label: "Text" },
-  { value: "decimal", label: "Decimal" },
-  { value: "integer", label: "Integer" },
-];
-
-const RUN_META_OPTIONS = [
-  { value: "run_code", label: "Run code" },
-  { value: "payment_date", label: "Payment date" },
-  { value: "report_period", label: "Report period" },
-];
-
-const DEAL_META_OPTIONS = [
-  { value: "deal_id", label: "Deal ID" },
-  { value: "deal_name", label: "Deal name" },
-  { value: "product_type", label: "Product type" },
-];
+  listTemplates,
+  getTemplate,
+  getDealMappings,
+  saveDealMappings,
+} from "@/api/globalExport";
 
 export function ExportBuilderPage() {
   const { dealId } = useParams<{ dealId: string }>();
   const id = Number(dealId);
   const { isModeler } = useAuth();
+  const { toast } = useToast();
   const qc = useQueryClient();
 
   const { data: deal } = useQuery({
@@ -56,545 +27,181 @@ export function ExportBuilderPage() {
   const isArchived = deal?.status === "archived";
   const isEditable = isModeler && !isArchived;
 
-  const [showAdd, setShowAdd] = useState(false);
-  const [editing, setEditing] = useState<ExportColumn | null>(null);
-  const [showPresets, setShowPresets] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
 
-  const { data: columns = [] } = useQuery({
-    queryKey: ["export-columns", id],
-    queryFn: () => listColumns(id),
+  // Load templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ["global-templates"],
+    queryFn: listTemplates,
   });
 
-  const { data: nodes = [] } = useQuery({
+  const activeTemplateId = selectedTemplateId ?? templates[0]?.id ?? null;
+
+  // Load template columns
+  const { data: templateData } = useQuery({
+    queryKey: ["global-template", activeTemplateId],
+    queryFn: () => getTemplate(activeTemplateId!),
+    enabled: activeTemplateId !== null,
+  });
+
+  const columns = templateData?.columns ?? [];
+  // Load deal's distribution nodes
+  const { data: allNodes = [] } = useQuery({
     queryKey: ["dag-nodes", id],
     queryFn: () => fetchNodes(id),
   });
+  const distNodes = allNodes.filter((n: DagNode) => n.node_type === "distribution");
 
-  const { data: presets = [] } = useQuery({
-    queryKey: ["presets"],
-    queryFn: listPresets,
+  // Load existing mappings
+  const { data: existingMappings = [] } = useQuery({
+    queryKey: ["deal-export-mappings", id, activeTemplateId],
+    queryFn: () => getDealMappings(id, activeTemplateId!),
+    enabled: activeTemplateId !== null,
   });
 
-  const { data: preview } = useQuery({
-    queryKey: ["export-preview", id, columns.length],
-    queryFn: () => previewExport(id),
-  });
+  // Local mapping state: column_id → node_id
+  const [localMappings, setLocalMappings] = useState<Record<number, number>>({});
+  const [initialized, setInitialized] = useState(false);
 
-  const distributionNodes = nodes.filter(
-    (n) => n.node_type === "distribution" && n.is_active,
-  );
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["export-columns", id] });
-    qc.invalidateQueries({ queryKey: ["export-preview", id] });
-  };
-
-  const createMut = useMutation({
-    mutationFn: (payload: Partial<ExportColumn>) => createColumn(id, payload),
-    onSuccess: () => {
-      invalidate();
-      setShowAdd(false);
-    },
-  });
-
-  const updateMut = useMutation({
-    mutationFn: ({ cid, fields }: { cid: number; fields: Partial<ExportColumn> }) =>
-      updateColumn(cid, fields),
-    onSuccess: () => {
-      invalidate();
-      setEditing(null);
-    },
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (cid: number) => deleteColumn(cid),
-    onSuccess: invalidate,
-  });
-
-  const reorderMut = useMutation({
-    mutationFn: (orderedIds: number[]) => reorderColumns(id, orderedIds),
-    onSuccess: invalidate,
-  });
-
-  const presetMut = useMutation({
-    mutationFn: (key: string) => copyPreset(id, key),
-    onSuccess: () => {
-      invalidate();
-      setShowPresets(false);
-    },
-  });
-
-  const moveUp = (idx: number) => {
-    if (idx === 0) return;
-    const ids = columns.map((c) => c.id);
-    [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-    reorderMut.mutate(ids);
-  };
-
-  const moveDown = (idx: number) => {
-    if (idx === columns.length - 1) return;
-    const ids = columns.map((c) => c.id);
-    [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-    reorderMut.mutate(ids);
-  };
-
-  const describeSource = (c: ExportColumn): string => {
-    if (c.value_type === "distribution_node") {
-      const node = nodes.find((n) => n.id === c.node_id);
-      return `node: ${node?.key ?? "—"}${c.prorate_by ? ` (${c.prorate_by})` : ""}`;
+  // Initialize from server mappings when they load
+  if (existingMappings.length > 0 && !initialized) {
+    const map: Record<number, number> = {};
+    for (const m of existingMappings) {
+      map[m.column_id] = m.node_id;
     }
-    if (c.value_type === "literal") return `literal: ${c.literal_value ?? ""}`;
-    if (c.value_type === "run_meta") return `run: ${c.meta_field ?? ""}`;
-    if (c.value_type === "deal_meta") return `deal: ${c.meta_field ?? ""}`;
-    return "";
+    setLocalMappings(map);
+    setInitialized(true);
+  }
+
+  // Reset when template changes
+  const handleTemplateChange = (tid: number) => {
+    setSelectedTemplateId(tid);
+    setLocalMappings({});
+    setInitialized(false);
   };
+
+  const saveMut = useMutation({
+    mutationFn: () => {
+      const mappings = Object.entries(localMappings)
+        .filter(([, nodeId]) => nodeId > 0)
+        .map(([colId, nodeId]) => ({ column_id: Number(colId), node_id: nodeId }));
+      return saveDealMappings(id, activeTemplateId!, mappings);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["deal-export-mappings", id, activeTemplateId] });
+      toast("Export mappings saved");
+    },
+    onError: (e: Error) => toast(e.message, "error"),
+  });
 
   return (
     <div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+        <Link to={`/deals/${dealId}`} style={{ color: "var(--accent-blue)", textDecoration: "none" }}>
+          Deal
+        </Link>
+        {" / "}Export mappings
+      </div>
+
       <div className="page-header">
         <div>
-          <div className="page-title">Export builder</div>
+          <div className="page-title">Export Mappings</div>
           <div className="page-subtitle">
-            {columns.length} column{columns.length !== 1 ? "s" : ""} configured
+            Map distribution nodes to global template columns for {deal?.name ?? "this deal"}
           </div>
         </div>
         {isEditable && (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn" onClick={() => setShowPresets(true)}>
-              Copy from preset
-            </button>
-            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-              + Column
-            </button>
-          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending}
+          >
+            {saveMut.isPending ? "Saving..." : "Save mappings"}
+          </button>
         )}
       </div>
 
-      {/* Column list */}
-      {columns.length === 0 ? (
-        <div className={styles.emptyState}>
-          No columns configured. Click &quot;Copy from preset&quot; to start from a
-          standard format, or &quot;+ Column&quot; to build from scratch.
+      {isArchived && (
+        <div className="banner banner-warn" style={{ marginBottom: 16 }}>
+          Deal is archived. Mappings are read-only.
         </div>
-      ) : (
+      )}
+
+      {/* Template tabs */}
+      <div className="tabs">
+        {templates.map((t) => (
+          <button
+            key={t.id}
+            className={`tab ${activeTemplateId === t.id ? "active" : ""}`}
+            onClick={() => handleTemplateChange(t.id)}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
+
+      {activeTemplateId && columns.length > 0 && (
         <table className="table">
           <thead>
             <tr>
               <th style={{ width: 40 }}>#</th>
-              <th>Header</th>
-              <th>Value source</th>
-              <th>Format</th>
-              {isEditable && <th style={{ width: 140 }}></th>}
+              <th>Column Header</th>
+              <th>Type</th>
+              <th>Value / Mapping</th>
             </tr>
           </thead>
           <tbody>
-            {columns.map((c, idx) => (
-              <tr key={c.id}>
+            {columns.map((col, idx) => (
+              <tr key={col.id}>
                 <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
-                <td style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>
-                  {c.header_label}
+                <td style={{ fontFamily: "monospace", fontWeight: 500 }}>{col.header_label}</td>
+                <td>
+                  <span className={`badge ${col.value_type === "distribution_node" ? "badge-active" : "badge-system"}`}>
+                    {col.value_type}
+                  </span>
                 </td>
-                <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {describeSource(c)}
-                </td>
-                <td style={{ fontSize: 12 }}>
-                  {c.format_type}
-                  {c.format_type === "decimal" && c.decimal_places !== null && (
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {" "}
-                      ({c.decimal_places} pl)
-                    </span>
+                <td>
+                  {col.value_type === "distribution_node" ? (
+                    <select
+                      className="select"
+                      style={{ width: 260, fontSize: 12 }}
+                      value={localMappings[col.id] ?? ""}
+                      disabled={!isEditable}
+                      onChange={(e) => {
+                        setLocalMappings((prev) => ({
+                          ...prev,
+                          [col.id]: Number(e.target.value),
+                        }));
+                      }}
+                    >
+                      <option value="">— Select node —</option>
+                      {distNodes.map((n: DagNode) => (
+                        <option key={n.id} value={n.id}>
+                          {n.name} ({n.key})
+                        </option>
+                      ))}
+                    </select>
+                  ) : col.value_type === "literal" ? (
+                    <code style={{ fontSize: 12, color: "var(--text-secondary)" }}>{col.literal_value}</code>
+                  ) : (
+                    <code style={{ fontSize: 12, color: "var(--text-secondary)" }}>{col.meta_field}</code>
                   )}
                 </td>
-                {isEditable && (
-                  <td>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => moveUp(idx)}
-                        disabled={idx === 0}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className={styles.iconBtn}
-                        onClick={() => moveDown(idx)}
-                        disabled={idx === columns.length - 1}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        className={styles.actionLink}
-                        onClick={() => setEditing(c)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className={styles.actionLink}
-                        style={{ color: "var(--accent-red)" }}
-                        onClick={() => {
-                          if (window.confirm(`Delete column "${c.header_label}"?`)) {
-                            deleteMut.mutate(c.id);
-                          }
-                        }}
-                      >
-                        Del
-                      </button>
-                    </div>
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
         </table>
       )}
 
-      {/* Preview */}
-      {columns.length > 0 && (
-        <>
-          <h3 className={styles.previewTitle}>Live preview</h3>
-          <div className={styles.previewBox}>
-            <pre>{preview?.csv ?? "Loading..."}</pre>
+      {activeTemplateId && columns.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-title">No columns in this template</div>
+          <div className="empty-state-text">
+            An admin needs to configure columns on the{" "}
+            <Link to="/export-templates" style={{ color: "var(--accent-blue)" }}>Export Templates</Link> page.
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-            Placeholder values — actual run values will populate on export.
-          </div>
-        </>
+        </div>
       )}
-
-      {/* Add/Edit Dialog */}
-      {(showAdd || editing) && (
-        <ColumnDialog
-          column={editing}
-          distributionNodes={distributionNodes}
-          onSave={(payload) => {
-            if (editing) {
-              updateMut.mutate({ cid: editing.id, fields: payload });
-            } else {
-              createMut.mutate(payload);
-            }
-          }}
-          onCancel={() => {
-            setShowAdd(false);
-            setEditing(null);
-          }}
-          isPending={createMut.isPending || updateMut.isPending}
-        />
-      )}
-
-      {/* Preset Dialog */}
-      {showPresets && (
-        <PresetDialog
-          presets={presets}
-          onCopy={(key) => presetMut.mutate(key)}
-          onCancel={() => setShowPresets(false)}
-          hasExistingColumns={columns.length > 0}
-          isPending={presetMut.isPending}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Column Dialog Component ──────────────────────────────────
-
-interface ColumnDialogProps {
-  column: ExportColumn | null;
-  distributionNodes: DagNode[];
-  onSave: (payload: Partial<ExportColumn>) => void;
-  onCancel: () => void;
-  isPending: boolean;
-}
-
-function ColumnDialog({
-  column,
-  distributionNodes,
-  onSave,
-  onCancel,
-  isPending,
-}: ColumnDialogProps) {
-  const [header, setHeader] = useState(column?.header_label ?? "");
-  const [valueType, setValueType] = useState(column?.value_type ?? "distribution_node");
-  const [nodeId, setNodeId] = useState<number | null>(column?.node_id ?? null);
-  const [literal, setLiteral] = useState(column?.literal_value ?? "");
-  const [metaField, setMetaField] = useState(column?.meta_field ?? "");
-  const [formatType, setFormatType] = useState(column?.format_type ?? "text");
-  const [decimalPlaces, setDecimalPlaces] = useState(column?.decimal_places ?? 2);
-  const [prorateBy, setProrateBy] = useState(column?.prorate_by ?? "");
-  const [prorateClass, setProrateClass] = useState(column?.prorate_class_label ?? "");
-
-  const handleSave = () => {
-    if (!header) return;
-    const payload: Partial<ExportColumn> = {
-      header_label: header,
-      value_type: valueType as ExportColumn["value_type"],
-      format_type: formatType,
-    };
-    if (valueType === "distribution_node") {
-      payload.node_id = nodeId;
-      payload.decimal_places = decimalPlaces;
-      if (prorateBy) payload.prorate_by = prorateBy;
-      if (prorateClass) payload.prorate_class_label = prorateClass;
-    } else if (valueType === "literal") {
-      payload.literal_value = literal;
-    } else {
-      payload.meta_field = metaField;
-    }
-    onSave(payload);
-  };
-
-  return (
-    <div className={styles.overlay} onClick={onCancel}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.dialogTitle}>
-          {column ? "Edit column" : "Add column"}
-        </h2>
-
-        <div className="form-group">
-          <label className="form-label">Header label</label>
-          <input
-            className="input"
-            value={header}
-            onChange={(e) => setHeader(e.target.value)}
-            placeholder="e.g. AMOUNT"
-            style={{ fontFamily: "var(--font-mono)" }}
-            autoFocus
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Value source</label>
-          {VALUE_TYPE_OPTIONS.map((opt) => (
-            <label key={opt.value} className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="valueType"
-                value={opt.value}
-                checked={valueType === opt.value}
-                onChange={() => setValueType(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-
-        {/* Distribution node dropdown */}
-        {valueType === "distribution_node" && (
-          <>
-            <div className="form-group">
-              <label className="form-label">Distribution node</label>
-              <select
-                className="select"
-                style={{ width: "100%" }}
-                value={nodeId ?? ""}
-                onChange={(e) =>
-                  setNodeId(e.target.value ? Number(e.target.value) : null)
-                }
-              >
-                <option value="">— Select —</option>
-                {distributionNodes.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.name} ({n.key})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Prorate (optional)</label>
-              <select
-                className="select"
-                style={{ width: "100%" }}
-                value={prorateBy}
-                onChange={(e) => setProrateBy(e.target.value)}
-              >
-                <option value="">No prorate — use full amount</option>
-                <option value="144a">144A portion only</option>
-                <option value="regs">RegS portion only</option>
-              </select>
-              {prorateBy && (
-                <input
-                  className="input"
-                  value={prorateClass}
-                  onChange={(e) => setProrateClass(e.target.value.toUpperCase())}
-                  placeholder="Class label (e.g. A)"
-                  style={{ fontFamily: "var(--font-mono)", marginTop: 6 }}
-                />
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Literal input */}
-        {valueType === "literal" && (
-          <div className="form-group">
-            <label className="form-label">Literal value</label>
-            <input
-              className="input"
-              value={literal}
-              onChange={(e) => setLiteral(e.target.value)}
-              placeholder="e.g. INTEREST"
-            />
-          </div>
-        )}
-
-        {/* Meta field selector */}
-        {valueType === "run_meta" && (
-          <div className="form-group">
-            <label className="form-label">Run metadata field</label>
-            <select
-              className="select"
-              style={{ width: "100%" }}
-              value={metaField}
-              onChange={(e) => setMetaField(e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {RUN_META_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {valueType === "deal_meta" && (
-          <div className="form-group">
-            <label className="form-label">Deal metadata field</label>
-            <select
-              className="select"
-              style={{ width: "100%" }}
-              value={metaField}
-              onChange={(e) => setMetaField(e.target.value)}
-            >
-              <option value="">— Select —</option>
-              {DEAL_META_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Format */}
-        <div className="form-group">
-          <label className="form-label">Format</label>
-          <select
-            className="select"
-            style={{ width: "100%" }}
-            value={formatType}
-            onChange={(e) => setFormatType(e.target.value)}
-          >
-            {FORMAT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          {formatType === "decimal" && (
-            <input
-              className="input"
-              type="number"
-              value={decimalPlaces}
-              onChange={(e) => setDecimalPlaces(Number(e.target.value))}
-              min={0}
-              max={6}
-              style={{ marginTop: 6, width: 120 }}
-            />
-          )}
-        </div>
-
-        <div className={styles.dialogActions}>
-          <button className="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={!header || isPending}
-          >
-            {isPending
-              ? "Saving..."
-              : column
-                ? "Save changes"
-                : "Add column"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Preset Dialog Component ──────────────────────────────────
-
-interface PresetDialogProps {
-  presets: Array<{
-    key: string;
-    name: string;
-    description: string;
-    column_count: number;
-  }>;
-  onCopy: (key: string) => void;
-  onCancel: () => void;
-  hasExistingColumns: boolean;
-  isPending: boolean;
-}
-
-function PresetDialog({
-  presets,
-  onCopy,
-  onCancel,
-  hasExistingColumns,
-  isPending,
-}: PresetDialogProps) {
-  const [selected, setSelected] = useState(presets[0]?.key ?? "");
-
-  return (
-    <div className={styles.overlay} onClick={onCancel}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.dialogTitle}>Copy from preset</h2>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          Start with a common layout, then customize columns as needed.
-        </p>
-
-        {presets.map((p) => (
-          <label key={p.key} className={styles.presetCard}>
-            <input
-              type="radio"
-              name="preset"
-              value={p.key}
-              checked={selected === p.key}
-              onChange={() => setSelected(p.key)}
-            />
-            <div>
-              <div style={{ fontWeight: 500 }}>{p.name}</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {p.column_count} columns &middot; {p.description}
-              </div>
-            </div>
-          </label>
-        ))}
-
-        {hasExistingColumns && (
-          <div className={styles.warningBox}>
-            This will replace all existing columns.
-          </div>
-        )}
-
-        <div className={styles.dialogActions}>
-          <button className="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => onCopy(selected)}
-            disabled={!selected || isPending}
-          >
-            {isPending ? "Copying..." : "Copy preset"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

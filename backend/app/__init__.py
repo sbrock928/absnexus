@@ -17,6 +17,7 @@ from app.export.router import router as export_router
 from app.audit.router import router as audit_router
 from app.users.router import router as users_router
 from app.batch.router import router as batch_router
+from app.global_export.router import router as global_export_router
 
 
 @asynccontextmanager
@@ -53,5 +54,6 @@ def create_app() -> FastAPI:
     app.include_router(audit_router, prefix="/api/audit", tags=["audit"])
     app.include_router(users_router, prefix="/api/users", tags=["users"])
     app.include_router(batch_router, prefix="/api", tags=["batch"])
+    app.include_router(global_export_router, prefix="/api", tags=["global-export"])
 
     return app

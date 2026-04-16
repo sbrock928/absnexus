@@ -300,20 +300,36 @@ export function NodePropertiesPanel({
 
       {/* Distribution-specific fields */}
       {node.node_type === "distribution" && (
-        <div className={styles.field}>
-          <label className={styles.label}>Export field code</label>
-          <input
-            className={styles.input}
-            value={paymentType}
-            onChange={(e) => { setPaymentType(e.target.value); markDirty(); }}
-            onKeyDown={handleKeyDown}
-            placeholder="e.g. INT_PMT_A"
-            style={{ fontFamily: "var(--font-mono)" }}
-          />
-          <div className={styles.formulaHint}>
-            Maps this node's result to a column in the export CSV.
+        <>
+          <div className={styles.field}>
+            <label className={styles.label}>Export field code</label>
+            <input
+              className={styles.input}
+              value={paymentType}
+              onChange={(e) => { setPaymentType(e.target.value); markDirty(); }}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g. INT_PMT_A"
+              style={{ fontFamily: "var(--font-mono)" }}
+            />
+            <div className={styles.formulaHint}>
+              Maps this node's result to a column in the export CSV.
+            </div>
           </div>
-        </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Compare against (tape variable)</label>
+            <input
+              className={styles.input}
+              value={comparisonVar}
+              onChange={(e) => { setComparisonVar(e.target.value); markDirty(); }}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g. a_int_pmt_tape"
+              style={{ fontFamily: "var(--font-mono)" }}
+            />
+            <div className={styles.formulaHint}>
+              Tape variable for waterfall comparison. Leave empty to skip.
+            </div>
+          </div>
+        </>
       )}
 
       {/* Save button */}

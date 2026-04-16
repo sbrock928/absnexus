@@ -313,6 +313,24 @@ def get_waterfall(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/{deal_id}/runs/{run_id}/waterfall/pdf")
+def waterfall_pdf(
+    deal_id: int,
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a print-friendly HTML waterfall comparison report."""
+    from fastapi.responses import HTMLResponse
+    from app.processing.waterfall_pdf import render_waterfall_html
+
+    try:
+        data = ProcessingService(db).get_waterfall(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return HTMLResponse(content=render_waterfall_html(data))
+
+
 # ── Single-variable re-extract (used after cell remap) ──
 
 @router.post("/{deal_id}/runs/{run_id}/reextract-variable/{variable_id}")

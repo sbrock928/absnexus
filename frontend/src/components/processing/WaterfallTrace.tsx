@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getWaterfall } from "../../api/waterfall";
+import { getWaterfall, getWaterfallPdfUrl } from "../../api/waterfall";
 import styles from "./WaterfallTrace.module.css";
 
 function formatMoney(val: string | null): string {
@@ -30,7 +30,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
     queryFn: () => getWaterfall(dealId, runId),
   });
 
-  if (isLoading) return <div className={styles.loading}>Loading waterfall…</div>;
+  if (isLoading) return <div className={styles.loading}>Loading waterfall...</div>;
   if (error || !wf) {
     return (
       <div className={styles.errorBox}>
@@ -43,6 +43,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
   const passed = wf.reconciled === true;
   const failed = wf.reconciled === false;
   const noTape = !wf.has_tape_value;
+  const hasComparisons = wf.comparison_count > 0;
 
   return (
     <div>
@@ -56,7 +57,77 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
         </div>
       </div>
 
-      {/* Steps table */}
+      {/* ── Distribution Comparison Table ── */}
+      {hasComparisons && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, marginTop: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>
+              Distribution Comparison
+              <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>
+                {wf.comparison_matched} of {wf.comparison_count} matched
+              </span>
+            </div>
+            <a
+              href={getWaterfallPdfUrl(dealId, runId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-sm"
+              style={{ textDecoration: "none" }}
+            >
+              Export PDF
+            </a>
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: 40 }}>#</th>
+                <th>Distribution</th>
+                <th style={{ textAlign: "right" }}>Our Calculation</th>
+                <th style={{ textAlign: "right" }}>Tape Value</th>
+                <th style={{ textAlign: "right" }}>Difference</th>
+                <th style={{ textAlign: "center", width: 80 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {wf.steps.filter((s) => s.tape_value !== null).map((s) => (
+                <tr key={s.step}>
+                  <td style={{ color: "var(--text-muted)" }}>{s.step}</td>
+                  <td>
+                    <span style={{ fontWeight: 500 }}>{s.node_name}</span>
+                    {s.export_field && (
+                      <span className={styles.fieldCode}>{s.export_field}</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                    {formatMoney(s.amount)}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                    {formatMoney(s.tape_value)}
+                  </td>
+                  <td style={{
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    color: s.matched === false ? "var(--accent-red)" : "var(--text-muted)",
+                  }}>
+                    {formatMoney(s.difference)}
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {s.matched === true && (
+                      <span className="badge" style={{ background: "rgba(74,222,128,0.15)", color: "var(--accent-green)" }}>MATCH</span>
+                    )}
+                    {s.matched === false && (
+                      <span className="badge" style={{ background: "rgba(248,113,113,0.15)", color: "var(--accent-red)" }}>MISMATCH</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* ── Balance Waterfall Table ── */}
+      <div style={{ fontWeight: 600, fontSize: 14, marginTop: 16, marginBottom: 8 }}>Balance Waterfall</div>
       <table className="table">
         <thead>
           <tr>
@@ -83,7 +154,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                   fontFamily: "var(--font-mono)",
                 }}
               >
-                − {formatMoney(s.amount)}
+                - {formatMoney(s.amount)}
               </td>
               <td
                 style={{
@@ -138,15 +209,15 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
             <div className={styles.reconRow}>
               <span>Tolerance</span>
               <span className={styles.reconValue}>
-                ± {formatMoney(wf.tolerance)}
+                +/- {formatMoney(wf.tolerance)}
               </span>
             </div>
           </>
         )}
 
         <div className={styles.reconStatus}>
-          {passed && <span className={styles.passBadge}>✓ RECONCILED</span>}
-          {failed && <span className={styles.failBadge}>✗ FAILED</span>}
+          {passed && <span className={styles.passBadge}>RECONCILED</span>}
+          {failed && <span className={styles.failBadge}>FAILED</span>}
           {noTape && (
             <span className={styles.infoBadge}>
               No tape ending value configured — add a mapping for{" "}
@@ -157,7 +228,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
 
         {failed && (
           <div className={styles.failExplanation}>
-            <strong>⚠ Export blocked.</strong> The sum of distributions does not
+            <strong>Export blocked.</strong> The sum of distributions does not
             match what the tape expects to remain. Review each distribution
             amount above to find the discrepancy.
           </div>
@@ -165,20 +236,29 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
       </div>
 
       {/* Actions */}
-      {(onContinue || onInvestigate) && (
-        <div className={styles.actions}>
-          {failed && onInvestigate && (
-            <button className="btn" onClick={onInvestigate}>
-              Investigate trace
-            </button>
-          )}
-          {(passed || noTape) && onContinue && (
-            <button className="btn btn-primary" onClick={onContinue}>
-              Continue to export template
-            </button>
-          )}
-        </div>
-      )}
+      <div className={styles.actions}>
+        {!hasComparisons && (
+          <a
+            href={getWaterfallPdfUrl(dealId, runId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary"
+            style={{ textDecoration: "none" }}
+          >
+            Export PDF
+          </a>
+        )}
+        {failed && onInvestigate && (
+          <button className="btn" onClick={onInvestigate}>
+            Investigate trace
+          </button>
+        )}
+        {(passed || noTape) && onContinue && (
+          <button className="btn btn-primary" onClick={onContinue}>
+            Continue to export
+          </button>
+        )}
+      </div>
     </div>
   );
 }

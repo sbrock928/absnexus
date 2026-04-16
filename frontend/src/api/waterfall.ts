@@ -8,11 +8,17 @@ export interface WaterfallStep {
   remaining_after: string;
   export_field: string | null;
   payment_type: string | null;
+  tape_value: string | null;
+  difference: string | null;
+  matched: boolean | null;
+  comparison_variable: string | null;
 }
 
 export interface WaterfallTrace {
   run_id: number;
   run_code: string;
+  deal_name: string;
+  report_period: string;
   starting_var: string;
   starting_balance: string;
   ending_var: string;
@@ -24,6 +30,9 @@ export interface WaterfallTrace {
   difference: string | null;
   reconciled: boolean | null;
   has_tape_value: boolean;
+  comparison_count: number;
+  comparison_matched: number;
+  all_compared: boolean;
 }
 
 export function getWaterfall(
@@ -31,6 +40,10 @@ export function getWaterfall(
   runId: number,
 ): Promise<WaterfallTrace> {
   return api.get<WaterfallTrace>(`/deals/${dealId}/runs/${runId}/waterfall`);
+}
+
+export function getWaterfallPdfUrl(dealId: number, runId: number): string {
+  return `/api/deals/${dealId}/runs/${runId}/waterfall/pdf`;
 }
 
 export interface WaterfallConfig {
