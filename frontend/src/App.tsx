@@ -14,6 +14,7 @@ import { VariableMapPage } from "./pages/VariableMapPage";
 import { BatchProcessingPage } from "./pages/BatchProcessingPage";
 import { BatchResultsPage } from "./pages/BatchResultsPage";
 import { BatchHistoryPage } from "./pages/BatchHistoryPage";
+import { CellMapperPage } from "./pages/CellMapperPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/deals/:dealId" element={<DealDetailPage />} />
           <Route path="/deals/:dealId/dag" element={<DagEditorPage />} />
           <Route path="/deals/:dealId/export" element={<ExportBuilderPage />} />
+          <Route path="/deals/:dealId/mappings/cells" element={<CellMapperPage />} />
           <Route path="/deals/:dealId/runs/:runId/trace" element={<ExecutionTracePage />} />
           <Route path="/deals/:dealId/runs/:runId/lineage/:nodeKey" element={<LineagePage />} />
           <Route path="/variables" element={<VariableLibraryPage />} />

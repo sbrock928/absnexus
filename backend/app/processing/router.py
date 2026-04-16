@@ -122,6 +122,7 @@ def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
         "warnings": sum(1 for r in rows if r.warning),
         "values": [
             {
+                "variable_id": r.variable_id,
                 "variable": r.variable_name, "cell": r.cell_ref, "sheet": r.sheet_name,
                 "raw": r.raw_value,
                 "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
@@ -158,6 +159,7 @@ def extract_variables(deal_id: int, run_id: int, db: Session = Depends(get_db)):
         "warnings": len(warnings),
         "values": [
             {
+                "variable_id": r.variable_id,
                 "variable": r.variable_name, "cell": r.cell_ref, "sheet": r.sheet_name,
                 "raw": r.raw_value, "parsed": str(r.parsed_value) if r.parsed_value is not None else None,
                 "prior": str(r.prior_value) if r.prior_value is not None else None,
@@ -304,6 +306,37 @@ def get_waterfall(
     """Get the waterfall balance trace for a completed run."""
     try:
         return ProcessingService(db).get_waterfall(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Single-variable re-extract (used after cell remap) ──
+
+@router.post("/{deal_id}/runs/{run_id}/reextract-variable/{variable_id}")
+def reextract_variable(
+    deal_id: int,
+    run_id: int,
+    variable_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-read a single variable from the tape (used after remapping a cell)."""
+    run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
+    if not run or run.deal_id != deal_id:
+        raise HTTPException(404, "Run not found")
+    try:
+        ev = ProcessingService(db).reextract_variable(run_id, variable_id)
+        return {
+            "variable_id": ev.variable_id,
+            "variable": ev.variable_name,
+            "cell": ev.cell_ref,
+            "sheet": ev.sheet_name,
+            "raw": ev.raw_value,
+            "parsed": str(ev.parsed_value) if ev.parsed_value is not None else None,
+            "prior": str(ev.prior_value) if ev.prior_value is not None else None,
+            "pct_change": str(ev.pct_change) if ev.pct_change is not None else None,
+            "warning": ev.warning,
+        }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

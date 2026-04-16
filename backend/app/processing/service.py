@@ -130,3 +130,104 @@ class ProcessingService:
             "reconciled": reconciled,
             "has_tape_value": tape_ending_balance is not None,
         }
+
+    # ── Single-variable re-extraction ──
+
+    def reextract_variable(self, run_id: int, variable_id: int) -> ExtractedValue:
+        """Re-read a single variable from the tape for an existing run.
+
+        Used when a user remaps a cell during processing and wants to update
+        the extracted value without re-running the entire extraction.
+        """
+        run = self.db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
+        if run is None:
+            raise ValueError("Run not found.")
+        if not run.tape_file_path:
+            raise ValueError("No source file on run.")
+
+        from app.mappings.dao import MappingDAO
+        from app.variables.dao import VariableDAO
+        from app.utils.excel_reader import ExcelReader
+
+        mapping_dao = MappingDAO(self.db)
+        mapping = mapping_dao.get_for_variable(run.deal_id, variable_id)
+        if mapping is None:
+            raise ValueError(f"No mapping for variable {variable_id} on this deal.")
+
+        var_dao = VariableDAO(self.db)
+        var = var_dao.get(variable_id)
+        var_name = var.name if var else f"var_{variable_id}"
+
+        # Load existing extracted record (if any)
+        existing = (
+            self.db.query(ExtractedValue)
+            .filter(
+                ExtractedValue.run_id == run_id,
+                ExtractedValue.variable_id == variable_id,
+            )
+            .first()
+        )
+
+        # Re-read the cell
+        with ExcelReader(run.tape_file_path) as reader:
+            try:
+                raw = reader.get_cell_value(
+                    mapping.sheet_name,
+                    mapping.column_letter,
+                    mapping.row_number,
+                )
+            except (ValueError, KeyError) as exc:
+                if existing:
+                    existing.warning = f"Failed to read cell: {exc}"
+                    self.db.flush()
+                    return existing
+                raise ValueError(f"Failed to read cell: {exc}") from exc
+
+        cell_ref = f"{mapping.column_letter}{mapping.row_number}"
+        if existing:
+            ev = existing
+            ev.warning = None
+        else:
+            ev = ExtractedValue(
+                run_id=run_id,
+                variable_id=variable_id,
+                variable_name=var_name,
+                data_type=var.data_type if var else "decimal",
+            )
+            self.db.add(ev)
+
+        ev.sheet_name = mapping.sheet_name
+        ev.cell_ref = cell_ref
+        ev.raw_value = str(raw) if raw is not None else None
+
+        # Parse
+        if raw is None:
+            ev.warning = f"Cell {cell_ref} is empty."
+            ev.parsed_value = None
+        else:
+            from app.services.tape_extractor import TapeExtractor
+            extractor = TapeExtractor(self.db)
+            ev.parsed_value = extractor._parse_value(raw, var.data_type if var else "decimal")
+
+        # Re-compute prior comparison
+        if run.prior_run_id and ev.parsed_value is not None:
+            prior_ev = (
+                self.db.query(ExtractedValue)
+                .filter(
+                    ExtractedValue.run_id == run.prior_run_id,
+                    ExtractedValue.variable_id == variable_id,
+                )
+                .first()
+            )
+            if prior_ev and prior_ev.parsed_value is not None:
+                ev.prior_value = prior_ev.parsed_value
+                if prior_ev.parsed_value != 0:
+                    pct = abs(ev.parsed_value - prior_ev.parsed_value) / abs(prior_ev.parsed_value) * 100
+                    ev.pct_change = pct.quantize(Decimal("0.01"))
+                    if pct > 50:
+                        ev.warning = (
+                            f"{var_name} changed by {pct:.1f}% from prior month."
+                        )
+
+        self.db.flush()
+        return ev

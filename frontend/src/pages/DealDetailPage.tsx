@@ -262,11 +262,12 @@ export function DealDetailPage() {
       {/* ── Mappings Tab ── */}
       {tab === "mappings" && (
         <div>
-          {isModeler && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+            <Link to={`/deals/${dealId}/mappings/cells`} className="btn btn-secondary">Open Cell Mapper</Link>
+            {isModeler && (
               <button className="btn btn-primary" onClick={() => { setEditingMapping(null); setShowMappingDialog(true); }}>+ Add mapping</button>
-            </div>
-          )}
+            )}
+          </div>
           {mappings.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">📍</div>

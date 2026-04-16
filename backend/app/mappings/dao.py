@@ -34,3 +34,13 @@ class MappingDAO:
     def delete(self, m: VariableMapping) -> None:
         self.db.delete(m)
         self.db.flush()
+
+    def get_for_variable(self, deal_id: int, variable_id: int) -> VariableMapping | None:
+        return (
+            self.db.query(VariableMapping)
+            .filter(
+                VariableMapping.deal_id == deal_id,
+                VariableMapping.variable_id == variable_id,
+            )
+            .first()
+        )

@@ -1,16 +1,20 @@
 """Mapping endpoints — nested under /api/deals/{deal_id}/mappings."""
 import os
 import tempfile
+from pathlib import Path
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.dependencies import require_role
+from app.dependencies import require_role, get_current_user
 from app.models.user import User
+from app.models.processing import ProcessingRun
 from app.schemas.mapping import MappingCreate, MappingUpdate, MappingResponse
 from app.mappings.dao import MappingDAO
 from app.mappings.service import MappingService
+from app.services.deal_service import DealService
 from app.utils.excel_reader import ExcelReader
 from app.utils.file_manager import FileManager
 
@@ -59,6 +63,69 @@ def delete_mapping(
     if not m or m.deal_id != deal_id:
         raise HTTPException(404, "Mapping not found")
     dao.delete(m)
+
+
+@router.get("/{deal_id}/tape-grid")
+def get_tape_grid(
+    deal_id: int,
+    sheet: str | None = Query(None),
+    run_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the deal's tape as a navigable grid for the cell mapper.
+
+    Looks up the tape from the most recent processing run (or a specific
+    run_id if provided).
+    """
+    deal = DealService(db).get(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found.")
+
+    # Find tape path from runs
+    if run_id:
+        run = db.query(ProcessingRun).filter(
+            ProcessingRun.id == run_id,
+            ProcessingRun.deal_id == deal_id,
+        ).first()
+        if not run or not run.tape_file_path:
+            raise HTTPException(404, "Run or tape not found.")
+        tape_path = run.tape_file_path
+    else:
+        run = (
+            db.query(ProcessingRun)
+            .filter(
+                ProcessingRun.deal_id == deal_id,
+                ProcessingRun.tape_file_path.isnot(None),
+            )
+            .order_by(ProcessingRun.created_at.desc())
+            .first()
+        )
+        if not run or not run.tape_file_path:
+            raise HTTPException(404, "No tape uploaded for this deal yet.")
+        tape_path = run.tape_file_path
+
+    if not Path(tape_path).exists():
+        raise HTTPException(404, "Tape file no longer exists on disk.")
+
+    with ExcelReader(tape_path) as reader:
+        sheet_names = reader.get_sheet_names()
+
+        if sheet:
+            if sheet not in sheet_names:
+                raise HTTPException(404, f"Sheet '{sheet}' not found.")
+            grid = reader.read_sheet_grid(sheet)
+            return {
+                "filename": tape_path.split("/")[-1] if "/" in tape_path else tape_path,
+                "sheet_names": sheet_names,
+                "sheet": grid,
+            }
+
+        return {
+            "filename": tape_path.split("/")[-1] if "/" in tape_path else tape_path,
+            "sheet_names": sheet_names,
+            "sheets": [reader.read_sheet_grid(s) for s in sheet_names],
+        }
 
 
 @router.post("/{deal_id}/tape/upload")

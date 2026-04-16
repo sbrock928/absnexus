@@ -2,9 +2,11 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { WaterfallTrace } from "../components/processing/WaterfallTrace";
+import { CellMapperModal } from "../components/cell-mapper/CellMapperModal";
+import { reextractVariable } from "../api/mappings";
 import type { Deal, Servicer } from "../types";
 
-interface ExtractedVar { variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; }
+interface ExtractedVar { variable_id?: number; variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; }
 interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
 
 const STEPS = ["Select deal", "Upload tape", "Extract", "Execute", "Waterfall", "Export"];
@@ -39,6 +41,10 @@ export function ProcessingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingRuns, setExistingRuns] = useState<any[]>([]);
+  const [remappingVariable, setRemappingVariable] = useState<{
+    variable_id: number;
+    variable_name: string;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /* Track the furthest step completed so we know which steps are clickable */
@@ -309,7 +315,7 @@ export function ProcessingPage() {
           </div>
           {vars.some((v) => v.warning) && <div className="banner banner-warn" style={{ marginBottom: 12 }}>{vars.filter((v) => v.warning).length} warning(s)</div>}
           <table className="table">
-            <thead><tr><th>#</th><th>Variable</th><th>Source</th><th>Extracted</th><th>Prior</th><th>Change</th><th>Status</th></tr></thead>
+            <thead><tr><th>#</th><th>Variable</th><th>Source</th><th>Extracted</th><th>Prior</th><th>Change</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {vars.map((v, i) => (
                 <tr key={i} style={v.warning ? { background: "rgba(251,191,36,0.05)" } : {}}>
@@ -320,6 +326,16 @@ export function ProcessingPage() {
                   <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{fmtMoney(v.prior)}</td>
                   <td style={{ color: v.pct_change && Math.abs(Number(v.pct_change)) > 50 ? "var(--accent-yellow)" : "var(--text-muted)" }}>{v.pct_change ? `${Number(v.pct_change) > 0 ? "+" : ""}${v.pct_change}%` : "—"}</td>
                   <td>{v.warning ? <span style={{ color: "var(--accent-yellow)", fontSize: 12 }}>⚠ Warning</span> : <span style={{ color: "var(--accent-green)", fontSize: 12 }}>● OK</span>}</td>
+                  <td>
+                    {v.warning && (
+                      <button
+                        style={{ fontSize: 11, padding: "3px 10px", background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.3)", color: "var(--accent-blue)", borderRadius: 4, cursor: "pointer" }}
+                        onClick={() => setRemappingVariable({ variable_id: (v as any).variable_id ?? 0, variable_name: v.variable })}
+                      >
+                        Remap
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -435,6 +451,46 @@ export function ProcessingPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Remap modal */}
+      {remappingVariable && selectedDeal && run && (
+        <CellMapperModal
+          dealId={selectedDeal.id}
+          runId={run.id}
+          variableId={remappingVariable.variable_id}
+          variableName={remappingVariable.variable_name}
+          onClose={() => setRemappingVariable(null)}
+          onSaved={async () => {
+            if (!remappingVariable.variable_id) return;
+            try {
+              const updated = await reextractVariable(
+                selectedDeal.id,
+                run.id,
+                remappingVariable.variable_id,
+              );
+              setVars((prev) =>
+                prev.map((v) =>
+                  v.variable === remappingVariable.variable_name
+                    ? {
+                        ...v,
+                        variable_id: updated.variable_id,
+                        cell: updated.cell,
+                        sheet: updated.sheet,
+                        raw: updated.raw,
+                        parsed: updated.parsed,
+                        prior: updated.prior,
+                        pct_change: updated.pct_change,
+                        warning: updated.warning,
+                      }
+                    : v,
+                ),
+              );
+            } catch (e: any) {
+              setError(e.message);
+            }
+          }}
+        />
       )}
     </div>
   );
