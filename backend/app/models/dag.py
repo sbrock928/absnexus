@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -68,8 +68,8 @@ class DagNode(Base):
     waterfall_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Visual position
-    position_x: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    position_y: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    position_x: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    position_y: Mapped[float] = mapped_column(Float, nullable=False, default=0)
 
     is_active: Mapped[bool] = mapped_column(Integer, nullable=False, default=1)
 

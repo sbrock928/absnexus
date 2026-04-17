@@ -164,8 +164,8 @@ class NodeCreate(BaseModel):
     comparison_var: str | None = None
     default_prior_value: Decimal | None = None
     waterfall_order: int | None = None
-    position_x: int = 0
-    position_y: int = 0
+    position_x: float = 0
+    position_y: float = 0
 
 
 @router.post("/{deal_id}/dag/nodes", status_code=201)
