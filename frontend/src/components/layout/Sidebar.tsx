@@ -31,6 +31,7 @@ export function Sidebar() {
             <div className="sidebar-section">Admin</div>
             <SidebarLink to="/audit" label="Audit Log" />
             {isAdmin && <SidebarLink to="/users" label="Users" />}
+            {isAdmin && <SidebarLink to="/servicers" label="Servicers" />}
           </>
         ) : (
           <>
