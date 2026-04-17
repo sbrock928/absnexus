@@ -165,21 +165,9 @@ class BatchService:
         if run.status != "executed":
             return  # execution failed
 
-        # Export CSV (best effort — don't fail batch if export fails)
-        try:
-            from app.services.export_service import ExportService
-
-            path, file_hash = ExportService(self.db).generate_csv(run, template_id=1)
-            run.export_file_path = path
-            run.export_file_hash = file_hash
-            run.status = "completed"
-            run.completed_at = datetime.utcnow()
-            self.db.flush()
-        except Exception:
-            # Export failure doesn't fail the run — mark as completed anyway
-            run.status = "completed"
-            run.completed_at = datetime.utcnow()
-            self.db.flush()
+        run.status = "completed"
+        run.completed_at = datetime.utcnow()
+        self.db.flush()
 
     def get_batch_summary(self, batch_id: int) -> dict:
         """Build summary dict for the batch results page."""

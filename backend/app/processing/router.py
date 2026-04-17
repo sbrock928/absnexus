@@ -16,7 +16,6 @@ from app.models.user import User
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.services.tape_extractor import TapeExtractor
 from app.services.dag_executor import DagExecutor
-from app.services.export_service import ExportService
 from app.services.clone_service import CloneService
 from app.processing.service import ProcessingService
 from app.utils.file_manager import FileManager
@@ -428,15 +427,6 @@ def export_csv(
     return {"file_path": path, "hash": file_hash, "status": "completed"}
 
 
-@router.get("/{deal_id}/runs/{run_id}/export/preview")
-def preview_export(
-    deal_id: int,
-    run_id: int,
-    template_id: int = 1,
-    db: Session = Depends(get_db),
-):
-    return ExportService(db).preview(run_id, template_id)
-
 
 # ── Deal cloning ──
 
@@ -445,7 +435,6 @@ class CloneRequest(BaseModel):
     new_name: str
     clone_dag: bool = True
     clone_mappings: bool = True
-    clone_exports: bool = True
     clone_tranches: bool = True
 
 
@@ -463,7 +452,6 @@ def clone_deal(
         user.username,
         clone_dag=body.clone_dag,
         clone_mappings=body.clone_mappings,
-        clone_exports=body.clone_exports,
         clone_tranches=body.clone_tranches,
     )
     return {"id": new_deal.id, "name": new_deal.name, "cloned_from_id": deal_id}

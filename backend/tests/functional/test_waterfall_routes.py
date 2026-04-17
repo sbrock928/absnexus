@@ -10,7 +10,6 @@ from app.models.deal import Deal
 from app.models.servicer import Servicer
 from app.models.variable import VariableDefinition
 from app.models.variable_mapping import VariableMapping
-from app.models.export import ExportTemplate, ExportTemplateColumn
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
 
 

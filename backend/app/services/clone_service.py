@@ -5,7 +5,6 @@ from app.models.deal import Deal
 from app.models.variable_mapping import VariableMapping
 from app.models.tranche import DealTranche
 from app.models.dag import DagNode, DagEdge, DagVersion
-from app.models.export import ExportFieldMapping
 from app.models.variable import VariableDefinition
 
 
@@ -20,7 +19,6 @@ class CloneService:
         created_by: str,
         clone_dag: bool = True,
         clone_mappings: bool = True,
-        clone_exports: bool = True,
         clone_tranches: bool = True,
     ) -> Deal:
         source = self.db.query(Deal).filter(Deal.id == source_id).first()
@@ -158,25 +156,6 @@ class CloneService:
                                 target_node_id=tgt,
                             )
                         )
-
-        # Clone export mappings
-        if clone_exports:
-            for em in (
-                self.db.query(ExportFieldMapping)
-                .filter(ExportFieldMapping.deal_id == source.id)
-                .all()
-            ):
-                self.db.add(
-                    ExportFieldMapping(
-                        deal_id=new_deal.id,
-                        template_id=em.template_id,
-                        node_key=em.node_key,
-                        field_code=em.field_code,
-                        payment_type=em.payment_type,
-                        tranche_class=em.tranche_class,
-                        prorate_type=em.prorate_type,
-                    )
-                )
 
         self.db.flush()
         return new_deal

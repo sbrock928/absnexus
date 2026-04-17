@@ -5,7 +5,6 @@ from app.models.servicer import Servicer
 from app.models.deal import Deal
 from app.models.variable import VariableDefinition
 from app.models.variable_mapping import VariableMapping
-from app.models.export import ExportTemplate, ExportTemplateColumn
 from app.dag.service import DagService
 from app.schemas.dag import DagNodeCreate, DagEdgeCreate
 
@@ -51,16 +50,6 @@ def _setup_deal_with_dag(db):
         [DagEdgeCreate(source_key="amount", target_key="pmt")],
         "testuser",
     )
-
-    # Create export template
-    t = ExportTemplate(name="System A", format_type="row_per_payment")
-    db.add(t)
-    db.flush()
-    for i, col in enumerate(
-        ["DEAL_ID", "PAYMENT_DATE", "PAYMENT_TYPE", "CLASS", "FIELD_CODE", "AMOUNT", "RUN_ID"]
-    ):
-        db.add(ExportTemplateColumn(template_id=t.id, column_name=col, column_order=i))
-    db.flush()
 
     return d
 
