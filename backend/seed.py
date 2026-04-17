@@ -20,7 +20,8 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, engine, Base
+import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.dag.service import DagService
 from app.export.service import ExportColumnService
 from app.models.dag import DagEdge, DagNode
@@ -1353,6 +1354,7 @@ def seed_global_templates(db: Session) -> list[GlobalExportTemplate]:
 
 
 def run_seed() -> None:
+    Base.metadata.create_all(engine)
     db = SessionLocal()
     try:
         drop_all_records(db)
