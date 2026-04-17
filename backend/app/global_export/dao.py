@@ -82,10 +82,18 @@ class GlobalExportDAO:
     ) -> list[GlobalExportColumn]:
         columns = self.list_columns(template_id)
         col_map = {c.id: c for c in columns}
-        for pos, col_id in enumerate(ordered_ids, start=1):
+        # Two-pass to avoid unique constraint conflicts during flush:
+        # 1) Set all to negative temporaries
+        for idx, col_id in enumerate(ordered_ids):
             col = col_map.get(col_id)
             if col:
-                col.position = pos
+                col.position = -(idx + 1)
+        self.db.flush()
+        # 2) Set final positive positions
+        for idx, col_id in enumerate(ordered_ids, start=1):
+            col = col_map.get(col_id)
+            if col:
+                col.position = idx
         self.db.flush()
         return self.list_columns(template_id)
 
