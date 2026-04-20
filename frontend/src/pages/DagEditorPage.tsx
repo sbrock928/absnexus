@@ -86,6 +86,23 @@ export function DagEditorPage() {
     queryFn: () => api.get<{ id: number; variable_id: number }[]>(`/deals/${id}/mappings`),
   });
 
+  // Tranche setup — surfaces tranche-authoritative values (note rate, original
+  // balance, current/prior balances) as formula tokens under the `tranche_` prefix.
+  const { data: tranches = [] } = useQuery({
+    queryKey: ["deal-tranches", id],
+    queryFn: () =>
+      api.get<
+        Array<{
+          id: number;
+          class_label: string;
+          regulation_type: string;
+          note_rate: number | null;
+          original_balance: number | null;
+          is_active: boolean;
+        }>
+      >(`/deals/${id}/tranches`),
+  });
+
   const currentVersion = versions.length > 0 ? versions[0] : null;
 
   // Only variables actually mapped on this deal are usable in formulas and
@@ -95,11 +112,29 @@ export function DagEditorPage() {
     return variables.filter((v) => ids.has(v.id));
   }, [variables, mappings]);
 
-  // Build token list for formula builder
+  // Build token list for formula builder. Tape variables and tranche-derived
+  // values are distinct tokens so users can reference either source explicitly.
   const availableTokens: FormulaToken[] = useMemo(() => {
     const tokens: FormulaToken[] = [];
     for (const v of mappedVariables) {
       tokens.push({ name: v.name, label: v.display_name || v.name, category: "variable" });
+    }
+    // Tranche-derived tokens — mirror the keys produced by TrancheService.
+    // One set per active class_label (combined across 144A/RegS): note_rate,
+    // original_balance, balance, balance_prior.
+    const classSlug = (label: string) =>
+      label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const seenClasses = new Set<string>();
+    for (const t of tranches) {
+      if (!t.is_active) continue;
+      const slug = classSlug(t.class_label);
+      if (seenClasses.has(slug)) continue;
+      seenClasses.add(slug);
+      const prefix = `tranche_class_${slug}`;
+      tokens.push({ name: `${prefix}_note_rate`, label: `Class ${t.class_label} Note Rate (tranche)`, category: "variable" });
+      tokens.push({ name: `${prefix}_original_balance`, label: `Class ${t.class_label} Original Balance (tranche)`, category: "variable" });
+      tokens.push({ name: `${prefix}_balance`, label: `Class ${t.class_label} Balance (tranche, current)`, category: "variable" });
+      tokens.push({ name: `${prefix}_balance_prior`, label: `Class ${t.class_label} Balance (tranche, prior)`, category: "variable" });
     }
     for (const n of allNodes) {
       tokens.push({ name: n.key, label: n.name, category: "node" });
@@ -108,7 +143,7 @@ export function DagEditorPage() {
       tokens.push({ name: fn, label: fn, category: "function" });
     }
     return tokens;
-  }, [mappedVariables, allNodes]);
+  }, [mappedVariables, allNodes, tranches]);
 
   // Compute focused node ancestors + descendants for drill-down
   const focusedNodeIds: Set<number> | null = useMemo(() => {
@@ -292,6 +327,13 @@ export function DagEditorPage() {
   const [newFormula, setNewFormula] = useState("");
   const [newPaymentType, setNewPaymentType] = useState("");
   const [newVariableId, setNewVariableId] = useState<number | null>(null);
+  // For input_value nodes: the source kind selected in the dialog.
+  //   "tape"       → pick an existing mapped variable; node reads context by name.
+  //   "static"     → store a literal number in `formula` (e.g. "2500").
+  //   "expression" → store a small expression in `formula` (e.g.
+  //                   "deal_trustee_fee_monthly").
+  const [newInputSource, setNewInputSource] = useState<"tape" | "static" | "expression">("tape");
+  const [newStaticValue, setNewStaticValue] = useState("");
 
   const slugify = (s: string): string =>
     s
@@ -315,6 +357,8 @@ export function DagEditorPage() {
     setNewFormula("");
     setNewPaymentType("");
     setNewVariableId(null);
+    setNewInputSource("tape");
+    setNewStaticValue("");
   };
 
   const handleAddNode = () => {
@@ -328,12 +372,31 @@ export function DagEditorPage() {
     };
 
     if (newNodeType === "input_value") {
-      const v = mappedVariables.find((mv) => mv.id === newVariableId);
-      if (!v) return;
-      key = uniqueKey(slugify(v.name));
-      name = v.display_name || v.name;
-      payload.input_source = "tape";
-      payload.variable_id = v.id;
+      if (newInputSource === "tape") {
+        const v = mappedVariables.find((mv) => mv.id === newVariableId);
+        if (!v) return;
+        key = uniqueKey(slugify(v.name));
+        name = v.display_name || v.name;
+        payload.input_source = "tape";
+        payload.variable_id = v.id;
+        // No formula — executor reads context[v.name] directly.
+      } else {
+        // Static value or expression — both get stored in `formula` and
+        // evaluated at execution time by the formula engine.
+        if (!newNodeName.trim()) return;
+        const base = slugify(newNodeName) || `input_${Date.now()}`;
+        key = uniqueKey(base);
+        name = newNodeName.trim();
+        payload.input_source = newInputSource;
+        if (newInputSource === "static") {
+          const trimmed = newStaticValue.trim();
+          if (!trimmed || !/^-?\d+(\.\d+)?$/.test(trimmed)) return;
+          payload.formula = trimmed;
+        } else {
+          if (!newFormula.trim()) return;
+          payload.formula = newFormula;
+        }
+      }
     } else {
       if (!newNodeName.trim()) return;
       const base = slugify(newNodeName) || `node_${Date.now()}`;
@@ -709,7 +772,46 @@ export function DagEditorPage() {
               </div>
             </div>
 
-            {newNodeType === "input_value" ? (
+            {newNodeType === "input_value" && (
+              <div className="form-group">
+                <label className="form-label">Source</label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  {([
+                    { key: "tape", label: "Tape variable", hint: "Read from an extracted tape cell" },
+                    { key: "static", label: "Static value", hint: "A literal number (e.g. 2500)" },
+                    { key: "expression", label: "Expression", hint: "Derived from deal constants or other ambient values" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setNewInputSource(opt.key)}
+                      style={{
+                        flex: 1,
+                        padding: "8px 10px",
+                        fontSize: 12,
+                        textAlign: "left",
+                        background: newInputSource === opt.key ? "rgba(96,165,250,0.15)" : "var(--bg-secondary)",
+                        border: `1px solid ${newInputSource === opt.key ? "var(--accent-blue)" : "var(--border-color)"}`,
+                        borderRadius: 4,
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: 2 }}>{opt.label}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{opt.hint}</div>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  Note: any tape variable is already available to formulas by name —
+                  you only need an Input node here for <em>non-tape</em> inputs
+                  (static values, deal-constant overrides) or when you want
+                  the value to appear as a node in the graph.
+                </div>
+              </div>
+            )}
+
+            {newNodeType === "input_value" && newInputSource === "tape" ? (
               <div className="form-group">
                 <label className="form-label">Tape variable</label>
                 <select
@@ -746,14 +848,37 @@ export function DagEditorPage() {
               </div>
             )}
 
-            {newNodeType !== "input_value" && (
+            {newNodeType === "input_value" && newInputSource === "static" && (
+              <div className="form-group">
+                <label className="form-label">Static value</label>
+                <input
+                  className="input"
+                  inputMode="decimal"
+                  value={newStaticValue}
+                  onChange={(e) => setNewStaticValue(e.target.value.replace(/[^0-9.\-]/g, ""))}
+                  placeholder="e.g. 2500"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  Stored as a literal in the node's formula. Useful for fixed fees or hand-entered thresholds not on the tape.
+                </div>
+              </div>
+            )}
+
+            {(newNodeType === "calculation" ||
+              newNodeType === "distribution" ||
+              (newNodeType === "input_value" && newInputSource === "expression")) && (
               <div className="form-group">
                 <label className="form-label">Formula</label>
                 <FormulaChipBuilder
                   value={newFormula}
                   onChange={setNewFormula}
                   tokens={availableTokens}
-                  placeholder="e.g. class_a_balance * class_a_note_rate / 12"
+                  placeholder={
+                    newInputSource === "expression"
+                      ? "e.g. deal_trustee_fee_monthly"
+                      : "e.g. class_a_balance * class_a_note_rate / 12"
+                  }
                 />
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
                   Tip: <code>PRIOR(x)</code> returns last month's value of a variable or node — e.g.&nbsp;
@@ -784,7 +909,13 @@ export function DagEditorPage() {
                 onClick={handleAddNode}
                 disabled={
                   createNodeMut.isPending ||
-                  (newNodeType === "input_value" ? !newVariableId : !newNodeName.trim())
+                  (newNodeType === "input_value"
+                    ? newInputSource === "tape"
+                      ? !newVariableId
+                      : newInputSource === "static"
+                        ? !newStaticValue.trim() || !newNodeName.trim()
+                        : !newFormula.trim() || !newNodeName.trim()
+                    : !newNodeName.trim())
                 }
               >
                 {createNodeMut.isPending ? "Adding..." : "Add node"}

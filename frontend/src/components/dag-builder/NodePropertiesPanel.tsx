@@ -120,18 +120,25 @@ export function NodePropertiesPanel({
         <div className={styles.mono}>{node.node_key}</div>
       </div>
 
-      {/* Formula — calc, dist, validation */}
-      {node.node_type !== "input" && node.node_type !== "input_value" && (
-        <div className={styles.field}>
-          <label className={styles.label}>Formula</label>
-          <FormulaChipBuilder
-            value={formula}
-            onChange={(next) => { setFormula(next); markDirty(); }}
-            tokens={availableTokens}
-            placeholder="e.g. total_collections * svc_fee_rate"
-          />
-        </div>
-      )}
+      {/* Formula — calc, dist, validation, or input_value with a formula */}
+      {node.node_type !== "input" &&
+        !(node.node_type === "input_value" && !node.formula && !!node.variable_id) && (
+          <div className={styles.field}>
+            <label className={styles.label}>
+              {node.node_type === "input_value" ? "Value / formula" : "Formula"}
+            </label>
+            <FormulaChipBuilder
+              value={formula}
+              onChange={(next) => { setFormula(next); markDirty(); }}
+              tokens={availableTokens}
+              placeholder={
+                node.node_type === "input_value"
+                  ? "e.g. 2500 (literal) or deal_trustee_fee_monthly"
+                  : "e.g. total_collections * svc_fee_rate"
+              }
+            />
+          </div>
+        )}
 
       {/* Description */}
       <div className={styles.field}>
@@ -145,22 +152,26 @@ export function NodePropertiesPanel({
         />
       </div>
 
-      {/* Input source — input nodes only */}
-      {node.node_type === "input" || node.node_type === "input_value" && (
+      {/* Input source — input_value nodes only */}
+      {(node.node_type === "input" || node.node_type === "input_value") && (
         <div className={styles.field}>
           <label className={styles.label}>Input source</label>
           <div className={styles.sourceInfo}>
-            {node.input_source === "tranche"
-              ? `Tranche field: ${node.tranche_field ?? "not set"}`
-              : node.variable_id
-              ? `Tape variable #${node.variable_id}`
-              : "Not configured"}
+            {node.formula
+              ? /^-?\d+(\.\d+)?$/.test(node.formula.trim())
+                ? `Static value: ${node.formula}`
+                : `Expression: ${node.formula}`
+              : node.input_source === "tranche"
+                ? `Tranche field: ${node.tranche_field ?? "not set"}`
+                : node.variable_id
+                  ? `Tape variable #${node.variable_id}`
+                  : `Context lookup: ${node.node_key}`}
           </div>
         </div>
       )}
 
       {/* Default prior value — shown when formula references _prior */}
-      {node.node_type !== "input" && node.node_type !== "input_value" && formula.includes("_prior") && (
+      {node.node_type !== "input" && formula.includes("_prior") && (
         <div className={styles.field}>
           <label className={styles.label}>Default prior value (1st month)</label>
           <input

@@ -312,12 +312,18 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
 
     # Build richer response for the lineage drilldown UI
     target_step = steps[-1]  # Last in topo order is the target
+    step_keys = {s.node_key for s in steps}
     nodes = []
     for s in steps:
-        prior_val = None
-        delta_pct = None
-        is_suspect = False
-        suspect_reason = None
+        # Upstream = every formula ref that resolved to another step in the
+        # ancestry, stripping the `_prior` suffix that PRIOR() desugars to so
+        # the frontend graph draws edges to the live-month node.
+        upstream = []
+        if s.formula:
+            for ref in executor.engine.extract_variable_refs(s.formula):
+                base = ref[:-6] if ref.endswith("_prior") else ref
+                if base in step_keys and base != s.node_key:
+                    upstream.append(base)
 
         nodes.append(
             {
@@ -329,11 +335,11 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
                 "formula": s.formula,
                 "formula_resolved": s.resolved_formula,
                 "result": str(s.result) if s.result is not None else None,
-                "prior_value": prior_val,
-                "delta_pct": delta_pct,
-                "is_suspect": is_suspect,
-                "suspect_reason": suspect_reason,
-                "upstream_keys": [],
+                "prior_value": None,
+                "delta_pct": None,
+                "is_suspect": False,
+                "suspect_reason": None,
+                "upstream_keys": upstream,
                 "comparison_value": str(s.comparison_value) if s.comparison_value is not None else None,
                 "difference": str(s.difference) if s.difference is not None else None,
                 "tolerance": str(s.tolerance) if s.tolerance is not None else None,

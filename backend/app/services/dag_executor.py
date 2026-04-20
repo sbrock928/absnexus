@@ -189,13 +189,27 @@ class DagExecutor:
             )
 
             if node.node_type == "input_value":
-                # Input nodes read from context. By convention, a tape-input
-                # placeholder node keyed "<var>_in" resolves to the tape
-                # variable "<var>" when its own key isn't present.
-                val = context.get(node.key)
-                if val is None and node.key.endswith("_in"):
-                    val = context.get(node.key[:-3])
-                step.result = val if val is not None else Decimal("0")
+                # Input nodes fall into three cases:
+                #   1. formula set      → evaluate it (static literal like "2500",
+                #                          or a small expression over deal constants
+                #                          / other ambient context values)
+                #   2. variable lookup  → read context[node.key] (tape variables are
+                #                          ambient; no placeholder needed)
+                #   3. "_in" fallback   → strip suffix for legacy placeholder nodes
+                if node.formula:
+                    try:
+                        step.result = self.engine.execute(node.formula, context)
+                        step.resolved_formula = self.engine.resolve_formula(
+                            node.formula, context
+                        )
+                    except Exception as e:
+                        step.result = Decimal("0")
+                        result.errors.append(f"Input '{node.key}': {e}")
+                else:
+                    val = context.get(node.key)
+                    if val is None and node.key.endswith("_in"):
+                        val = context.get(node.key[:-3])
+                    step.result = val if val is not None else Decimal("0")
 
             elif node.node_type in ("calculation", "distribution"):
                 if node.formula:
@@ -269,38 +283,54 @@ class DagExecutor:
         return result
 
     def get_lineage(self, run_id: int, node_key: str) -> list[ExecutionStep]:
-        """Get ancestor execution steps for a node (for lineage drilldown)."""
+        """Get ancestor execution steps for a node (for lineage drilldown).
+
+        Walks **formula references** recursively (rather than DAG edges), so
+        lineage still works after we dropped the placeholder `*_in` input
+        nodes. Tape variables, deal constants, and period-computed values
+        don't have a DagNode / ExecutionStep — the router's
+        `_build_synthetic_lineage` handles them as leaves when the user
+        drills into one directly.
+        """
         run = self.db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
         if not run or not run.dag_version_id:
             return []
 
-        nodes = self.db.query(DagNode).filter(DagNode.dag_version_id == run.dag_version_id).all()
-        edges = self.db.query(DagEdge).filter(DagEdge.dag_version_id == run.dag_version_id).all()
+        nodes_by_key = {
+            n.key: n
+            for n in self.db.query(DagNode)
+            .filter(DagNode.dag_version_id == run.dag_version_id)
+            .all()
+        }
+        steps_by_key = {
+            s.node_key: s
+            for s in self.db.query(ExecutionStep)
+            .filter(ExecutionStep.run_id == run_id)
+            .all()
+        }
 
-        g = nx.DiGraph()
-        key_to_nid: dict[str, int] = {}
-        for n in nodes:
-            g.add_node(n.id)
-            key_to_nid[n.key] = n.id
-        for e in edges:
-            g.add_edge(e.source_node_id, e.target_node_id)
-
-        target_nid = key_to_nid.get(node_key)
-        if target_nid is None:
+        if node_key not in nodes_by_key and node_key not in steps_by_key:
             return []
 
-        ancestors = nx.ancestors(g, target_nid) | {target_nid}
-        subgraph = g.subgraph(ancestors)
-        ancestor_order = list(nx.topological_sort(subgraph))
+        visited: set[str] = set()
+        order: list[str] = []
 
-        # Fetch steps for these nodes
-        steps = (
-            self.db.query(ExecutionStep)
-            .filter(ExecutionStep.run_id == run_id, ExecutionStep.node_id.in_(ancestor_order))
-            .all()
-        )
-        step_map = {s.node_id: s for s in steps}
-        return [step_map[nid] for nid in ancestor_order if nid in step_map]
+        def walk(key: str) -> None:
+            if key in visited:
+                return
+            visited.add(key)
+            node = nodes_by_key.get(key)
+            if node and node.formula:
+                for ref in self.engine.extract_variable_refs(node.formula):
+                    # Strip the `_prior` suffix introduced by PRIOR() desugaring
+                    # so we recurse into the live-month node, not a ghost.
+                    base = ref[:-6] if ref.endswith("_prior") else ref
+                    if base in nodes_by_key or base in steps_by_key:
+                        walk(base)
+            order.append(key)
+
+        walk(node_key)
+        return [steps_by_key[k] for k in order if k in steps_by_key]
 
     def _prior_period(self, period: str) -> str:
         if not period or len(period) < 7 or "-" not in period:

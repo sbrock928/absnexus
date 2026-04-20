@@ -299,12 +299,8 @@ DEAL_A_BALANCES = {
 
 DEAL_A_DIST_NODES = [
     # (key, name, node_type, formula, payment_type, px, py)
-    # Row 1: input nodes
-    ("total_available_funds_in", "Total Available Funds", "input_value", None, None, 100, 50),
-    ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, 300, 50),
-    ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, 500, 50),
-    ("backup_svc_fee_tape_in", "Backup Svc Fee (tape)", "input_value", None, None, 700, 50),
-    # Row 2: fee aggregation
+    # Tape variables are ambient — the executor injects them into context
+    # automatically, so calcs reference them by name without placeholder nodes.
     (
         "total_fees",
         "Total Fees",
@@ -503,12 +499,7 @@ DEAL_A_VALIDATION_NODES = [
 ]
 
 DEAL_A_EDGES = [
-    # Fee inputs → total_fees
-    ("svc_fee_tape_in", "total_fees"),
-    ("trustee_fee_tape_in", "total_fees"),
-    ("backup_svc_fee_tape_in", "total_fees"),
-    # total_available + total_fees → net_available
-    ("total_available_funds_in", "net_available"),
+    # total_fees → net_available
     ("total_fees", "net_available"),
     # net_available → interest payments
     ("net_available", "class_a_int_pmt"),
@@ -545,8 +536,6 @@ DEAL_A_EDGES = [
     ("class_a_prin_pmt", "class_d_prin_pmt"),
     ("class_b_prin_pmt", "class_d_prin_pmt"),
     ("class_c_prin_pmt", "class_d_prin_pmt"),
-    # Servicing fee flow
-    ("svc_fee_tape_in", "svc_fee_pmt"),
 ]
 
 DEAL_A_WATERFALL_ORDER = {
@@ -798,11 +787,11 @@ def _build_6class_dag():
     """
     dist_nodes = [
         # (key, name, node_type, formula, payment_type, px, py)
-        # Inputs
-        ("total_available_funds_in", "Total Available Funds", "input_value", None, None, 100, 50),
-        ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, 350, 50),
-        ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, 550, 50),
-        ("backup_svc_fee_tape_in", "Backup Svc Fee (tape)", "input_value", None, None, 750, 50),
+        # Tape variables (total_available_funds, svc_fee_tape, trustee_fee_tape,
+        # backup_svc_fee_tape, class_<x>_note_balance, class_<x>_note_rate,
+        # cur_pool_bal, reported_oc, class_<x>_interest_amount) are ambient
+        # — the executor injects them into context from extracted values,
+        # so formulas reference them by name without placeholder nodes.
         # Fee aggregation
         (
             "total_fees",
@@ -1041,12 +1030,7 @@ def _build_6class_dag():
     ]
 
     edges = [
-        # Fee inputs → total_fees
-        ("svc_fee_tape_in", "total_fees"),
-        ("trustee_fee_tape_in", "total_fees"),
-        ("backup_svc_fee_tape_in", "total_fees"),
-        # total_available + total_fees → net_available
-        ("total_available_funds_in", "net_available"),
+        # total_fees → net_available
         ("total_fees", "net_available"),
         # net_available → interest payments
         ("net_available", "class_a_int_pmt"),
@@ -1088,8 +1072,6 @@ def _build_6class_dag():
         ("class_f_interest_amount_calc", "remaining_after_int"),
         # remaining → principal
         ("remaining_after_int", "regular_prin_dist"),
-        # Servicing fee flow
-        ("svc_fee_tape_in", "svc_fee_pmt"),
     ]
 
     waterfall_order = {
@@ -1145,18 +1127,9 @@ def _build_servicer_b_comprehensive_dag():
     # ──────────────────────────────────────────────────────────────
     # I. POOL BALANCE MOVEMENT
     # ──────────────────────────────────────────────────────────────
-    pool_inputs = [
-        ("beg_pool_balance_in", "Beginning Pool Balance", "beg_pool_balance"),
-        ("subsequent_receivables_in", "Subsequent Receivables", "subsequent_receivables"),
-        ("collections_outstanding_in", "Collections Outstanding", "collections_outstanding"),
-        ("collections_paid_off_in", "Collections Paid Off", "collections_paid_off"),
-        ("receivables_liquidated_in", "Receivables Liquidated", "receivables_liquidated"),
-        ("receivables_purchased_in", "Receivables Purchased", "receivables_purchased"),
-        ("receivables_adjustments_in", "Receivables Adjustments", "receivables_adjustments"),
-        ("cur_pool_bal_in", "End Pool Balance (reported)", "cur_pool_bal"),
-    ]
-    for i, (key, name, _var) in enumerate(pool_inputs):
-        dist_nodes.append((key, name, "input_value", None, None, COLS["a"] + (i % 4) * 150, 40 + (i // 4) * 60))
+    # Tape variables are ambient: the executor injects every extracted value
+    # into the run context automatically, so we reference them by name in
+    # formulas without creating placeholder input nodes.
 
     dist_nodes.append((
         "total_monthly_principal",
@@ -1173,17 +1146,6 @@ def _build_servicer_b_comprehensive_dag():
         None, COLS["mid"], 250,
     ))
 
-    edges += [
-        ("collections_outstanding_in", "total_monthly_principal"),
-        ("collections_paid_off_in", "total_monthly_principal"),
-        ("receivables_liquidated_in", "total_monthly_principal"),
-        ("receivables_purchased_in", "total_monthly_principal"),
-        ("receivables_adjustments_in", "total_monthly_principal"),
-        ("beg_pool_balance_in", "end_pool_balance_calc"),
-        ("subsequent_receivables_in", "end_pool_balance_calc"),
-        ("total_monthly_principal", "end_pool_balance_calc"),
-    ]
-
     # ──────────────────────────────────────────────────────────────
     # II. INTEREST CALCULATION PER CLASS (30/360)
     # Formula: balance × rate × days_30_360 / 360
@@ -1191,25 +1153,22 @@ def _build_servicer_b_comprehensive_dag():
     classes = ["a", "b", "c", "d", "e", "f"]
     for i, cls in enumerate(classes):
         x = COLS["a"] + i * 140
-        key_bal = f"class_{cls}_note_balance_in"
-        key_rate = f"class_{cls}_note_rate_in"
-        key_int = f"class_{cls}_interest_calc"
-        dist_nodes.append((key_bal, f"Class {cls.upper()} Begin Balance", "input_value", None, None, x, 360))
-        dist_nodes.append((key_rate, f"Class {cls.upper()} Note Rate", "input_value", None, None, x, 420))
         dist_nodes.append((
-            key_int,
+            f"class_{cls}_interest_calc",
             f"Class {cls.upper()} Interest (30/360 calc)",
             "calculation",
             f"class_{cls}_note_balance * class_{cls}_note_rate * period_days_in_period_30_360 / 360",
             None, x, 500,
         ))
-        edges += [(key_bal, key_int), (key_rate, key_int)]
 
     # ──────────────────────────────────────────────────────────────
-    # III. FEE CALCULATIONS (driven by deal constants)
-    #   Servicing fee = pct × beginning pool × days / 360
-    #   Trustee fee   = flat monthly amount
-    #   Backup fee    = flat $2,500 for Deal B (per contract)
+    # III. FEE CALCULATIONS
+    #   Servicing fee = pct × beginning pool × days / 360 (calculation)
+    #   Trustee fee   = flat monthly amount (input_value — static, from deal constant)
+    #   Backup fee    = flat $2,500 per contract (input_value — static literal)
+    # The input_value nodes here are the canonical example of "non-tape
+    # static inputs" — they represent values that aren't on the tape and
+    # aren't derived from upstream DAG nodes.
     # ──────────────────────────────────────────────────────────────
     dist_nodes.append((
         "svc_fee_calc",
@@ -1221,18 +1180,17 @@ def _build_servicer_b_comprehensive_dag():
     dist_nodes.append((
         "trustee_fee_calc",
         "Trustee Fee (calc)",
-        "calculation",
+        "input_value",
         "deal_trustee_fee_monthly",
         None, COLS["c"], 620,
     ))
     dist_nodes.append((
         "backup_svc_fee_calc",
         "Backup Servicing Fee (calc)",
-        "calculation",
+        "input_value",
         "2500",
         None, COLS["b"], 620,
     ))
-    edges += [("beg_pool_balance_in", "svc_fee_calc")]
 
     # ──────────────────────────────────────────────────────────────
     # IV. DISTRIBUTION WATERFALL
@@ -1246,12 +1204,6 @@ def _build_servicer_b_comprehensive_dag():
     # like Deal B's $46k servicing-fee waiver flow through correctly), and
     # keep the computed values for validation.
     # ──────────────────────────────────────────────────────────────
-    dist_nodes += [
-        ("total_available_funds_in", "Total Available Funds", "input_value", None, None, COLS["mid"], 720),
-        ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, COLS["a"], 720),
-        ("backup_svc_fee_tape_in", "Backup Servicing Fee (tape)", "input_value", None, None, COLS["b"], 720),
-        ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, COLS["c"], 720),
-    ]
 
     # Distributions are tape passthroughs — each one just pulls the amount
     # reported on the servicer's certificate. The Waterfall UI computes the
@@ -1268,11 +1220,6 @@ def _build_servicer_b_comprehensive_dag():
     wf_order["svc_fee_pmt"] = 1
     wf_order["backup_svc_fee_pmt"] = 2
     wf_order["trustee_fee_pmt"] = 3
-    edges += [
-        ("svc_fee_tape_in", "svc_fee_pmt"),
-        ("backup_svc_fee_tape_in", "backup_svc_fee_pmt"),
-        ("trustee_fee_tape_in", "trustee_fee_pmt"),
-    ]
 
     for i, cls in enumerate(classes):
         key = f"class_{cls}_int_pmt"
@@ -1302,12 +1249,6 @@ def _build_servicer_b_comprehensive_dag():
     # End Balance = Beg + Deposit + InvEarnings - Withdrawal
     # Deficiency = MAX(required - ending, 0)
     # ──────────────────────────────────────────────────────────────
-    dist_nodes += [
-        ("reserve_fund_begin_bal_in", "Reserve Fund Beginning Balance", "input_value", None, None, COLS["a"], 1120),
-        ("reserve_fund_deposit_in", "Reserve Fund Deposit", "input_value", None, None, COLS["b"], 1120),
-        ("reserve_fund_withdrawal_in", "Reserve Fund Withdrawal", "input_value", None, None, COLS["c"], 1120),
-        ("inv_earn_reserve_in", "Investment Earnings (Reserve)", "input_value", None, None, COLS["d"], 1120),
-    ]
     dist_nodes.append((
         "reserve_required_amt",
         "Reserve Required Amount",
@@ -1329,22 +1270,12 @@ def _build_servicer_b_comprehensive_dag():
         "MAX(reserve_required_amt - reserve_fund_end_calc, 0)",
         None, COLS["e"], 1200,
     ))
-    edges += [
-        ("reserve_fund_begin_bal_in", "reserve_fund_end_calc"),
-        ("reserve_fund_deposit_in", "reserve_fund_end_calc"),
-        ("reserve_fund_withdrawal_in", "reserve_fund_end_calc"),
-        ("reserve_required_amt", "reserve_fund_deficiency"),
-        ("reserve_fund_end_calc", "reserve_fund_deficiency"),
-    ]
 
     # ──────────────────────────────────────────────────────────────
     # VI. OVERCOLLATERALIZATION
     # Target = MAX(target_oc_pct × end_pool, target_oc_floor_pct × cutoff_pool)
     # Actual = end_pool + prefund_end - total_end_note_balance
     # ──────────────────────────────────────────────────────────────
-    dist_nodes.append((
-        "prefund_end_bal_in", "Prefunding End Balance", "input_value", None, None, COLS["a"], 1300,
-    ))
     dist_nodes.append((
         "target_oc_amount",
         "Target OC Amount",
@@ -1371,13 +1302,6 @@ def _build_servicer_b_comprehensive_dag():
         "end_pool_balance_calc + prefund_end_bal - total_end_note_balance",
         None, COLS["d"], 1300,
     ))
-    edges += [
-        ("end_pool_balance_calc", "target_oc_amount"),
-        ("end_pool_balance_calc", "oc_amount_calc"),
-        ("prefund_end_bal_in", "oc_amount_calc"),
-        ("regular_prin_alloc", "total_end_note_balance"),
-        ("total_end_note_balance", "oc_amount_calc"),
-    ]
 
     # ──────────────────────────────────────────────────────────────
     # VII. VALIDATIONS
@@ -1508,21 +1432,12 @@ def _build_servicer_d_comprehensive_dag():
 
     classes = ["a", "b", "c", "d", "e"]
 
-    # ── I. Pool balance movement ──
-    pool_inputs = [
-        ("beg_pool_balance_in",          "Beginning Pool Balance"),
-        ("subsequent_receivables_in",    "Subsequent Receivables"),
-        ("collections_outstanding_in",   "Collections Outstanding"),
-        ("collections_paid_off_in",      "Collections Paid Off"),
-        ("receivables_liquidated_in",    "Receivables Liquidated"),
-        ("receivables_purchased_in",     "Receivables Purchased"),
-        ("receivables_adjustments_in",   "Receivables Adjustments"),
-        ("cur_pool_bal_in",              "End Pool Balance (reported)"),
-    ]
-    for i, (key, name) in enumerate(pool_inputs):
-        dist_nodes.append((key, name, "input_value", None, None,
-                           COLS["a"] + (i % 4) * 150, 40 + (i // 4) * 60))
+    # Tape variables are injected into the run context automatically (see
+    # DagExecutor), so formulas reference them by name directly. We only
+    # create `input_value` DAG nodes for non-tape inputs (e.g. the flat
+    # $750 trustee fee, which isn't computed from any upstream value).
 
+    # ── I. Pool balance movement ──
     dist_nodes.append((
         "total_monthly_principal_calc",
         "Total Monthly Principal (calc)",
@@ -1537,33 +1452,17 @@ def _build_servicer_d_comprehensive_dag():
         "beg_pool_balance + subsequent_receivables - total_monthly_principal_calc",
         None, COLS["mid"], 250,
     ))
-    edges += [
-        ("collections_outstanding_in", "total_monthly_principal_calc"),
-        ("collections_paid_off_in",    "total_monthly_principal_calc"),
-        ("receivables_liquidated_in",  "total_monthly_principal_calc"),
-        ("receivables_purchased_in",   "total_monthly_principal_calc"),
-        ("receivables_adjustments_in", "total_monthly_principal_calc"),
-        ("beg_pool_balance_in",        "end_pool_balance_calc"),
-        ("subsequent_receivables_in",  "end_pool_balance_calc"),
-        ("total_monthly_principal_calc", "end_pool_balance_calc"),
-    ]
 
     # ── II. Per-class interest (30/360) ──
     for i, cls in enumerate(classes):
         x = COLS["a"] + i * 140
-        key_bal = f"class_{cls}_note_balance_in"
-        key_rate = f"class_{cls}_note_rate_in"
-        key_int = f"class_{cls}_interest_calc"
-        dist_nodes.append((key_bal, f"Class {cls.upper()} Begin Balance", "input_value", None, None, x, 360))
-        dist_nodes.append((key_rate, f"Class {cls.upper()} Note Rate", "input_value", None, None, x, 420))
         dist_nodes.append((
-            key_int,
+            f"class_{cls}_interest_calc",
             f"Class {cls.upper()} Interest (30/360 calc)",
             "calculation",
             f"class_{cls}_note_balance * class_{cls}_note_rate * period_days_in_period_30_360 / 360",
             None, x, 500,
         ))
-        edges += [(key_bal, key_int), (key_rate, key_int)]
 
     # ── III. Fees (monthly, not days-based) ──
     dist_nodes.append((
@@ -1580,28 +1479,18 @@ def _build_servicer_d_comprehensive_dag():
         "beg_pool_balance * deal_backup_servicing_fee_pct / 12",
         None, COLS["b"], 620,
     ))
+    # Trustee fee is a flat $750/month — a genuine non-tape input. Modeled
+    # as an `input_value` node with a literal formula (showcases the
+    # "static value" source type that the UI can author).
     dist_nodes.append((
         "trustee_fee_calc",
         "Trustee Fee (calc)",
-        "calculation",
+        "input_value",
         "deal_trustee_fee_monthly",
         None, COLS["c"], 620,
     ))
-    edges += [
-        ("beg_pool_balance_in", "svc_fee_calc"),
-        ("beg_pool_balance_in", "backup_svc_fee_calc"),
-    ]
 
-    # ── IV. Distribution waterfall ──
-    dist_nodes += [
-        ("total_available_funds_in",     "Total Available Funds", "input_value", None, None, COLS["mid"], 720),
-        ("svc_fee_tape_in",              "Servicing Fee (tape)", "input_value", None, None, COLS["a"], 720),
-        ("backup_svc_fee_tape_in",       "Backup Servicing Fee (tape)", "input_value", None, None, COLS["b"], 720),
-        ("trustee_fee_tape_in",          "Trustee Fee (tape)", "input_value", None, None, COLS["c"], 720),
-        ("regular_principal_alloc_tape_in", "Regular Principal Alloc (tape)", "input_value", None, None, COLS["d"], 720),
-    ]
-
-    # Tape passthrough distributions.
+    # ── IV. Distribution waterfall (tape passthroughs) ──
     dist_nodes += [
         ("svc_fee_pmt",        "Servicing Fee Pmt",        "distribution", "svc_fee_tape",        "SVC_FEE",    COLS["a"], 820),
         ("backup_svc_fee_pmt", "Backup Servicing Fee Pmt", "distribution", "backup_svc_fee_tape", "BACKUP_FEE", COLS["b"], 820),
@@ -1610,11 +1499,6 @@ def _build_servicer_d_comprehensive_dag():
     wf_order["svc_fee_pmt"] = 1
     wf_order["backup_svc_fee_pmt"] = 2
     wf_order["trustee_fee_pmt"] = 3
-    edges += [
-        ("svc_fee_tape_in",        "svc_fee_pmt"),
-        ("backup_svc_fee_tape_in", "backup_svc_fee_pmt"),
-        ("trustee_fee_tape_in",    "trustee_fee_pmt"),
-    ]
 
     for i, cls in enumerate(classes):
         key = f"class_{cls}_int_pmt"
@@ -1637,14 +1521,8 @@ def _build_servicer_d_comprehensive_dag():
         "regular_principal_alloc_tape",
         "PRIN_ALLOC", COLS["mid"], 1020,
     ))
-    edges += [("regular_principal_alloc_tape_in", "regular_prin_alloc")]
 
     # ── V. Reserve fund ──
-    dist_nodes += [
-        ("reserve_fund_begin_bal_in",  "Reserve Fund Beginning Balance", "input_value", None, None, COLS["a"], 1120),
-        ("reserve_fund_deposit_in",    "Reserve Fund Deposit",           "input_value", None, None, COLS["b"], 1120),
-        ("reserve_fund_withdrawal_in", "Reserve Fund Withdrawal",        "input_value", None, None, COLS["c"], 1120),
-    ]
     dist_nodes.append((
         "reserve_required_amt",
         "Reserve Required Amount",
@@ -1659,11 +1537,6 @@ def _build_servicer_d_comprehensive_dag():
         "reserve_fund_begin_bal + reserve_fund_deposit - reserve_fund_withdrawal",
         None, COLS["b"], 1200,
     ))
-    edges += [
-        ("reserve_fund_begin_bal_in",  "reserve_fund_end_calc"),
-        ("reserve_fund_deposit_in",    "reserve_fund_end_calc"),
-        ("reserve_fund_withdrawal_in", "reserve_fund_end_calc"),
-    ]
 
     # ── VI. Overcollateralization ──
     # Total end note balance = sum of each class's ending. Only class A amortizes

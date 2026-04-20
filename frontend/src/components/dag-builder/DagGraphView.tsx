@@ -19,6 +19,7 @@ import { DistNode } from "./DistNode";
 import { ValidationNode } from "./ValidationNode";
 import { NodePalette } from "./NodePalette";
 import { NodePropertiesPanel } from "./NodePropertiesPanel";
+import { layoutDag } from "./autoLayout";
 import type { DagNodeData } from "./types";
 import styles from "./DagGraphView.module.css";
 
@@ -77,18 +78,36 @@ interface Props {
   onDeleteEdge: (edgeId: number) => Promise<void>;
 }
 
-function buildRfNodes(backendNodes: any[], visibleIds: Set<number>): Node[] {
-  return backendNodes
-    .filter((n) => visibleIds.has(n.id))
-    .map((n) => ({
-      id: String(n.id),
+function buildRfNodes(
+  backendNodes: any[],
+  visibleIds: Set<number>,
+  backendEdges: any[],
+  overrides: Map<string, { x: number; y: number }>,
+): Node[] {
+  const visible = backendNodes.filter((n) => visibleIds.has(n.id));
+  // Compute layout from the current structure. Stored position_x is ignored
+  // — the graph is always laid out top→bottom by topological rank so it
+  // stays readable regardless of how the DAG has evolved. Individual nodes
+  // can still be dragged; their new positions are stored in `overrides`
+  // (cleared only by the Re-layout button).
+  const layoutInputs = visible.map((n) => ({
+    id: String(n.id),
+    node_type: n.node_type,
+  }));
+  const layoutEdges = backendEdges.map((e) => ({
+    source: String(e.source_node_id),
+    target: String(e.target_node_id),
+  }));
+  const positions = layoutDag(layoutInputs, layoutEdges);
+
+  return visible.map((n) => {
+    const id = String(n.id);
+    const override = overrides.get(id);
+    const pos = override ?? positions.get(id) ?? { x: 0, y: 0 };
+    return {
+      id,
       type: NODE_TYPE_MAP[n.node_type] ?? "calcNode",
-      position: {
-        x: n.position_x ?? 0,
-        // Override y to the node's tier band so the graph is always top-down
-        // "outputs → calcs → inputs". Saved position_y is ignored.
-        y: TIER_Y[NODE_TYPE_TIER[n.node_type] ?? "mid"],
-      },
+      position: pos,
       data: {
         label: n.name,
         node_key: n.key ?? n.node_key,
@@ -108,7 +127,8 @@ function buildRfNodes(backendNodes: any[], visibleIds: Set<number>): Node[] {
         payment_type: n.payment_type,
         backendId: n.id,
       } as DagNodeData,
-    }));
+    };
+  });
 }
 
 function buildRfEdges(backendEdges: any[], visibleNodeIds: Set<number>): Edge[] {
@@ -143,10 +163,16 @@ export function DagGraphView({
   onDeleteEdge,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // Per-session drag overrides. Cleared when the user clicks "Re-layout".
+  // Stored separately from the React Flow node state so we can distinguish
+  // user intent ("I moved this") from auto-layout output.
+  const [positionOverrides, setPositionOverrides] = useState<
+    Map<string, { x: number; y: number }>
+  >(new Map());
 
   const initialNodes = useMemo(
-    () => buildRfNodes(backendNodes, visibleNodeIds),
-    [backendNodes, visibleNodeIds]
+    () => buildRfNodes(backendNodes, visibleNodeIds, backendEdges, positionOverrides),
+    [backendNodes, backendEdges, visibleNodeIds, positionOverrides]
   );
   const initialEdges = useMemo(
     () => buildRfEdges(backendEdges, visibleNodeIds),
@@ -158,9 +184,9 @@ export function DagGraphView({
 
   // Sync React Flow state when backend data changes
   useEffect(() => {
-    setNodes(buildRfNodes(backendNodes, visibleNodeIds));
+    setNodes(buildRfNodes(backendNodes, visibleNodeIds, backendEdges, positionOverrides));
     setEdges(buildRfEdges(backendEdges, visibleNodeIds));
-  }, [backendNodes, backendEdges, visibleNodeIds]);
+  }, [backendNodes, backendEdges, visibleNodeIds, positionOverrides]);
 
   // Handle new connection between nodes
   const onConnect = useCallback(
@@ -171,16 +197,27 @@ export function DagGraphView({
     [onCreateEdge]
   );
 
-  // Save horizontal position only on drag end; vertical position is driven by
-  // tier assignment so users can't drag a node out of its band.
+  // Record the user's drag in the per-session override map. We also persist
+  // to the backend (keeps the behaviour users expect when saving the DAG),
+  // but the authoritative layout remains dagre — a full re-layout discards
+  // every override at once.
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
+      setPositionOverrides((prev) => {
+        const next = new Map(prev);
+        next.set(node.id, { x: node.position.x, y: node.position.y });
+        return next;
+      });
       onUpdateNode(Number(node.id), {
         position_x: node.position.x,
       });
     },
     [onUpdateNode]
   );
+
+  const relayout = useCallback(() => {
+    setPositionOverrides(new Map());
+  }, []);
 
   // Select node on click
   const onNodeClick = useCallback((_: any, node: Node) => {
@@ -251,7 +288,34 @@ export function DagGraphView({
     <div className={styles.layout}>
       <NodePalette onAddNode={handleAddNode} />
 
-      <div className={styles.canvas}>
+      <div className={styles.canvas} style={{ position: "relative" }}>
+        <button
+          type="button"
+          onClick={relayout}
+          title="Re-layout — discards any manual drag positions and recomputes top-down"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            zIndex: 10,
+            padding: "6px 12px",
+            fontSize: 12,
+            fontWeight: 500,
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border, var(--border-color))",
+            borderRadius: 6,
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          }}
+        >
+          ↻ Re-layout
+          {positionOverrides.size > 0 && (
+            <span style={{ marginLeft: 6, fontSize: 10, color: "var(--text-muted)" }}>
+              ({positionOverrides.size} moved)
+            </span>
+          )}
+        </button>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -268,8 +332,6 @@ export function DagGraphView({
           maxZoom={2}
           defaultEdgeOptions={{ type: "smoothstep" }}
           proOptions={{ hideAttribution: true }}
-          snapToGrid
-          snapGrid={[20, 20]}
         >
           <Background color="var(--border-color)" gap={20} size={1} />
           <Controls />

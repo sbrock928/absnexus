@@ -28,9 +28,17 @@ class TrancheService:
     ) -> dict[str, Decimal]:
         """Build deterministic formula variables from tranches.
 
-        Returns keys like: class_a_balance, class_a_note_rate,
-        class_a_1_balance, class_a_1_note_rate (for sub-tranches),
-        class_a_balance_144a, class_a_balance_prior, etc.
+        All keys are prefixed with ``static_`` so they never collide with
+        tape-extracted values. The servicer tape's reported rate and the
+        deal-setup's authoritative rate are both always available, under
+        distinct names:
+            - ``class_a_note_rate``         → tape-mapped value (if mapped)
+            - ``static_class_a_note_rate``  → value stored on DealTranche
+
+        Returns keys like:
+            static_class_a_balance, static_class_a_note_rate,
+            static_class_a_original_balance,
+            static_class_a_balance_144a, static_class_a_balance_prior, etc.
         """
         tranches = self.dao.list_for_deal(deal_id)
         context: dict[str, Decimal] = {}
@@ -41,7 +49,7 @@ class TrancheService:
             by_class.setdefault(t.class_label.lower(), []).append(t)
 
         for label, class_tranches in by_class.items():
-            prefix = f"class_{_sanitize_label(label)}"
+            prefix = f"static_class_{_sanitize_label(label)}"
             combined_balance = Decimal("0")
             combined_prior = Decimal("0")
 
