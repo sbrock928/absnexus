@@ -55,23 +55,24 @@ class ExcelReader:
             raise KeyError(f"Sheet '{sheet_name}' not found.")
 
         ws = self.wb[sheet_name]
-        rows_data: list[dict] = []
 
-        actual_max_row = min(ws.max_row or 0, max_rows)
         actual_max_col = min(ws.max_column or 0, max_cols)
-
         column_letters = [self._col_num_to_letter(i) for i in range(1, actual_max_col + 1)]
 
-        for row_idx in range(1, actual_max_row + 1):
-            cells: list[Any] = []
-            for col_idx in range(1, actual_max_col + 1):
-                value = ws.cell(row=row_idx, column=col_idx).value
-                if value is None:
-                    cells.append(None)
-                elif isinstance(value, (int, float)):
-                    cells.append(value)
-                else:
-                    cells.append(str(value))
+        rows_data: list[dict] = []
+        for row_idx, row_vals in enumerate(
+            ws.iter_rows(
+                min_row=1,
+                max_row=max_rows,
+                max_col=actual_max_col,
+                values_only=True,
+            ),
+            start=1,
+        ):
+            cells: list[Any] = [
+                v if v is None or isinstance(v, (int, float)) else str(v)
+                for v in row_vals
+            ]
             rows_data.append({"row_number": row_idx, "cells": cells})
 
         return {

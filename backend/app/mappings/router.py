@@ -117,23 +117,19 @@ def get_tape_grid(
     if not Path(tape_path).exists():
         raise HTTPException(404, "Tape file no longer exists on disk.")
 
+    filename = tape_path.split("/")[-1] if "/" in tape_path else tape_path
+
     with ExcelReader(tape_path) as reader:
         sheet_names = reader.get_sheet_names()
+        target = sheet or (sheet_names[0] if sheet_names else None)
 
-        if sheet:
-            if sheet not in sheet_names:
-                raise HTTPException(404, f"Sheet '{sheet}' not found.")
-            grid = reader.read_sheet_grid(sheet)
-            return {
-                "filename": tape_path.split("/")[-1] if "/" in tape_path else tape_path,
-                "sheet_names": sheet_names,
-                "sheet": grid,
-            }
+        if sheet and sheet not in sheet_names:
+            raise HTTPException(404, f"Sheet '{sheet}' not found.")
 
         return {
-            "filename": tape_path.split("/")[-1] if "/" in tape_path else tape_path,
+            "filename": filename,
             "sheet_names": sheet_names,
-            "sheets": [reader.read_sheet_grid(s) for s in sheet_names],
+            "sheet": reader.read_sheet_grid(target) if target else None,
         }
 
 

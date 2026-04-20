@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"; // useCallback kept for scrollToCell
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchTapeGrid,
+  fetchTapeSheet,
   fetchMappings,
   createMapping,
   updateMapping,
@@ -40,11 +41,30 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
     focusVariableId ?? null,
   );
 
-  // Fetch initial grid (all sheets)
-  const { data: gridData, isLoading: loadingGrid } = useQuery({
+  // Fetch initial grid — returns sheet names + first sheet only
+  const { data: gridMeta, isLoading: loadingGrid } = useQuery({
     queryKey: ["tape-grid", dealId, runId],
     queryFn: () => fetchTapeGrid(dealId, runId),
   });
+
+  // Lazy-load per sheet — fetched on demand when user switches tabs
+  const { data: activeSheetResponse, isLoading: loadingSheet } = useQuery({
+    queryKey: ["tape-grid-sheet", dealId, activeSheet],
+    queryFn: () => fetchTapeSheet(dealId, activeSheet!),
+    enabled: !!activeSheet && !!gridMeta,
+    staleTime: Infinity,
+  });
+
+  // Seed the first sheet into the per-sheet cache when meta loads
+  const qcRef = useRef(qc);
+  useEffect(() => {
+    if (gridMeta?.sheet) {
+      qcRef.current.setQueryData(
+        ["tape-grid-sheet", dealId, gridMeta.sheet.sheet_name],
+        gridMeta,
+      );
+    }
+  }, [gridMeta, dealId]);
 
   // Fetch mappings
   const { data: mappings = [] } = useQuery({
@@ -58,43 +78,25 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
     queryFn: () => api.get<Variable[]>("/variables/"),
   });
 
-  // Helper: look up a cell value from grid data
-  const lookupCellValue = useCallback(
-    (sheetName: string, col: string, row: number): string | number | null => {
-      if (!gridData) return null;
-      const sheet = gridData.sheets
-        ? gridData.sheets.find((s) => s.sheet_name === sheetName)
-        : gridData.sheet?.sheet_name === sheetName ? gridData.sheet : null;
-      if (!sheet) return null;
-      const colIdx = sheet.column_letters.indexOf(col);
-      if (colIdx < 0) return null;
-      const r = sheet.rows.find((r) => r.row_number === row);
-      return r ? r.cells[colIdx] ?? null : null;
-    },
-    [gridData],
-  );
+  // Active sheet grid data
+  const activeSheetData = activeSheetResponse?.sheet ?? null;
 
-  // Set default active sheet — runs once when grid data first loads
+  // Set default active sheet — runs once when meta first loads
   const initializedRef = useRef(false);
   useEffect(() => {
-    if (initializedRef.current || !gridData || gridData.sheet_names.length === 0) return;
+    if (initializedRef.current || !gridMeta || gridMeta.sheet_names.length === 0) return;
     if (focusVariableId && mappings.length > 0) {
       const m = mappings.find((m) => m.variable_id === focusVariableId);
       if (m) {
         setActiveSheet(m.sheet_name);
-        setSelected({
-          sheet: m.sheet_name,
-          column: m.column_letter,
-          row: m.row_number,
-          value: lookupCellValue(m.sheet_name, m.column_letter, m.row_number),
-        });
+        setSelected({ sheet: m.sheet_name, column: m.column_letter, row: m.row_number, value: null });
         initializedRef.current = true;
         return;
       }
     }
-    setActiveSheet(gridData.sheet_names[0]);
+    setActiveSheet(gridMeta.sheet_names[0]);
     initializedRef.current = true;
-  }, [gridData, focusVariableId, mappings, lookupCellValue]);
+  }, [gridMeta, focusVariableId, mappings]);
 
   // Lookup: cell coordinate → variable mapping
   const cellToMapping = useMemo(() => {
@@ -105,15 +107,6 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
     }
     return map;
   }, [mappings]);
-
-  // Currently active sheet's grid
-  const activeSheetData = useMemo(() => {
-    if (!gridData || !activeSheet) return null;
-    if (gridData.sheets) {
-      return gridData.sheets.find((s) => s.sheet_name === activeSheet) ?? null;
-    }
-    return gridData.sheet?.sheet_name === activeSheet ? gridData.sheet : null;
-  }, [gridData, activeSheet]);
 
   // Mutations
   const saveMut = useMutation({
@@ -161,7 +154,7 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
   }, []);
 
   if (loadingGrid) return <div className={styles.loading}>Loading tape...</div>;
-  if (!gridData) return <div className={styles.error}>Failed to load tape data.</div>;
+  if (!gridMeta) return <div className={styles.error}>Failed to load tape data.</div>;
 
   return (
     <div className={styles.layout}>
@@ -169,7 +162,7 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
       <div className={styles.gridSection}>
         {/* Sheet tabs */}
         <div className={styles.sheetTabs}>
-          {gridData.sheet_names.map((name) => (
+          {gridMeta.sheet_names.map((name) => (
             <button
               key={name}
               className={`${styles.sheetTab} ${activeSheet === name ? styles.sheetTabActive : ""}`}
@@ -182,7 +175,9 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
 
         {/* Grid */}
         <div className={styles.gridScroll} ref={gridScrollRef}>
-          {activeSheetData ? (
+          {loadingSheet ? (
+            <div className={styles.loading}>Loading sheet...</div>
+          ) : activeSheetData ? (
             <table className={styles.grid}>
               <thead>
                 <tr>
@@ -379,7 +374,7 @@ export function CellMapper({ dealId, runId, focusVariableId, onMappingSaved }: P
                     sheet: m.sheet_name,
                     column: m.column_letter,
                     row: m.row_number,
-                    value: lookupCellValue(m.sheet_name, m.column_letter, m.row_number),
+                    value: null,
                   });
                   setSelectedVariableId(m.variable_id);
                   scrollToCell(m.column_letter, m.row_number);
