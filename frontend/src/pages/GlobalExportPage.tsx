@@ -17,6 +17,7 @@ const VALUE_TYPES = [
   { value: "literal", label: "Literal value" },
   { value: "run_meta", label: "Run metadata" },
   { value: "deal_meta", label: "Deal metadata" },
+  { value: "deal_account", label: "Deal account (trust account number)" },
 ];
 
 export function GlobalExportPage() {
@@ -148,6 +149,7 @@ export function GlobalExportPage() {
                       {c.value_type === "literal" && (c.literal_value ?? "—")}
                       {c.value_type === "run_meta" && (c.meta_field ?? "—")}
                       {c.value_type === "deal_meta" && (c.meta_field ?? "—")}
+                      {c.value_type === "deal_account" && (c.meta_field ? `account: ${c.meta_field}` : "—")}
                     </td>
                     <td style={{ fontSize: 12 }}>
                       {c.format_type}
@@ -220,7 +222,10 @@ function ColumnDialog({
       header_label: headerLabel.trim(),
       value_type: valueType as GlobalColumn["value_type"],
       literal_value: valueType === "literal" ? literalValue : null,
-      meta_field: (valueType === "run_meta" || valueType === "deal_meta") ? metaField : null,
+      meta_field:
+        valueType === "run_meta" || valueType === "deal_meta" || valueType === "deal_account"
+          ? metaField
+          : null,
       format_type: formatType,
       decimal_places: decimalPlaces ? Number(decimalPlaces) : null,
     });
@@ -258,8 +263,12 @@ function ColumnDialog({
             <select className="select" value={metaField} onChange={(e) => setMetaField(e.target.value)}>
               <option value="">Select...</option>
               <option value="run_code">Run code</option>
-              <option value="payment_date">Payment date</option>
+              <option value="payment_date">Payment date (report period)</option>
               <option value="report_period">Report period</option>
+              <option value="distribution_date">Distribution date</option>
+              <option value="determination_date">Determination date</option>
+              <option value="days_in_period_actual">Days in period (calendar)</option>
+              <option value="days_in_period_30_360">Days in period (30/360)</option>
             </select>
           </div>
         )}
@@ -272,7 +281,28 @@ function ColumnDialog({
               <option value="deal_id">Deal ID</option>
               <option value="deal_name">Deal name</option>
               <option value="product_type">Product type</option>
+              <option value="issuer_name">Issuer name</option>
+              <option value="deal_key">Deal key</option>
+              <option value="closing_date">Closing date</option>
+              <option value="initial_cutoff_date">Initial cutoff date</option>
+              <option value="initial_distribution_date">Initial distribution date</option>
+              <option value="cutoff_pool_balance">Cutoff pool balance</option>
             </select>
+          </div>
+        )}
+
+        {valueType === "deal_account" && (
+          <div className="form-field">
+            <label className="form-label">Account label</label>
+            <input
+              className="input"
+              value={metaField}
+              onChange={(e) => setMetaField(e.target.value)}
+              placeholder="e.g. Main, Collection, Reserve"
+            />
+            <div className="form-help" style={{ marginTop: 4 }}>
+              Matches (case-insensitive) a trust account label defined on each deal's Info tab. The account number is emitted on export.
+            </div>
           </div>
         )}
 

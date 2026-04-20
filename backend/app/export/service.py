@@ -392,6 +392,14 @@ class ExportColumnService:
                 return run.report_period or ""
             elif col.meta_field == "report_period":
                 return run.report_period or ""
+            elif col.meta_field == "distribution_date":
+                return run.distribution_date.isoformat() if run.distribution_date else ""
+            elif col.meta_field == "determination_date":
+                return run.determination_date.isoformat() if run.determination_date else ""
+            elif col.meta_field == "days_in_period_actual":
+                return str(run.days_in_period_actual) if run.days_in_period_actual is not None else ""
+            elif col.meta_field == "days_in_period_30_360":
+                return str(run.days_in_period_30_360) if run.days_in_period_30_360 is not None else ""
             return ""
 
         elif col.value_type == "deal_meta":
@@ -403,7 +411,39 @@ class ExportColumnService:
                 return deal.name
             elif col.meta_field == "product_type":
                 return deal.product_type or ""
+            elif col.meta_field == "issuer_name":
+                return deal.issuer_name or ""
+            elif col.meta_field == "deal_key":
+                return deal.deal_key or ""
+            elif col.meta_field == "closing_date":
+                return deal.closing_date.isoformat() if deal.closing_date else ""
+            elif col.meta_field == "initial_cutoff_date":
+                return deal.initial_cutoff_date.isoformat() if deal.initial_cutoff_date else ""
+            elif col.meta_field == "initial_distribution_date":
+                return (
+                    deal.initial_distribution_date.isoformat()
+                    if deal.initial_distribution_date
+                    else ""
+                )
+            elif col.meta_field == "cutoff_pool_balance":
+                return str(deal.cutoff_pool_balance) if deal.cutoff_pool_balance is not None else ""
             return ""
+
+        elif col.value_type == "deal_account":
+            # meta_field stores the account label (case-insensitive match).
+            if not deal or not col.meta_field:
+                return ""
+            from app.models.deal import DealAccount
+
+            acct = (
+                self.db.query(DealAccount)
+                .filter(
+                    DealAccount.deal_id == deal.id,
+                    DealAccount.label.ilike(col.meta_field),
+                )
+                .first()
+            )
+            return acct.account_number if acct else ""
 
         return ""
 

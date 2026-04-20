@@ -64,10 +64,12 @@ def _setup(db):
     return d
 
 
-def test_tape_grid_all_sheets(admin_client, db):
-    """GET /tape-grid returns all sheets when no sheet param."""
+def test_tape_grid_default_returns_first_sheet(admin_client, db):
+    """GET /tape-grid with no sheet param returns sheet names + the first sheet only.
+
+    (Loading all sheets up-front was slow; the frontend now lazy-loads per tab.)
+    """
     deal = _setup(db)
-    # Create a run with a tape file
     tape_path = _make_tape_file(
         {
             "Summary": [["Name", "Value"], ["Total", 1000]],
@@ -89,10 +91,11 @@ def test_tape_grid_all_sheets(admin_client, db):
         assert resp.status_code == 200
         data = resp.json()
         assert data["sheet_names"] == ["Summary", "Details"]
-        assert len(data["sheets"]) == 2
-        assert data["sheets"][0]["sheet_name"] == "Summary"
-        assert data["sheets"][0]["rows"][0]["cells"][0] == "Name"
-        assert data["sheets"][0]["rows"][1]["cells"][1] == 1000
+        # Only the first sheet is returned under `sheet`; there is no `sheets` list.
+        assert "sheets" not in data
+        assert data["sheet"]["sheet_name"] == "Summary"
+        assert data["sheet"]["rows"][0]["cells"][0] == "Name"
+        assert data["sheet"]["rows"][1]["cells"][1] == 1000
     finally:
         os.unlink(tape_path)
 

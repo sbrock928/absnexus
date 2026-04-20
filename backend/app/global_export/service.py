@@ -333,6 +333,9 @@ class GlobalExportService:
         if cell.value_source == "deal_meta":
             return self._resolve_deal_meta(ref, deal)
 
+        if cell.value_source == "deal_account":
+            return self._resolve_deal_account(ref, deal)
+
         return ""
 
     def _resolve_column_default(
@@ -353,7 +356,21 @@ class GlobalExportService:
             return self._resolve_run_meta(col.meta_field or "", run)
         if col.value_type == "deal_meta":
             return self._resolve_deal_meta(col.meta_field or "", deal)
+        if col.value_type == "deal_account":
+            return self._resolve_deal_account(col.meta_field or "", deal)
         return ""
+
+    def _resolve_deal_account(self, label: str, deal: Deal | None) -> str:
+        if not deal or not label:
+            return ""
+        from app.models.deal import DealAccount
+
+        acct = (
+            self.db.query(DealAccount)
+            .filter(DealAccount.deal_id == deal.id, DealAccount.label.ilike(label))
+            .first()
+        )
+        return acct.account_number if acct else ""
 
     @staticmethod
     def _resolve_run_meta(field: str, run: ProcessingRun) -> str:
@@ -361,6 +378,14 @@ class GlobalExportService:
             return f"RUN-{run.id}"
         if field in ("payment_date", "report_period"):
             return run.report_period or ""
+        if field == "distribution_date":
+            return run.distribution_date.isoformat() if run.distribution_date else ""
+        if field == "determination_date":
+            return run.determination_date.isoformat() if run.determination_date else ""
+        if field == "days_in_period_actual":
+            return str(run.days_in_period_actual) if run.days_in_period_actual is not None else ""
+        if field == "days_in_period_30_360":
+            return str(run.days_in_period_30_360) if run.days_in_period_30_360 is not None else ""
         return ""
 
     @staticmethod
@@ -373,6 +398,22 @@ class GlobalExportService:
             return deal.name
         if field == "product_type":
             return deal.product_type or ""
+        if field == "issuer_name":
+            return deal.issuer_name or ""
+        if field == "deal_key":
+            return deal.deal_key or ""
+        if field == "closing_date":
+            return deal.closing_date.isoformat() if deal.closing_date else ""
+        if field == "initial_cutoff_date":
+            return deal.initial_cutoff_date.isoformat() if deal.initial_cutoff_date else ""
+        if field == "initial_distribution_date":
+            return (
+                deal.initial_distribution_date.isoformat()
+                if deal.initial_distribution_date
+                else ""
+            )
+        if field == "cutoff_pool_balance":
+            return str(deal.cutoff_pool_balance) if deal.cutoff_pool_balance is not None else ""
         return ""
 
     @staticmethod
@@ -396,4 +437,6 @@ class GlobalExportService:
             return f"<{col.meta_field or 'meta'}>"
         if col.value_type == "deal_meta":
             return f"<{col.meta_field or 'meta'}>"
+        if col.value_type == "deal_account":
+            return f"<account:{col.meta_field or ''}>"
         return ""

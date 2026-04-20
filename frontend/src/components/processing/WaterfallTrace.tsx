@@ -134,6 +134,8 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
             <th style={{ width: 40 }}>#</th>
             <th>Distribution</th>
             <th style={{ textAlign: "right" }}>Amount</th>
+            <th style={{ textAlign: "right" }}>Tape Value</th>
+            <th style={{ textAlign: "right" }}>Difference</th>
             <th style={{ textAlign: "right" }}>Remaining</th>
           </tr>
         </thead>
@@ -156,6 +158,23 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
               >
                 - {formatMoney(s.amount)}
               </td>
+              <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+                {s.tape_value !== null ? formatMoney(s.tape_value) : "—"}
+              </td>
+              <td
+                style={{
+                  textAlign: "right",
+                  fontFamily: "var(--font-mono)",
+                  color:
+                    s.matched === false
+                      ? "var(--accent-red)"
+                      : s.matched === true
+                        ? "var(--accent-green)"
+                        : "var(--text-muted)",
+                }}
+              >
+                {s.difference !== null ? formatMoney(s.difference) : "—"}
+              </td>
               <td
                 style={{
                   textAlign: "right",
@@ -167,6 +186,37 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
               </td>
             </tr>
           ))}
+          {/* Totals row — sums of calculated/tape/difference across all rows */}
+          {(() => {
+            const sumAmount = wf.steps.reduce(
+              (acc, s) => acc + (parseFloat(s.amount ?? "0") || 0),
+              0,
+            );
+            const tapeRows = wf.steps.filter((s) => s.tape_value !== null);
+            const sumTape = tapeRows.reduce(
+              (acc, s) => acc + (parseFloat(s.tape_value ?? "0") || 0),
+              0,
+            );
+            const sumDiff = sumAmount - sumTape;
+            const diffColor =
+              Math.abs(sumDiff) < 0.01 ? "var(--accent-green)" : "var(--accent-red)";
+            return (
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 600 }}>
+                <td></td>
+                <td>Total</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                  {formatMoney(sumAmount.toFixed(2))}
+                </td>
+                <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                  {tapeRows.length > 0 ? formatMoney(sumTape.toFixed(2)) : "—"}
+                </td>
+                <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: diffColor }}>
+                  {tapeRows.length > 0 ? formatMoney(sumDiff.toFixed(2)) : "—"}
+                </td>
+                <td></td>
+              </tr>
+            );
+          })()}
         </tbody>
       </table>
 

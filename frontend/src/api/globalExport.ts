@@ -11,7 +11,7 @@ export interface GlobalColumn {
   template_id: number;
   position: number;
   header_label: string;
-  value_type: "distribution_node" | "literal" | "run_meta" | "deal_meta";
+  value_type: "distribution_node" | "literal" | "run_meta" | "deal_meta" | "deal_account";
   literal_value: string | null;
   meta_field: string | null;
   format_type: string;

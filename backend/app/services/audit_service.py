@@ -1,9 +1,19 @@
 """Audit logging service."""
 
 import json
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
+
+
+def _json_default(o: Any) -> str:
+    if isinstance(o, (date, datetime)):
+        return o.isoformat()
+    if isinstance(o, Decimal):
+        return str(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
 
 
 class AuditService:
@@ -24,7 +34,7 @@ class AuditService:
             entity_type=entity_type,
             entity_id=entity_id,
             action=action,
-            changes=json.dumps(changes) if changes else None,
+            changes=json.dumps(changes, default=_json_default) if changes else None,
             description=description,
         )
         self.db.add(entry)

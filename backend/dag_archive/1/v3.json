@@ -3,7 +3,7 @@
   "version_number": 3,
   "description": "Reverted to v1",
   "created_by": "testuser",
-  "created_at": "2026-04-17T00:16:58.734436",
+  "created_at": "2026-04-20T17:38:30.815165",
   "nodes": [
     {
       "key": "n1",
@@ -21,8 +21,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 0,
-      "position_y": 0
+      "position_x": 0.0,
+      "position_y": 0.0
     }
   ],
   "edges": []

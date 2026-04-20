@@ -27,6 +27,25 @@ export interface Deal {
   waterfall_starting_var?: string | null;
   waterfall_ending_var?: string | null;
   waterfall_tolerance?: string | null;
+  // Static deal info
+  issuer_name?: string | null;
+  deal_key?: string | null;
+  reg_ab?: boolean;
+  equity_cusips_involved?: boolean;
+  closing_date?: string | null;
+  initial_cutoff_date?: string | null;
+  initial_distribution_date?: string | null;
+  cutoff_pool_balance?: string | null;
+  distribution_day_of_month?: number | null;
+  determination_business_days_before?: number | null;
+  // Deal-level numeric constants (auto-injected into formula context)
+  servicing_fee_pct?: string | null;
+  backup_servicing_fee_pct?: string | null;
+  trustee_fee_monthly?: string | null;
+  target_oc_pct?: string | null;
+  target_oc_floor_pct?: string | null;
+  target_oc_floor_amount?: string | null;
+  reserve_required_pct?: string | null;
 }
 
 export interface Variable {

@@ -2,7 +2,7 @@
 
 from app.models.user import User
 from app.models.servicer import Servicer
-from app.models.deal import Deal
+from app.models.deal import Deal, DealAccount
 from app.models.audit_log import AuditLog
 from app.models.variable import VariableDefinition, VariableAlias
 from app.models.variable_mapping import VariableMapping
@@ -22,6 +22,7 @@ __all__ = [
     "User",
     "Servicer",
     "Deal",
+    "DealAccount",
     "AuditLog",
     "VariableDefinition",
     "VariableAlias",

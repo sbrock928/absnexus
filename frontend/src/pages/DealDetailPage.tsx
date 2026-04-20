@@ -13,6 +13,8 @@ import {
 } from "../api/globalExport";
 import type { Deal, Servicer, Variable } from "../types";
 import { WaterfallTrace } from "../components/processing/WaterfallTrace";
+import { DealInfoTab } from "../components/deal/DealInfoTab";
+import { ValidationsTab } from "../components/deal/ValidationsTab";
 
 interface MappingVariable {
   id: number;
@@ -51,7 +53,7 @@ interface Alias {
 
 interface DagData {
   version: { id: number; version_number: number; description: string | null; created_by: string; created_at: string };
-  nodes: Array<{ id: number; key: string; name: string; node_type: string; stream: string; formula: string | null; export_field: string | null }>;
+  nodes: Array<{ id: number; key: string; name: string; node_type: string; stream: string; formula: string | null; export_field: string | null; comparison_variable: string | null; tolerance: number | null }>;
   edges: Array<{ id: number; source_node_id: number; target_node_id: number }>;
 }
 
@@ -235,12 +237,13 @@ export function DealDetailPage() {
       )}
 
       <div className="tabs">
-        {["overview", "mappings", "tranches", "dag", "waterfall", "export", "runs"].map((t) => (
+        {["overview", "info", "mappings", "tranches", "dag", "validations", "waterfall", "export", "runs"].map((t) => (
           <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
             {t === "dag" ? "DAG" : t.charAt(0).toUpperCase() + t.slice(1)}
             {t === "mappings" && ` (${mappings.length})`}
             {t === "tranches" && ` (${tranches.length})`}
-            {t === "dag" && dag && ` v${dag.version.version_number}`}
+            {t === "dag" && dag && ` (${dag.nodes.filter((n) => n.node_type !== "validation").length})`}
+            {t === "validations" && dag && ` (${dag.nodes.filter((n) => n.node_type === "validation").length})`}
             {t === "export" && ` (${exportTemplates.length} templates)`}
             {t === "runs" && ` (${runs.length})`}
           </button>
@@ -323,6 +326,15 @@ export function DealDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Deal Info Tab ── */}
+      {tab === "info" && deal && (
+        <DealInfoTab
+          deal={deal}
+          onDealChanged={setDeal}
+          readOnly={isArchived || isAnalyst}
+        />
       )}
 
       {/* ── Mappings Tab ── */}
@@ -464,58 +476,73 @@ export function DealDetailPage() {
         </div>
       )}
 
-      {/* ── DAG Tab ── */}
+      {/* ── DAG Tab (payment graph only — validations live on the Validations tab) ── */}
       {tab === "dag" && (
         <div>
           {!dag ? (
             <div className="empty-state">
               <div className="empty-state-icon">🔗</div>
               <div className="empty-state-title">No DAG configured</div>
-              <div className="empty-state-text">Build a calculation graph with input, calculation, distribution, and validation nodes.</div>
+              <div className="empty-state-text">Build a calculation graph with input, calculation, and distribution nodes.</div>
             </div>
-          ) : (
-            <div>
-              <div className="banner banner-info" style={{ marginBottom: 16 }}>
-                Version {dag.version.version_number} · {dag.nodes.length} nodes · {dag.edges.length} edges
-                · by {dag.version.created_by}
-                {dag.version.description && ` · "${dag.version.description}"`}
-              </div>
+          ) : (() => {
+            const paymentNodes = dag.nodes.filter((n) => n.node_type !== "validation");
+            return (
+              <div>
+                <div className="banner banner-info" style={{ marginBottom: 16 }}>
+                  Version {dag.version.version_number} · {paymentNodes.length} payment nodes · {dag.edges.length} edges
+                  · by {dag.version.created_by}
+                  {dag.version.description && ` · "${dag.version.description}"`}
+                </div>
 
-              <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-                {["input_value", "calculation", "distribution", "validation"].map((nt) => {
-                  const count = dag.nodes.filter((n) => n.node_type === nt).length;
-                  return (
-                    <div key={nt} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: nodeColor[nt], display: "inline-block" }} />
-                      {nt.replace("_", " ")} ({count})
-                    </div>
-                  );
-                })}
-              </div>
+                <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+                  {["input_value", "calculation", "distribution"].map((nt) => {
+                    const count = paymentNodes.filter((n) => n.node_type === nt).length;
+                    return (
+                      <div key={nt} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: nodeColor[nt], display: "inline-block" }} />
+                        {nt.replace("_", " ")} ({count})
+                      </div>
+                    );
+                  })}
+                </div>
 
-              <table className="table">
-                <thead>
-                  <tr><th>#</th><th>Node</th><th>Type</th><th>Stream</th><th>Formula</th><th>Export</th></tr>
-                </thead>
-                <tbody>
-                  {dag.nodes.map((n, i) => (
-                    <tr key={n.id}>
-                      <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
-                      <td>
-                        <span style={{ color: nodeColor[n.node_type], marginRight: 6, fontSize: 10 }}>●</span>
-                        {n.name}
-                      </td>
-                      <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{n.node_type.replace("_", " ")}</td>
-                      <td><span className={`badge badge-${n.stream === "distribution" ? "active" : "deal"}`}>{n.stream}</span></td>
-                      <td><code style={{ fontSize: 12, color: "var(--text-secondary)" }}>{n.formula ?? "—"}</code></td>
-                      <td>{n.export_field ? <code style={{ fontSize: 12, color: "var(--accent-purple)" }}>{n.export_field}</code> : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                <table className="table">
+                  <thead>
+                    <tr><th>#</th><th>Node</th><th>Type</th><th>Formula</th><th>Export</th></tr>
+                  </thead>
+                  <tbody>
+                    {paymentNodes.map((n, i) => (
+                      <tr key={n.id}>
+                        <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
+                        <td>
+                          <span style={{ color: nodeColor[n.node_type], marginRight: 6, fontSize: 10 }}>●</span>
+                          {n.name}
+                        </td>
+                        <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{n.node_type.replace("_", " ")}</td>
+                        <td><code style={{ fontSize: 12, color: "var(--text-secondary)" }}>{n.formula ?? "—"}</code></td>
+                        <td>{n.export_field ? <code style={{ fontSize: 12, color: "var(--accent-purple)" }}>{n.export_field}</code> : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
+      )}
+
+      {/* ── Validations Tab ── */}
+      {tab === "validations" && dag && (
+        <ValidationsTab
+          dag={dag}
+          mappedVariables={variables.filter((v) =>
+            new Set(mappings.map((m) => m.variable_id)).has(v.id),
+          )}
+          isEditable={isEditable}
+          dealId={Number(dealId)}
+          onRefreshDag={reloadDag}
+        />
       )}
 
       {/* ── Waterfall Tab ── */}
@@ -705,6 +732,15 @@ function WaterfallTab({
       return (a.name || "").localeCompare(b.name || "");
     });
 
+  // Calculation nodes — the permitted compare targets for waterfall
+  // distributions. A distribution is a tape passthrough (what the servicer
+  // reported it paid); the meaningful reconciliation is "paid vs. our
+  // independent recalculation", so compare targets are calc nodes like
+  // `svc_fee_calc`, `class_a_interest_calc`, etc.
+  const calcNodes = ((dag?.nodes ?? []) as any[])
+    .filter((n) => n.node_type === "calculation")
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
   const patchNode = async (nodeId: number, fields: Record<string, unknown>) => {
     try {
       await api.patch(`/deals/${deal.id}/dag/nodes/${nodeId}`, fields);
@@ -764,11 +800,16 @@ function WaterfallTab({
         </div>
       </div>
 
-      {/* Waterfall setup — editable order + tape compare per distribution */}
+      {/* Waterfall setup — editable order + compare target per distribution */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>Waterfall setup</div>
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
-          Order distributions top-to-bottom, and optionally compare each against a tape variable for reconciliation.
+          Distribution amounts are tape passthroughs (what the servicer reported paying). The
+          Waterfall UI automatically shows the running balance after each step, so formulas stay
+          simple. For each row, pick a <em>calculation</em> node (e.g. <code>svc_fee_calc</code> or
+          <code>class_a_interest_calc</code>) to compare against — the tape-paid amount is
+          reconciled against our independent recalculation so waivers and off-contract payments
+          surface clearly.
         </div>
         {distributionSteps.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
@@ -802,7 +843,7 @@ function WaterfallTab({
                   <th style={{ width: 80 }}>Order</th>
                   <th>Distribution</th>
                   <th>Export field</th>
-                  <th>Tape compare</th>
+                  <th>Compare against</th>
                   <th>Formula</th>
                 </tr>
               </thead>
@@ -850,7 +891,7 @@ function WaterfallTab({
                             patchNode(s.id, { comparison_variable: e.target.value || null });
                           }}
                           style={{
-                            minWidth: 160,
+                            minWidth: 200,
                             padding: "2px 6px",
                             background: "var(--bg-tertiary)",
                             border: "1px solid var(--border)",
@@ -861,8 +902,15 @@ function WaterfallTab({
                           }}
                         >
                           <option value="">— none —</option>
-                          {mappedVariables.map((v) => (
-                            <option key={v.id} value={v.name}>{v.name}</option>
+                          {calcNodes.length === 0 && (
+                            <option value="" disabled>
+                              (no calculation nodes configured — add some in the DAG Builder)
+                            </option>
+                          )}
+                          {calcNodes.map((n) => (
+                            <option key={n.id} value={n.key}>
+                              {n.name} ({n.key})
+                            </option>
                           ))}
                         </select>
                       ) : (

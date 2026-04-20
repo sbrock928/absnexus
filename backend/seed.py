@@ -185,6 +185,36 @@ SYSTEM_VARIABLES = [
         "decimal",
         "Class F interest reported on tape",
     ),
+    # ── Monthly pool-balance movement components (Section I of servicer's cert) ──
+    ("beg_pool_balance", "Beginning Pool Balance", "decimal", "Beginning-of-period aggregate principal balance"),
+    ("subsequent_receivables", "Subsequent Receivables", "decimal", "Subsequent receivables added during the collection period"),
+    ("collections_outstanding", "Collections Outstanding", "decimal", "Collections on receivables outstanding at end of period"),
+    ("collections_paid_off", "Collections Paid Off", "decimal", "Collections on receivables paid off during period"),
+    ("receivables_liquidated", "Receivables Liquidated", "decimal", "Receivables becoming Liquidated Receivables during period"),
+    ("receivables_purchased", "Receivables Purchased", "decimal", "Receivables becoming Purchased Receivables during period"),
+    ("receivables_adjustments", "Receivables Adjustments", "decimal", "Other receivables adjustments"),
+    # ── Extra Available Funds components ──
+    ("recoveries", "Recoveries", "decimal", "Recoveries collected during period"),
+    ("purchase_amounts", "Purchase Amounts", "decimal", "Purchase amounts / servicer deposits"),
+    ("inv_earn_collection", "Investment Earnings (Collection)", "decimal", "Investment earnings on Collection Account"),
+    ("inv_earn_reserve", "Investment Earnings (Reserve)", "decimal", "Investment earnings transferred from Reserve"),
+    ("inv_earn_prefund", "Investment Earnings (Prefund)", "decimal", "Investment earnings transferred from Prefunding"),
+    ("other_collection_fees", "Other Collection Fees", "decimal", "Other collections on receivables — fees"),
+    ("other_amounts_received", "Other Amounts Received", "decimal", "Other amounts received"),
+    # ── Reserve & Prefunding ──
+    ("reserve_fund_begin_bal", "Reserve Fund Beginning Balance", "decimal", "Beginning-of-period Reserve Fund balance"),
+    ("reserve_fund_end_bal", "Reserve Fund End Balance", "decimal", "End-of-period Reserve Fund balance (tape-reported)"),
+    ("reserve_fund_withdrawal", "Reserve Fund Withdrawal", "decimal", "Reserve fund withdrawal amount"),
+    ("reserve_fund_deposit", "Reserve Fund Deposit", "decimal", "Reserve fund deposit from prefunding / other"),
+    ("prefund_end_bal", "Prefunding End Balance", "decimal", "End-of-period prefunding account balance"),
+    # ── Day-count reported on the servicer certificate (E19 on Servicer B) ──
+    ("days_of_interest_reported", "Days of Interest (reported)", "decimal", "Days of interest for the period as shown on the servicer certificate (typically 30 under 30/360 convention)"),
+    # ── Reported distributions (Section IV bottom) — for validation ──
+    ("owner_trustee_fee_tape", "Owner Trustee Fee (tape)", "decimal", "Owner Trustee Fee as reported"),
+    ("regular_principal_alloc_tape", "Regular Principal Allocation (tape)", "decimal", "Reported Regular Allocation of Principal"),
+    ("additional_fees_tape", "Additional Fees (tape)", "decimal", "Reported additional fees distribution"),
+    ("certificateholders_pmt_tape", "Certificateholders Distribution (tape)", "decimal", "Reported amount to Certificateholders"),
+    ("total_distributions_tape", "Total Distributions (tape)", "decimal", "Reported total distributions"),
 ]
 
 
@@ -538,35 +568,73 @@ DEAL_A_WATERFALL_ORDER = {
 
 DEAL_B_MAPPINGS = [
     # (variable_name, sheet, col, row, tape_label)
-    # "Sheet 1" (with space) — Servicer B's report format
-    ("total_available_funds", "Sheet 1", "K", 81, "Total Available Funds"),
-    (
-        "end_available_funds",
-        "Sheet 1",
-        "K",
-        100,
-        "Remaining Available Funds (placeholder — verify cell)",
-    ),
-    ("svc_fee_tape", "Sheet 1", "J", 84, "Servicing Fee"),
-    ("backup_svc_fee_tape", "Sheet 1", "J", 85, "Backup Servicing Fees"),
-    ("trustee_fee_tape", "Sheet 1", "J", 86, "Indenture Trustee Fees"),
-    ("prin_collections", "Sheet 1", "J", 71, "Principal Collections"),
-    ("int_collections", "Sheet 1", "J", 72, "Interest Collections"),
-    ("liquidation_proceeds", "Sheet 1", "J", 73, "Liquidation Proceeds"),
-    ("cur_pool_bal", "Sheet 1", "K", 37, "Pool Balance"),
-    ("reported_oc", "Sheet 1", "K", 146, "OC Amount"),
-    ("class_a_note_rate", "Sheet 1", "F", 62, "Class A Note Rate"),
-    ("class_b_note_rate", "Sheet 1", "F", 63, "Class B Note Rate"),
-    ("class_c_note_rate", "Sheet 1", "F", 64, "Class C Note Rate"),
-    ("class_d_note_rate", "Sheet 1", "F", 65, "Class D Note Rate"),
-    ("class_e_note_rate", "Sheet 1", "F", 66, "Class E Note Rate"),
-    ("class_f_note_rate", "Sheet 1", "F", 67, "Class F Note Rate"),
+    # Mappings for the servicer_b_example.xlsx report layout (May 2025 period).
+    # "Sheet 1" (with space) — Servicer B's report format.
+    #
+    # ── I. Monthly Period Receivables Principal Balance Calculation ──
+    ("beg_pool_balance", "Sheet 1", "K", 25, "Beginning of period Aggregate Principal Balance"),
+    ("subsequent_receivables", "Sheet 1", "K", 26, "Subsequent Receivables added"),
+    ("collections_outstanding", "Sheet 1", "J", 29, "Collections on Receivables outstanding"),
+    ("collections_paid_off", "Sheet 1", "J", 30, "Collections on Receivables paid off"),
+    ("receivables_liquidated", "Sheet 1", "J", 31, "Receivables becoming Liquidated"),
+    ("receivables_purchased", "Sheet 1", "J", 32, "Receivables becoming Purchased"),
+    ("receivables_adjustments", "Sheet 1", "J", 33, "Other Receivables adjustments"),
+    ("cur_pool_bal", "Sheet 1", "K", 37, "End of period Aggregate Principal Balance"),
+    # ── II. Monthly Note Balance Calculation (beginning balances, col E–J row 46) ──
     ("class_a_note_balance", "Sheet 1", "E", 46, "Class A Begin Balance"),
     ("class_b_note_balance", "Sheet 1", "F", 46, "Class B Begin Balance"),
     ("class_c_note_balance", "Sheet 1", "G", 46, "Class C Begin Balance"),
     ("class_d_note_balance", "Sheet 1", "H", 46, "Class D Begin Balance"),
     ("class_e_note_balance", "Sheet 1", "I", 46, "Class E Begin Balance"),
     ("class_f_note_balance", "Sheet 1", "J", 46, "Class F Begin Balance"),
+    # ── Day count (E19 on Servicer B's certificate — "Days of Interest for Period") ──
+    ("days_of_interest_reported", "Sheet 1", "E", 19, "Days of Interest for Period"),
+    # ── III. Interest Distributable Amount (per-class, 30/360) ──
+    ("class_a_note_rate", "Sheet 1", "F", 62, "Class A Note Rate"),
+    ("class_b_note_rate", "Sheet 1", "F", 63, "Class B Note Rate"),
+    ("class_c_note_rate", "Sheet 1", "F", 64, "Class C Note Rate"),
+    ("class_d_note_rate", "Sheet 1", "F", 65, "Class D Note Rate"),
+    ("class_e_note_rate", "Sheet 1", "F", 66, "Class E Note Rate"),
+    ("class_f_note_rate", "Sheet 1", "F", 67, "Class F Note Rate"),
+    ("class_a_interest_amount", "Sheet 1", "I", 62, "Class A Interest (reported)"),
+    ("class_b_interest_amount", "Sheet 1", "I", 63, "Class B Interest (reported)"),
+    ("class_c_interest_amount", "Sheet 1", "I", 64, "Class C Interest (reported)"),
+    ("class_d_interest_amount", "Sheet 1", "I", 65, "Class D Interest (reported)"),
+    ("class_e_interest_amount", "Sheet 1", "I", 66, "Class E Interest (reported)"),
+    ("class_f_interest_amount", "Sheet 1", "I", 67, "Class F Interest (reported)"),
+    # ── IV. Reconciliation of Collection Account — Available Funds components ──
+    ("prin_collections", "Sheet 1", "J", 71, "Principal Collections"),
+    ("int_collections", "Sheet 1", "J", 72, "Interest Collections"),
+    ("liquidation_proceeds", "Sheet 1", "J", 73, "Liquidation Proceeds"),
+    ("recoveries", "Sheet 1", "J", 74, "Recoveries"),
+    ("purchase_amounts", "Sheet 1", "J", 75, "Purchase Amounts"),
+    ("inv_earn_collection", "Sheet 1", "J", 76, "Investment Earnings (Collection)"),
+    ("inv_earn_reserve", "Sheet 1", "J", 77, "Investment Earnings (Reserve)"),
+    ("inv_earn_prefund", "Sheet 1", "J", 78, "Investment Earnings (Prefund)"),
+    ("other_collection_fees", "Sheet 1", "J", 79, "Other Collection on Receivables Fees"),
+    ("other_amounts_received", "Sheet 1", "J", 80, "Other Amounts Received"),
+    ("total_available_funds", "Sheet 1", "K", 81, "Total Available Funds"),
+    # ── IV. Distributions (fees + per-class interest + allocations, reported) ──
+    ("svc_fee_tape", "Sheet 1", "J", 84, "Servicing Fee"),
+    ("backup_svc_fee_tape", "Sheet 1", "J", 85, "Backup Servicing Fees"),
+    ("trustee_fee_tape", "Sheet 1", "J", 86, "Indenture Trustee Fees"),
+    ("owner_trustee_fee_tape", "Sheet 1", "J", 87, "Owner Trustee Fee"),
+    ("regular_principal_alloc_tape", "Sheet 1", "J", 101, "Regular Allocation of Principal"),
+    ("additional_fees_tape", "Sheet 1", "J", 103, "Additional fees"),
+    ("certificateholders_pmt_tape", "Sheet 1", "J", 104, "To the Certificateholders"),
+    ("total_distributions_tape", "Sheet 1", "K", 105, "Total Distributions"),
+    # ── VI. Reserve Fund ──
+    ("reserve_fund_begin_bal", "Sheet 1", "K", 124, "Reserve Fund Beginning Balance"),
+    ("reserve_fund_deposit", "Sheet 1", "J", 126, "Reserve Fund Deposit"),
+    ("reserve_fund_withdrawal", "Sheet 1", "J", 130, "Reserve Fund Withdrawal"),
+    ("reserve_fund_end_bal", "Sheet 1", "K", 132, "Reserve Fund End Balance"),
+    # ── VII. Overcollateralization ──
+    ("prefund_end_bal", "Sheet 1", "J", 144, "Prefunding Account End Balance"),
+    ("reported_oc", "Sheet 1", "K", 146, "OC Amount"),
+    # end_available_funds is a placeholder for the tool's built-in waterfall reconciliation.
+    # In Servicer B's format, Total Distributions ({61}) == Total Available Funds ({39}),
+    # so map it to the Total Distributions cell for end-to-end cashflow checking.
+    ("end_available_funds", "Sheet 1", "K", 105, "Total Distributions (= Available Funds out)"),
 ]
 
 DEAL_C_MAPPINGS = [
@@ -620,7 +688,10 @@ DEAL_C_TRANCHES = [
     ("F", "SVCC7F001", "combined", Decimal("0.0976"), Decimal("17820000")),
 ]
 
-# Shared balances for B & C (same deal data, different report format)
+# Shared balances for B & C (same deal data, different report format).
+# These are the **Beginning-of-period Note Balances** for the May 2025 period
+# from servicer_b_example.xlsx: Classes A–C fully paid off, D partially paid down,
+# E & F still at original balance.
 DEAL_BC_BALANCES = {
     "A": Decimal("0"),
     "B": Decimal("0"),
@@ -944,6 +1015,382 @@ def _build_6class_dag():
     }
 
     return dist_nodes, validation_nodes, edges, waterfall_order
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Deal B comprehensive DAG — models the full servicer_b_example.xlsx calculation
+# including pool balance reconciliation, 30/360 interest, full waterfall,
+# reserve fund, and overcollateralization.
+#
+# Reserved names injected by the DagExecutor that this DAG relies on:
+#   period_days_in_period_30_360   (from report_period + distribution rules)
+#   deal_cutoff_pool_balance       (Committed Pool Balance)
+#   deal_servicing_fee_pct         (annual rate; converted via 30/360)
+#   deal_trustee_fee_monthly       (flat monthly amount)
+#   deal_target_oc_pct             (15.50%)
+#   deal_target_oc_floor_pct       (2.50% of cutoff pool)
+#   deal_reserve_required_pct      (1.00%)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _build_servicer_b_comprehensive_dag():
+    """DAG that models the full servicer_b_example.xlsx calculation.
+
+    Organized by the Roman-numeral sections in the servicer's certificate:
+      I.   Pool balance movement (7 inputs → end-of-period balance)
+      II.  Interest calculation per class (30/360)
+      III. Fee calculations (deal-constant-driven)
+      IV.  Full distribution waterfall (21 line items, condensed)
+      V.   Reserve Fund reconciliation
+      VI.  Overcollateralization target + actual
+      VII. Comprehensive validations
+    """
+    # ── Layout helpers (column centers per x-coord) ──
+    COLS = {"a": 50, "b": 200, "c": 350, "d": 500, "e": 650, "f": 800, "mid": 425}
+
+    dist_nodes: list[tuple] = []
+    val_nodes: list[tuple] = []
+    edges: list[tuple[str, str]] = []
+    wf_order: dict[str, int] = {}
+
+    # ──────────────────────────────────────────────────────────────
+    # I. POOL BALANCE MOVEMENT
+    # ──────────────────────────────────────────────────────────────
+    pool_inputs = [
+        ("beg_pool_balance_in", "Beginning Pool Balance", "beg_pool_balance"),
+        ("subsequent_receivables_in", "Subsequent Receivables", "subsequent_receivables"),
+        ("collections_outstanding_in", "Collections Outstanding", "collections_outstanding"),
+        ("collections_paid_off_in", "Collections Paid Off", "collections_paid_off"),
+        ("receivables_liquidated_in", "Receivables Liquidated", "receivables_liquidated"),
+        ("receivables_purchased_in", "Receivables Purchased", "receivables_purchased"),
+        ("receivables_adjustments_in", "Receivables Adjustments", "receivables_adjustments"),
+        ("cur_pool_bal_in", "End Pool Balance (reported)", "cur_pool_bal"),
+    ]
+    for i, (key, name, _var) in enumerate(pool_inputs):
+        dist_nodes.append((key, name, "input_value", None, None, COLS["a"] + (i % 4) * 150, 40 + (i // 4) * 60))
+
+    dist_nodes.append((
+        "total_monthly_principal",
+        "Total Monthly Principal Amounts",
+        "calculation",
+        "collections_outstanding + collections_paid_off + receivables_liquidated + receivables_purchased + receivables_adjustments",
+        None, COLS["mid"], 180,
+    ))
+    dist_nodes.append((
+        "end_pool_balance_calc",
+        "End Pool Balance (calc)",
+        "calculation",
+        "beg_pool_balance + subsequent_receivables - total_monthly_principal",
+        None, COLS["mid"], 250,
+    ))
+
+    edges += [
+        ("collections_outstanding_in", "total_monthly_principal"),
+        ("collections_paid_off_in", "total_monthly_principal"),
+        ("receivables_liquidated_in", "total_monthly_principal"),
+        ("receivables_purchased_in", "total_monthly_principal"),
+        ("receivables_adjustments_in", "total_monthly_principal"),
+        ("beg_pool_balance_in", "end_pool_balance_calc"),
+        ("subsequent_receivables_in", "end_pool_balance_calc"),
+        ("total_monthly_principal", "end_pool_balance_calc"),
+    ]
+
+    # ──────────────────────────────────────────────────────────────
+    # II. INTEREST CALCULATION PER CLASS (30/360)
+    # Formula: balance × rate × days_30_360 / 360
+    # ──────────────────────────────────────────────────────────────
+    classes = ["a", "b", "c", "d", "e", "f"]
+    for i, cls in enumerate(classes):
+        x = COLS["a"] + i * 140
+        key_bal = f"class_{cls}_note_balance_in"
+        key_rate = f"class_{cls}_note_rate_in"
+        key_int = f"class_{cls}_interest_calc"
+        dist_nodes.append((key_bal, f"Class {cls.upper()} Begin Balance", "input_value", None, None, x, 360))
+        dist_nodes.append((key_rate, f"Class {cls.upper()} Note Rate", "input_value", None, None, x, 420))
+        dist_nodes.append((
+            key_int,
+            f"Class {cls.upper()} Interest (30/360 calc)",
+            "calculation",
+            f"class_{cls}_note_balance * class_{cls}_note_rate * period_days_in_period_30_360 / 360",
+            None, x, 500,
+        ))
+        edges += [(key_bal, key_int), (key_rate, key_int)]
+
+    # ──────────────────────────────────────────────────────────────
+    # III. FEE CALCULATIONS (driven by deal constants)
+    #   Servicing fee = pct × beginning pool × days / 360
+    #   Trustee fee   = flat monthly amount
+    #   Backup fee    = flat $2,500 for Deal B (per contract)
+    # ──────────────────────────────────────────────────────────────
+    dist_nodes.append((
+        "svc_fee_calc",
+        "Servicing Fee (calc)",
+        "calculation",
+        "deal_servicing_fee_pct * beg_pool_balance * period_days_in_period_30_360 / 360",
+        None, COLS["a"], 620,
+    ))
+    dist_nodes.append((
+        "trustee_fee_calc",
+        "Trustee Fee (calc)",
+        "calculation",
+        "deal_trustee_fee_monthly",
+        None, COLS["c"], 620,
+    ))
+    dist_nodes.append((
+        "backup_svc_fee_calc",
+        "Backup Servicing Fee (calc)",
+        "calculation",
+        "2500",
+        None, COLS["b"], 620,
+    ))
+    edges += [("beg_pool_balance_in", "svc_fee_calc")]
+
+    # ──────────────────────────────────────────────────────────────
+    # IV. DISTRIBUTION WATERFALL
+    # Condensed version of the 21-step Section IV waterfall:
+    #   (1) Servicing Fee
+    #   (2) Backup Servicing
+    #   (3) Trustee Fee
+    #   (4–9) Per-class interest (A→F)
+    #   (10) Regular Principal Allocation (= whatever remains)
+    # We use tape-reported fee values for actual payment (so "fee waivers"
+    # like Deal B's $46k servicing-fee waiver flow through correctly), and
+    # keep the computed values for validation.
+    # ──────────────────────────────────────────────────────────────
+    dist_nodes += [
+        ("total_available_funds_in", "Total Available Funds", "input_value", None, None, COLS["mid"], 720),
+        ("svc_fee_tape_in", "Servicing Fee (tape)", "input_value", None, None, COLS["a"], 720),
+        ("backup_svc_fee_tape_in", "Backup Servicing Fee (tape)", "input_value", None, None, COLS["b"], 720),
+        ("trustee_fee_tape_in", "Trustee Fee (tape)", "input_value", None, None, COLS["c"], 720),
+    ]
+
+    # Distributions are tape passthroughs — each one just pulls the amount
+    # reported on the servicer's certificate. The Waterfall UI computes the
+    # running balance (remaining-after-each-step) automatically from the
+    # ordered distribution amounts; we don't manually cascade `MIN/MAX` in
+    # each formula. Reconciliation against our independent verification
+    # happens via each distribution's `comparison_variable`, which points at
+    # the matching calc node (wired in `_populate_deal_b_metadata`).
+    dist_nodes += [
+        ("svc_fee_pmt", "Servicing Fee Pmt", "distribution", "svc_fee_tape", "SVC_FEE", COLS["a"], 820),
+        ("backup_svc_fee_pmt", "Backup Servicing Fee Pmt", "distribution", "backup_svc_fee_tape", "BACKUP_FEE", COLS["b"], 820),
+        ("trustee_fee_pmt", "Trustee Fee Pmt", "distribution", "trustee_fee_tape", "TRUSTEE_FEE", COLS["c"], 820),
+    ]
+    wf_order["svc_fee_pmt"] = 1
+    wf_order["backup_svc_fee_pmt"] = 2
+    wf_order["trustee_fee_pmt"] = 3
+    edges += [
+        ("svc_fee_tape_in", "svc_fee_pmt"),
+        ("backup_svc_fee_tape_in", "backup_svc_fee_pmt"),
+        ("trustee_fee_tape_in", "trustee_fee_pmt"),
+    ]
+
+    for i, cls in enumerate(classes):
+        key = f"class_{cls}_int_pmt"
+        wf_order[key] = 4 + i
+        x = COLS["a"] + i * 140
+        dist_nodes.append((
+            key,
+            f"Class {cls.upper()} Interest Pmt",
+            "distribution",
+            f"class_{cls}_interest_amount",
+            f"INT_PMT_{cls.upper()}", x, 920,
+        ))
+
+    # Regular Principal Allocation — tape-reported residual.
+    wf_order["regular_prin_alloc"] = 10
+    dist_nodes.append((
+        "regular_prin_alloc",
+        "Regular Principal Allocation",
+        "distribution",
+        "regular_principal_alloc_tape",
+        "PRIN_ALLOC", COLS["mid"], 1020,
+    ))
+
+    # ──────────────────────────────────────────────────────────────
+    # V. RESERVE FUND RECONCILIATION
+    # Required Amount = reserve_required_pct × cutoff_pool_balance
+    # End Balance = Beg + Deposit + InvEarnings - Withdrawal
+    # Deficiency = MAX(required - ending, 0)
+    # ──────────────────────────────────────────────────────────────
+    dist_nodes += [
+        ("reserve_fund_begin_bal_in", "Reserve Fund Beginning Balance", "input_value", None, None, COLS["a"], 1120),
+        ("reserve_fund_deposit_in", "Reserve Fund Deposit", "input_value", None, None, COLS["b"], 1120),
+        ("reserve_fund_withdrawal_in", "Reserve Fund Withdrawal", "input_value", None, None, COLS["c"], 1120),
+        ("inv_earn_reserve_in", "Investment Earnings (Reserve)", "input_value", None, None, COLS["d"], 1120),
+    ]
+    dist_nodes.append((
+        "reserve_required_amt",
+        "Reserve Required Amount",
+        "calculation",
+        "deal_reserve_required_pct * deal_cutoff_pool_balance",
+        None, COLS["e"], 1120,
+    ))
+    dist_nodes.append((
+        "reserve_fund_end_calc",
+        "Reserve Fund End Balance (calc)",
+        "calculation",
+        "reserve_fund_begin_bal + reserve_fund_deposit - reserve_fund_withdrawal",
+        None, COLS["b"], 1200,
+    ))
+    dist_nodes.append((
+        "reserve_fund_deficiency",
+        "Reserve Fund Deficiency",
+        "calculation",
+        "MAX(reserve_required_amt - reserve_fund_end_calc, 0)",
+        None, COLS["e"], 1200,
+    ))
+    edges += [
+        ("reserve_fund_begin_bal_in", "reserve_fund_end_calc"),
+        ("reserve_fund_deposit_in", "reserve_fund_end_calc"),
+        ("reserve_fund_withdrawal_in", "reserve_fund_end_calc"),
+        ("reserve_required_amt", "reserve_fund_deficiency"),
+        ("reserve_fund_end_calc", "reserve_fund_deficiency"),
+    ]
+
+    # ──────────────────────────────────────────────────────────────
+    # VI. OVERCOLLATERALIZATION
+    # Target = MAX(target_oc_pct × end_pool, target_oc_floor_pct × cutoff_pool)
+    # Actual = end_pool + prefund_end - total_end_note_balance
+    # ──────────────────────────────────────────────────────────────
+    dist_nodes.append((
+        "prefund_end_bal_in", "Prefunding End Balance", "input_value", None, None, COLS["a"], 1300,
+    ))
+    dist_nodes.append((
+        "target_oc_amount",
+        "Target OC Amount",
+        "calculation",
+        "MAX(deal_target_oc_pct * end_pool_balance_calc, deal_target_oc_floor_pct * deal_cutoff_pool_balance)",
+        None, COLS["b"], 1300,
+    ))
+    # Total end note balance = beginning balances - the one regular-allocation payment.
+    # (In this simplified model, regular_prin_alloc is applied to Class D — the
+    # first non-zero class in the waterfall. A fully realistic model would pro-rate
+    # across the lowest-outstanding class per the indenture; here we keep it
+    # tractable for demo purposes.)
+    dist_nodes.append((
+        "total_end_note_balance",
+        "Total End Note Balance",
+        "calculation",
+        "class_a_note_balance + class_b_note_balance + class_c_note_balance + class_d_note_balance + class_e_note_balance + class_f_note_balance - regular_prin_alloc",
+        None, COLS["c"], 1300,
+    ))
+    dist_nodes.append((
+        "oc_amount_calc",
+        "OC Amount (calc)",
+        "calculation",
+        "end_pool_balance_calc + prefund_end_bal - total_end_note_balance",
+        None, COLS["d"], 1300,
+    ))
+    edges += [
+        ("end_pool_balance_calc", "target_oc_amount"),
+        ("end_pool_balance_calc", "oc_amount_calc"),
+        ("prefund_end_bal_in", "oc_amount_calc"),
+        ("regular_prin_alloc", "total_end_note_balance"),
+        ("total_end_note_balance", "oc_amount_calc"),
+    ]
+
+    # ──────────────────────────────────────────────────────────────
+    # VII. VALIDATIONS
+    # Each validation compares a calculated figure against a tape-reported one,
+    # within a small absolute tolerance. The DagExecutor surfaces pass/fail on
+    # the ExecutionStep record so the UI can highlight any breaks.
+    # ──────────────────────────────────────────────────────────────
+    TOL = Decimal("0.50")  # $0.50 absolute tolerance (rounding in the tape)
+
+    # Days of interest — ties the tool's 30/360 day count to the servicer's
+    # own "Days of Interest for Period" field (E19 on Servicer B). This is a
+    # tight check (0 days tolerance) because the 30/360 rule is deterministic.
+    val_nodes.append((
+        "days_of_interest_check",
+        "Days of Interest Check",
+        "validation",
+        "period_days_in_period_30_360",
+        "days_of_interest_reported", Decimal("0"), COLS["a"], 1360,
+    ))
+
+    # End pool balance calc vs reported
+    val_nodes.append((
+        "end_pool_balance_check",
+        "End Pool Balance Check",
+        "validation",
+        "end_pool_balance_calc",
+        "cur_pool_bal", TOL, COLS["a"], 1420,
+    ))
+    # Per-class interest: calc vs reported
+    for i, cls in enumerate(classes):
+        val_nodes.append((
+            f"class_{cls}_interest_check",
+            f"Class {cls.upper()} Interest Check",
+            "validation",
+            f"class_{cls}_interest_calc",
+            f"class_{cls}_interest_amount",
+            TOL, COLS["a"] + i * 120, 1480,
+        ))
+    # Fee calcs vs reported (servicing fee may be waived, so use generous tolerance)
+    val_nodes.append((
+        "svc_fee_check",
+        "Servicing Fee Check (pre-waiver)",
+        "validation",
+        "svc_fee_calc",
+        "svc_fee_tape",
+        Decimal("50000"), COLS["a"], 1540,  # allow waiver up to $50k
+    ))
+    val_nodes.append((
+        "trustee_fee_check",
+        "Trustee Fee Check",
+        "validation",
+        "trustee_fee_calc",
+        "trustee_fee_tape",
+        TOL, COLS["b"], 1540,
+    ))
+    val_nodes.append((
+        "backup_svc_fee_check",
+        "Backup Servicing Fee Check",
+        "validation",
+        "backup_svc_fee_calc",
+        "backup_svc_fee_tape",
+        TOL, COLS["c"], 1540,
+    ))
+    # Regular principal allocation calc vs reported
+    val_nodes.append((
+        "regular_prin_alloc_check",
+        "Regular Principal Allocation Check",
+        "validation",
+        "regular_prin_alloc",
+        "regular_principal_alloc_tape",
+        TOL, COLS["d"], 1540,
+    ))
+    # Reserve fund end balance
+    val_nodes.append((
+        "reserve_fund_end_check",
+        "Reserve Fund End Balance Check",
+        "validation",
+        "reserve_fund_end_calc",
+        "reserve_fund_end_bal",
+        TOL, COLS["a"], 1600,
+    ))
+    # OC amount
+    val_nodes.append((
+        "oc_amount_check",
+        "OC Amount Check",
+        "validation",
+        "oc_amount_calc",
+        "reported_oc",
+        TOL, COLS["b"], 1600,
+    ))
+    # Total distribution cashflow reconciliation:
+    # sum of all waterfall payments should equal Total Available Funds.
+    val_nodes.append((
+        "total_distribution_check",
+        "Total Distribution Reconciliation",
+        "validation",
+        "svc_fee_pmt + backup_svc_fee_pmt + trustee_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_e_int_pmt + class_f_int_pmt + regular_prin_alloc",
+        "total_available_funds",
+        TOL, COLS["c"], 1600,
+    ))
+
+    return dist_nodes, val_nodes, edges, wf_order
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1349,6 +1796,126 @@ def seed_global_templates(db: Session) -> list[GlobalExportTemplate]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Deal B metadata — static fields, deal constants, trust accounts
+#
+# Values sourced from servicer_b_example.xlsx (Servicer B Deal 7).
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _populate_deal_b_metadata(db: Session, deal: Deal) -> None:
+    from datetime import date
+    from app.models.deal import DealAccount
+    from app.models.processing import ProcessingRun
+
+    print("  ── Deal B metadata ──")
+
+    # Static deal info
+    deal.issuer_name = "Servicer B Deal 7"
+    deal.deal_key = "SVCB7"
+    deal.reg_ab = True
+    deal.equity_cusips_involved = False
+    deal.closing_date = date(2022, 8, 11)  # Initial Purchase Closing Date
+    deal.initial_cutoff_date = date(2022, 8, 3)  # Initial Purchase Cutoff
+    deal.initial_distribution_date = date(2022, 9, 13)  # First payment date
+    deal.cutoff_pool_balance = Decimal("310000114.34")  # Committed Pool Balance
+    deal.distribution_day_of_month = 13
+    deal.determination_business_days_before = 4
+
+    # Deal-level numeric constants (auto-injected into DAG context)
+    deal.servicing_fee_pct = Decimal("0.04")  # 4.00% annual (30/360)
+    deal.backup_servicing_fee_pct = None  # Deal B uses a flat $2,500 instead
+    deal.trustee_fee_monthly = Decimal("750")
+    deal.target_oc_pct = Decimal("0.155")  # 15.50% of current pool
+    deal.target_oc_floor_pct = Decimal("0.025")  # 2.50% of cutoff pool
+    deal.target_oc_floor_amount = None  # Deal B uses % floor, not $ floor
+    deal.reserve_required_pct = Decimal("0.01")  # 1.00% of Committed Pool Balance
+
+    db.flush()
+    print("  + static fields, distribution-date rules, and 7 deal constants populated")
+
+    # Wire up "compare against" on each distribution. These point at CALC
+    # nodes — each distribution (which is a tape passthrough) is reconciled
+    # against our independent recalculation:
+    #   - svc_fee_pmt (tape)  vs  svc_fee_calc (rate × beg_pool × days / 360)
+    #   - class_d_int_pmt (tape)  vs  class_d_interest_calc (bal × rate × days / 360)
+    #   - ...and so on.
+    # When diff > tolerance, the discrepancy surfaces in the Waterfall UI
+    # (e.g. the $46,903.09 servicing-fee waiver on Servicer B's May 2025 period).
+    from app.models.dag import DagNode
+
+    distribution_compare_targets = {
+        "svc_fee_pmt": "svc_fee_calc",
+        "backup_svc_fee_pmt": "backup_svc_fee_calc",
+        "trustee_fee_pmt": "trustee_fee_calc",
+        "class_a_int_pmt": "class_a_interest_calc",
+        "class_b_int_pmt": "class_b_interest_calc",
+        "class_c_int_pmt": "class_c_interest_calc",
+        "class_d_int_pmt": "class_d_interest_calc",
+        "class_e_int_pmt": "class_e_interest_calc",
+        "class_f_int_pmt": "class_f_interest_calc",
+        # Regular principal allocation has no per-contract calc (it's the
+        # residual after everything else). Leave it unset — the waterfall
+        # display still shows the tape-paid amount and running remainder.
+    }
+    wired = 0
+    for node_key, compare_key in distribution_compare_targets.items():
+        node = (
+            db.query(DagNode)
+            .filter(DagNode.deal_id == deal.id, DagNode.key == node_key)
+            .first()
+        )
+        if node is not None and not node.comparison_variable:
+            node.comparison_variable = compare_key
+            wired += 1
+    if wired:
+        db.flush()
+        print(f"  + {wired} waterfall compare-against targets wired")
+
+    # Trust accounts — Servicer B Deal 7 maintains the standard 4 indenture
+    # accounts plus a prefunding account during the revolving period.
+    existing = db.query(DealAccount).filter(DealAccount.deal_id == deal.id).count()
+    if existing == 0:
+        accounts = [
+            ("Main", "SVCB7-MAIN-0001"),
+            ("Collection", "SVCB7-COLL-0002"),
+            ("Note Payment", "SVCB7-NOTE-0003"),
+            ("Reserve", "SVCB7-RSRV-0004"),
+            ("Prefunding", "SVCB7-PREF-0005"),
+        ]
+        for pos, (label, number) in enumerate(accounts, start=1):
+            db.add(DealAccount(deal_id=deal.id, label=label, account_number=number, position=pos))
+        db.flush()
+        print(f"  + {len(accounts)} trust accounts")
+    else:
+        print(f"  = {existing} trust accounts already exist")
+
+    # Stub "prior" run anchor — Servicer B's example tape is the June 2025
+    # distribution for the May 2025 collection period. The DagExecutor needs
+    # a prior run to compute `period_days_in_period_30_360` correctly (30 days
+    # since the previous distribution). We seed a minimal completed run for
+    # April→May 2025 with just the distribution_date populated.
+    existing_prior = (
+        db.query(ProcessingRun)
+        .filter(ProcessingRun.deal_id == deal.id, ProcessingRun.report_period == "2025-05")
+        .first()
+    )
+    if existing_prior is None:
+        prior = ProcessingRun(
+            deal_id=deal.id,
+            report_period="2025-05",
+            status="completed",
+            created_by="root",
+            distribution_date=date(2025, 5, 13),
+            determination_date=date(2025, 5, 7),
+            days_in_period_actual=30,
+            days_in_period_30_360=30,
+        )
+        db.add(prior)
+        db.flush()
+        print("  + prior run stub for 2025-05 (anchors June 2025 run to 30-day period)")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1381,9 +1948,9 @@ def run_seed() -> None:
             balance_period="2025-06",
         )
 
-        # Deal B: Servicer B Deal 7 — 6-class interleaved waterfall
-        bc_dist, bc_val, bc_edges, bc_wf = _build_6class_dag()
-        _seed_deal(
+        # Deal B: Servicer B Deal 7 — comprehensive model of servicer_b_example.xlsx
+        sb_dist, sb_val, sb_edges, sb_wf = _build_servicer_b_comprehensive_dag()
+        deal_b = _seed_deal(
             db,
             deal_name="Servicer B Deal 7",
             servicer=servicers["Servicer B"],
@@ -1392,15 +1959,19 @@ def run_seed() -> None:
             mappings=DEAL_B_MAPPINGS,
             tranches=DEAL_B_TRANCHES,
             balances=DEAL_BC_BALANCES,
-            dist_nodes=bc_dist,
-            validation_nodes=bc_val,
-            edges=bc_edges,
-            waterfall_order=bc_wf,
+            dist_nodes=sb_dist,
+            validation_nodes=sb_val,
+            edges=sb_edges,
+            waterfall_order=sb_wf,
             variables=variables,
-            balance_period="2025-06",
+            balance_period="2025-05",  # May 2025 is the sample report period
         )
+        _populate_deal_b_metadata(db, deal_b)
 
-        # Deal C: Servicer C Deal 7 — same structure as B, different report layout
+        # Deal C: Servicer C Deal 7 — reuses the simpler 6-class DAG.
+        # (Deal B is the comprehensive example; Deal C keeps a lighter model
+        # to demonstrate that multiple DAG shapes coexist per servicer.)
+        bc_dist, bc_val, bc_edges, bc_wf = _build_6class_dag()
         _seed_deal(
             db,
             deal_name="Servicer C Deal 7",

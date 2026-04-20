@@ -3,7 +3,7 @@
   "version_number": 2,
   "description": "Initial waterfall setup from seed",
   "created_by": "root",
-  "created_at": "2026-04-17T01:26:59.277799",
+  "created_at": "2026-04-20T17:03:29.153752",
   "nodes": [
     {
       "key": "total_available_funds_in",
@@ -21,8 +21,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 100,
-      "position_y": 50
+      "position_x": 100.0,
+      "position_y": 50.0
     },
     {
       "key": "svc_fee_tape_in",
@@ -40,8 +40,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 350,
-      "position_y": 50
+      "position_x": 350.0,
+      "position_y": 50.0
     },
     {
       "key": "trustee_fee_tape_in",
@@ -59,8 +59,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 550,
-      "position_y": 50
+      "position_x": 550.0,
+      "position_y": 50.0
     },
     {
       "key": "backup_svc_fee_tape_in",
@@ -78,8 +78,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 750,
-      "position_y": 50
+      "position_x": 750.0,
+      "position_y": 50.0
     },
     {
       "key": "total_fees",
@@ -97,8 +97,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 450,
-      "position_y": 180
+      "position_x": 450.0,
+      "position_y": 180.0
     },
     {
       "key": "net_available",
@@ -116,8 +116,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 280
+      "position_x": 400.0,
+      "position_y": 280.0
     },
     {
       "key": "class_a_interest_amount_calc",
@@ -135,8 +135,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 50,
-      "position_y": 400
+      "position_x": 50.0,
+      "position_y": 400.0
     },
     {
       "key": "class_b_interest_amount_calc",
@@ -154,8 +154,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 200,
-      "position_y": 400
+      "position_x": 200.0,
+      "position_y": 400.0
     },
     {
       "key": "class_c_interest_amount_calc",
@@ -173,8 +173,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 350,
-      "position_y": 400
+      "position_x": 350.0,
+      "position_y": 400.0
     },
     {
       "key": "class_d_interest_amount_calc",
@@ -192,8 +192,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 500,
-      "position_y": 400
+      "position_x": 500.0,
+      "position_y": 400.0
     },
     {
       "key": "class_e_interest_amount_calc",
@@ -211,8 +211,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 650,
-      "position_y": 400
+      "position_x": 650.0,
+      "position_y": 400.0
     },
     {
       "key": "class_f_interest_amount_calc",
@@ -230,8 +230,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 800,
-      "position_y": 400
+      "position_x": 800.0,
+      "position_y": 400.0
     },
     {
       "key": "remaining_after_int",
@@ -249,8 +249,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 520
+      "position_x": 400.0,
+      "position_y": 520.0
     },
     {
       "key": "svc_fee_pmt",
@@ -268,8 +268,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 1,
-      "position_x": 50,
-      "position_y": 640
+      "position_x": 50.0,
+      "position_y": 640.0
     },
     {
       "key": "class_a_int_pmt",
@@ -287,8 +287,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 2,
-      "position_x": 150,
-      "position_y": 640
+      "position_x": 150.0,
+      "position_y": 640.0
     },
     {
       "key": "class_b_int_pmt",
@@ -306,8 +306,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 3,
-      "position_x": 270,
-      "position_y": 640
+      "position_x": 270.0,
+      "position_y": 640.0
     },
     {
       "key": "class_c_int_pmt",
@@ -325,8 +325,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 4,
-      "position_x": 390,
-      "position_y": 640
+      "position_x": 390.0,
+      "position_y": 640.0
     },
     {
       "key": "class_d_int_pmt",
@@ -344,8 +344,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 5,
-      "position_x": 510,
-      "position_y": 640
+      "position_x": 510.0,
+      "position_y": 640.0
     },
     {
       "key": "class_e_int_pmt",
@@ -363,8 +363,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 6,
-      "position_x": 630,
-      "position_y": 640
+      "position_x": 630.0,
+      "position_y": 640.0
     },
     {
       "key": "class_f_int_pmt",
@@ -382,8 +382,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 7,
-      "position_x": 750,
-      "position_y": 640
+      "position_x": 750.0,
+      "position_y": 640.0
     },
     {
       "key": "regular_prin_dist",
@@ -401,8 +401,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 8,
-      "position_x": 400,
-      "position_y": 760
+      "position_x": 400.0,
+      "position_y": 760.0
     },
     {
       "key": "oc_amount_check",
@@ -420,8 +420,8 @@
       "comparison_variable": "reported_oc",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 100,
-      "position_y": 100
+      "position_x": 100.0,
+      "position_y": 100.0
     },
     {
       "key": "total_distribution_check",
@@ -439,8 +439,8 @@
       "comparison_variable": "total_available_funds",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 500,
-      "position_y": 100
+      "position_x": 500.0,
+      "position_y": 100.0
     },
     {
       "key": "class_a_interest_amount_check",
@@ -458,8 +458,8 @@
       "comparison_variable": "class_a_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 50,
-      "position_y": 200
+      "position_x": 50.0,
+      "position_y": 200.0
     },
     {
       "key": "class_b_interest_amount_check",
@@ -477,8 +477,8 @@
       "comparison_variable": "class_b_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 170,
-      "position_y": 200
+      "position_x": 170.0,
+      "position_y": 200.0
     },
     {
       "key": "class_c_interest_amount_check",
@@ -496,8 +496,8 @@
       "comparison_variable": "class_c_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 290,
-      "position_y": 200
+      "position_x": 290.0,
+      "position_y": 200.0
     },
     {
       "key": "class_d_interest_amount_check",
@@ -515,8 +515,8 @@
       "comparison_variable": "class_d_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 410,
-      "position_y": 200
+      "position_x": 410.0,
+      "position_y": 200.0
     },
     {
       "key": "class_e_interest_amount_check",
@@ -534,8 +534,8 @@
       "comparison_variable": "class_e_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 530,
-      "position_y": 200
+      "position_x": 530.0,
+      "position_y": 200.0
     },
     {
       "key": "class_f_interest_amount_check",
@@ -553,8 +553,8 @@
       "comparison_variable": "class_f_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 650,
-      "position_y": 200
+      "position_x": 650.0,
+      "position_y": 200.0
     }
   ],
   "edges": [

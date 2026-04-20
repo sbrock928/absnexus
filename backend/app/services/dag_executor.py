@@ -6,10 +6,12 @@ import networkx as nx
 from sqlalchemy.orm import Session
 
 from app.models.dag import DagNode, DagEdge, DagVersion
+from app.models.deal import Deal
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.formulas.engine import FormulaEngine
 from app.services.prior_month_service import PriorMonthService
 from app.tranches.service import TrancheService
+from app.utils.period_dates import compute_period_dates
 
 
 class ExecutionResult:
@@ -90,12 +92,80 @@ class DagExecutor:
         context.update(tranche_ctx)
         run.tranche_snapshot = json.dumps({k: str(v) for k, v in tranche_ctx.items()})
 
-        # 5. Topo-sort and execute — distribution stream first, then validation
+        # 5. Source 4: Deal-level static + period-computed values
+        deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()
+        if deal is not None:
+            prior_dist = prior_run.distribution_date if prior_run else None
+            pd = compute_period_dates(deal, run.report_period, prior_dist)
+            # Persist onto the run for reporting/export use
+            run.distribution_date = pd.distribution_date
+            run.determination_date = pd.determination_date
+            run.days_in_period_actual = pd.days_in_period_actual
+            run.days_in_period_30_360 = pd.days_in_period_30_360
+            # Inject numeric values into the formula context (reserved names)
+            if pd.days_in_period_actual is not None:
+                context["period_days_in_period_actual"] = Decimal(pd.days_in_period_actual)
+            if pd.days_in_period_30_360 is not None:
+                context["period_days_in_period_30_360"] = Decimal(pd.days_in_period_30_360)
+            if deal.cutoff_pool_balance is not None:
+                context["deal_cutoff_pool_balance"] = Decimal(deal.cutoff_pool_balance)
+            if deal.distribution_day_of_month is not None:
+                context["deal_distribution_day_of_month"] = Decimal(deal.distribution_day_of_month)
+            if deal.determination_business_days_before is not None:
+                context["deal_determination_days_before"] = Decimal(
+                    deal.determination_business_days_before
+                )
+            # Deal-level numeric constants — fees, OC, reserve
+            for attr, key in (
+                ("servicing_fee_pct", "deal_servicing_fee_pct"),
+                ("backup_servicing_fee_pct", "deal_backup_servicing_fee_pct"),
+                ("trustee_fee_monthly", "deal_trustee_fee_monthly"),
+                ("target_oc_pct", "deal_target_oc_pct"),
+                ("target_oc_floor_pct", "deal_target_oc_floor_pct"),
+                ("target_oc_floor_amount", "deal_target_oc_floor_amount"),
+                ("reserve_required_pct", "deal_reserve_required_pct"),
+            ):
+                val = getattr(deal, attr)
+                if val is not None:
+                    context[key] = Decimal(val)
+
+        # 5. Topo-sort and execute — distribution stream first, then validation.
+        #    (Distribution node → validation node comparisons are resolved via
+        #    "comparison forwarding" below: we evaluate the validation's formula
+        #    on the fly against the current context, which works because a
+        #    validation's formula is typically just a reference to an already-
+        #    computed calc node.)
         raw_order = list(nx.topological_sort(g))
         dist_order = [nid for nid in raw_order if node_map[nid].stream == "distribution"]
         val_order = [nid for nid in raw_order if node_map[nid].stream == "validation"]
         order = dist_order + val_order
         step_num = 0
+
+        # Quick lookup: node key → node object, used by _resolve_comparison.
+        node_by_key = {n.key: n for n in nodes}
+
+        def _resolve_comparison(comp_key: str) -> Decimal | None:
+            """Look up the comparison value for `comp_key` against the current context.
+
+            First tries the plain context (works for tape variables, input nodes,
+            and any node that has already executed). Falls back to evaluating a
+            calculation or validation node's formula on the fly so distributions
+            can compare against nodes that haven't run yet in topological order.
+            """
+            val = context.get(comp_key)
+            if val is not None:
+                return val
+            ref_node = node_by_key.get(comp_key)
+            if (
+                ref_node is not None
+                and ref_node.node_type in ("calculation", "validation")
+                and ref_node.formula
+            ):
+                try:
+                    return self.engine.execute(ref_node.formula, context)
+                except Exception:
+                    return None
+            return None
 
         for node_id in order:
             node = node_map[node_id]
@@ -132,9 +202,11 @@ class DagExecutor:
 
                 if node.node_type == "distribution":
                     result.distribution_total += step.result or Decimal("0")
-                    # Compare against tape value if comparison_variable is set
+                    # Compare against the configured target if set. This may be
+                    # a tape variable, another node's key, or a validation node
+                    # (resolved via comparison-forwarding on the validation's formula).
                     if node.comparison_variable:
-                        comp_val = context.get(node.comparison_variable)
+                        comp_val = _resolve_comparison(node.comparison_variable)
                         if comp_val is not None:
                             step.comparison_value = comp_val
                             step.difference = abs((step.result or Decimal("0")) - comp_val)
@@ -153,12 +225,14 @@ class DagExecutor:
                         step.result = Decimal("0")
                         result.errors.append(f"Validation '{node.key}': {e}")
 
-                    # Compare to tape value
-                    comp_val = (
-                        context.get(node.comparison_variable, Decimal("0"))
+                    # Compare to tape value (or another node, via the same
+                    # forwarding helper used for distributions).
+                    resolved = (
+                        _resolve_comparison(node.comparison_variable)
                         if node.comparison_variable
-                        else Decimal("0")
+                        else None
                     )
+                    comp_val = resolved if resolved is not None else Decimal("0")
                     step.comparison_value = comp_val
                     step.tolerance = node.tolerance or Decimal("0.01")
                     step.tolerance_type = node.tolerance_type or "absolute"

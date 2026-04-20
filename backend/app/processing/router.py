@@ -238,6 +238,12 @@ def execute_dag(
                 "resolved": s.resolved_formula,
                 "result": str(s.result) if s.result is not None else None,
                 "export_field": s.export_field,
+                "payment_type": s.payment_type,
+                "comparison_value": (
+                    str(s.comparison_value) if s.comparison_value is not None else None
+                ),
+                "tolerance": str(s.tolerance) if s.tolerance is not None else None,
+                "tolerance_type": s.tolerance_type,
                 "passed": s.passed,
                 "difference": str(s.difference) if s.difference is not None else None,
             }

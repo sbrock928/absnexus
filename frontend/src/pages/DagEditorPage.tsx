@@ -44,7 +44,13 @@ export function DagEditorPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [saveDesc, setSaveDesc] = useState("");
   const [showSave, setShowSave] = useState(false);
-  const [editingFormulaNode, setEditingFormulaNode] = useState<{ id: number; formula: string } | null>(null);
+  const [editingFormulaNode, setEditingFormulaNode] = useState<{
+    id: number;
+    node_type: string;
+    formula: string;
+    comparison_variable: string | null;
+    tolerance: string | null;
+  } | null>(null);
 
   // Filter state
   const [searchFilter, setSearchFilter] = useState("");
@@ -53,7 +59,6 @@ export function DagEditorPage() {
   });
   const [focusNodeId, setFocusNodeId] = useState<number | null>(null);
   const [collapsedTiers, setCollapsedTiers] = useState<Set<TierKey>>(new Set());
-  const [addNodeStream, setAddNodeStream] = useState<"distribution" | "validation">("distribution");
 
   // Fetch data
   const { data: allNodes = [] } = useQuery({
@@ -133,8 +138,11 @@ export function DagEditorPage() {
     return ids;
   }, [focusNodeId, edges]);
 
-  // Apply all filters
+  // Apply all filters.
+  // Validation nodes live on the separate Validations tab (Deal Detail page) —
+  // the DAG Builder only covers the payment graph (inputs, calcs, distributions).
   const filteredNodes = allNodes.filter((n) => {
+    if (n.node_type === "validation" || n.stream === "validation") return false;
     if (!typeFilters[n.node_type]) return false;
     if (searchFilter && !n.name.toLowerCase().includes(searchFilter.toLowerCase()) && !n.key.toLowerCase().includes(searchFilter.toLowerCase())) return false;
     if (focusedNodeIds && !focusedNodeIds.has(n.id)) return false;
@@ -159,11 +167,11 @@ export function DagEditorPage() {
 
   const visibleNodeIds = useMemo(() => new Set(filteredNodes.map((n: { id: number }) => n.id)), [filteredNodes]);
 
-  // Counts (unfiltered, for legend)
-  const inputNodes = allNodes.filter((n) => n.node_type === "input_value" || n.node_type === "input");
-  const calcNodes = allNodes.filter((n) => n.node_type === "calculation");
-  const distNodes = allNodes.filter((n) => n.node_type === "distribution");
-  const valNodes = allNodes.filter((n) => n.node_type === "validation");
+  // Counts (unfiltered, for legend) — validation nodes live on the Validations tab.
+  const paymentNodes = allNodes.filter((n) => n.node_type !== "validation" && n.stream !== "validation");
+  const inputNodes = paymentNodes.filter((n) => n.node_type === "input_value" || n.node_type === "input");
+  const calcNodes = paymentNodes.filter((n) => n.node_type === "calculation");
+  const distNodes = paymentNodes.filter((n) => n.node_type === "distribution");
 
   // Auto-layout: topological waterfall
   const autoLayout = () => {
@@ -283,8 +291,6 @@ export function DagEditorPage() {
   const [newNodeType, setNewNodeType] = useState("calculation");
   const [newFormula, setNewFormula] = useState("");
   const [newPaymentType, setNewPaymentType] = useState("");
-  const [newTolerance, setNewTolerance] = useState("0.01");
-  const [newComparisonVar, setNewComparisonVar] = useState("");
   const [newVariableId, setNewVariableId] = useState<number | null>(null);
 
   const slugify = (s: string): string =>
@@ -308,8 +314,6 @@ export function DagEditorPage() {
     setNewNodeType("calculation");
     setNewFormula("");
     setNewPaymentType("");
-    setNewTolerance("0.01");
-    setNewComparisonVar("");
     setNewVariableId(null);
   };
 
@@ -318,7 +322,7 @@ export function DagEditorPage() {
     let name: string;
     const payload: any = {
       node_type: newNodeType,
-      stream: newNodeType === "validation" ? "validation" : addNodeStream,
+      stream: "distribution",
       position_x: 200 + Math.random() * 300,
       position_y: 100 + allNodes.length * 60,
     };
@@ -341,10 +345,6 @@ export function DagEditorPage() {
         // `export_field` drives the waterfall display. Keep them in sync.
         payload.payment_type = newPaymentType;
         payload.export_field = newPaymentType;
-      }
-      if (newNodeType === "validation") {
-        payload.tolerance = newTolerance;
-        if (newComparisonVar) payload.comparison_variable = newComparisonVar;
       }
     }
 
@@ -459,7 +459,6 @@ export function DagEditorPage() {
           { type: "input_value", label: "Input", color: "#4ade80", count: inputNodes.length },
           { type: "calculation", label: "Calculation", color: "#60a5fa", count: calcNodes.length },
           { type: "distribution", label: "Distribution", color: "#a78bfa", count: distNodes.length },
-          { type: "validation", label: "Validation", color: "#fbbf24", count: valNodes.length },
         ].map(({ type, label, color, count }) => (
           <label key={type} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 12 }}>
             <input
@@ -473,7 +472,7 @@ export function DagEditorPage() {
           </label>
         ))}
         <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-          Showing {filteredNodes.length} of {allNodes.length}
+          Showing {filteredNodes.length} of {paymentNodes.length}
           {focusNodeId && " (focused)"}
         </span>
       </div>
@@ -522,7 +521,13 @@ export function DagEditorPage() {
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ flexShrink: 0, fontSize: 11 }}
-                        onClick={() => setEditingFormulaNode({ id: node.id, formula: node.formula ?? "" })}
+                        onClick={() => setEditingFormulaNode({
+                          id: node.id,
+                          node_type: node.node_type,
+                          formula: node.formula ?? "",
+                          comparison_variable: node.comparison_variable ?? null,
+                          tolerance: node.tolerance != null ? String(node.tolerance) : null,
+                        })}
                       >
                         Edit
                       </button>
@@ -697,23 +702,11 @@ export function DagEditorPage() {
                   <option value="input_value">Input variable</option>
                   <option value="calculation">Calculation</option>
                   <option value="distribution">Distribution (export)</option>
-                  <option value="validation">Validation (check)</option>
                 </select>
-              </div>
-              {newNodeType !== "validation" && newNodeType !== "input_value" && (
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Stream</label>
-                  <select
-                    className="select"
-                    style={{ width: "100%" }}
-                    value={addNodeStream}
-                    onChange={(e) => setAddNodeStream(e.target.value as "distribution" | "validation")}
-                  >
-                    <option value="distribution">Distribution</option>
-                    <option value="validation">Validation</option>
-                  </select>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  Validation checks are managed on the Validations tab.
                 </div>
-              )}
+              </div>
             </div>
 
             {newNodeType === "input_value" ? (
@@ -776,37 +769,6 @@ export function DagEditorPage() {
                   style={{ fontFamily: "var(--font-mono)" }}
                 />
               </div>
-            )}
-
-            {newNodeType === "validation" && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Compare against (tape variable)</label>
-                  <select
-                    className="select"
-                    style={{ width: "100%", fontFamily: "var(--font-mono)" }}
-                    value={newComparisonVar}
-                    onChange={(e) => setNewComparisonVar(e.target.value)}
-                  >
-                    <option value="">— none —</option>
-                    {mappedVariables.map((v) => (
-                      <option key={v.id} value={v.name}>
-                        {v.display_name ? `${v.display_name} (${v.name})` : v.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Tolerance (absolute)</label>
-                  <input
-                    className="input"
-                    value={newTolerance}
-                    onChange={(e) => setNewTolerance(e.target.value)}
-                    placeholder="0.01"
-                    style={{ fontFamily: "var(--font-mono)" }}
-                  />
-                </div>
-              </>
             )}
 
             <div className={styles.dialogActions}>
@@ -922,12 +884,22 @@ export function DagEditorPage() {
       {/* ── Formula Editor Modal (table view) ─────────────── */}
       {editingFormulaNode && (
         <FormulaEditorModal
-          initial={editingFormulaNode.formula}
+          node={editingFormulaNode}
           tokens={availableTokens}
-          onSave={(formula) => {
+          mappedVariables={mappedVariables}
+          onSave={(payload) => {
+            const fields: Record<string, string | number | null | undefined> = {
+              formula: payload.formula || null,
+            };
+            if (payload.comparison_variable !== undefined) {
+              fields.comparison_variable = payload.comparison_variable;
+            }
+            if (payload.tolerance !== undefined) {
+              fields.tolerance = payload.tolerance;
+            }
             updateNodeMut.mutate({
               nodeId: editingFormulaNode.id,
-              fields: { formula: formula || null },
+              fields,
             });
             setEditingFormulaNode(null);
           }}

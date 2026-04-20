@@ -1,8 +1,8 @@
 """Processing run and extracted value models."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -39,6 +39,12 @@ class ProcessingRun(Base):
     created_by: Mapped[str] = mapped_column(String(100), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Period-computed dates (derived from deal's distribution rules + report_period)
+    distribution_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    determination_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    days_in_period_actual: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    days_in_period_30_360: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class ExtractedValue(Base):
