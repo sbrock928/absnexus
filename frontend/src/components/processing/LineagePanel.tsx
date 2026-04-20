@@ -14,9 +14,7 @@ import { getLineage, type LineageResponse, type LineageNode } from "../../api/li
 import { fetchDag } from "../../api/dag";
 import type { DagNode, DagEdge } from "../../api/dag";
 import { LineageGraphNode, type LineageNodeData } from "./LineageGraphNode";
-import { NODE_TYPE_TIER } from "../dag-builder/DagGraphView";
-
-const TIER_Y: Record<string, number> = { top: 0, mid: 260, bot: 520 };
+import { layoutDag } from "../dag-builder/autoLayout";
 
 const nodeTypes: NodeTypes = {
   lineage: LineageGraphNode,
@@ -87,10 +85,28 @@ export function LineagePanel({ dealId, runId, nodeKey, onClose }: Props) {
     // computations, deal constants, extracted tape vars, etc.), synthesize
     // the graph directly from the lineage response.
     if (visibleBackend.length === 0 && lineage.nodes.length > 0) {
+      const keyToId: Record<string, string> = {};
+      lineage.nodes.forEach((n, i) => {
+        keyToId[n.node_key] = `synth-${i}`;
+      });
+      const layoutInputs = lineage.nodes.map((n, i) => ({
+        id: `synth-${i}`,
+        node_type: n.node_type,
+      }));
+      const layoutEdges: { source: string; target: string }[] = [];
+      lineage.nodes.forEach((n) => {
+        for (const up of n.upstream_keys ?? []) {
+          if (keyToId[up] && keyToId[n.node_key]) {
+            layoutEdges.push({ source: keyToId[up], target: keyToId[n.node_key] });
+          }
+        }
+      });
+      const positions = layoutDag(layoutInputs, layoutEdges, { nodeSep: 50, rankSep: 90 });
+
       const synthNodes: Node[] = lineage.nodes.map((n, i) => ({
         id: `synth-${i}`,
         type: "lineage",
-        position: { x: (i % 3) * 280, y: Math.floor(i / 3) * 180 },
+        position: positions.get(`synth-${i}`) ?? { x: (i % 3) * 280, y: Math.floor(i / 3) * 180 },
         data: {
           name: n.node_name,
           node_key: n.node_key,
@@ -100,34 +116,29 @@ export function LineagePanel({ dealId, runId, nodeKey, onClose }: Props) {
           is_target: n.node_key === lineage.target_node_key,
         } satisfies LineageNodeData,
       }));
-      const keyToId: Record<string, string> = {};
-      lineage.nodes.forEach((n, i) => {
-        keyToId[n.node_key] = `synth-${i}`;
-      });
-      const synthEdges: Edge[] = [];
-      lineage.nodes.forEach((n) => {
-        for (const up of n.upstream_keys ?? []) {
-          if (keyToId[up] && keyToId[n.node_key]) {
-            synthEdges.push({
-              id: `e-${up}-${n.node_key}`,
-              source: keyToId[up],
-              target: keyToId[n.node_key],
-              type: "smoothstep",
-              style: { stroke: "var(--text-muted)", strokeWidth: 1.5 },
-            });
-          }
-        }
-      });
+      const synthEdges: Edge[] = layoutEdges.map((e) => ({
+        id: `e-${e.source}-${e.target}`,
+        source: e.source,
+        target: e.target,
+        type: "smoothstep",
+        style: { stroke: "var(--text-muted)", strokeWidth: 1.5 },
+      }));
       return { rfNodes: synthNodes, rfEdges: synthEdges };
     }
+
+    const layoutInputs = visibleBackend.map((n) => ({
+      id: String(n.id),
+      node_type: n.node_type,
+    }));
+    const layoutEdges = dagEdges
+      .filter((e) => visibleIds.has(e.source_node_id) && visibleIds.has(e.target_node_id))
+      .map((e) => ({ source: String(e.source_node_id), target: String(e.target_node_id) }));
+    const positions = layoutDag(layoutInputs, layoutEdges, { nodeSep: 50, rankSep: 90 });
 
     const nodes: Node[] = visibleBackend.map((n) => ({
       id: String(n.id),
       type: "lineage",
-      position: {
-        x: n.position_x ?? 0,
-        y: TIER_Y[NODE_TYPE_TIER[n.node_type] ?? "mid"],
-      },
+      position: positions.get(String(n.id)) ?? { x: 0, y: 0 },
       data: {
         name: n.name,
         node_key: n.key,
