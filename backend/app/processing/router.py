@@ -14,6 +14,7 @@ from app.dependencies import get_current_user, require_role, require_processable
 from app.models.deal import Deal
 from app.models.user import User
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
+from app.models.dag import DagNode
 from app.services.tape_extractor import TapeExtractor
 from app.services.dag_executor import DagExecutor
 from app.services.clone_service import CloneService
@@ -138,6 +139,7 @@ def get_extracted(deal_id: int, run_id: int, db: Session = Depends(get_db)):
                 "prior": str(r.prior_value) if r.prior_value is not None else None,
                 "pct_change": str(r.pct_change) if r.pct_change is not None else None,
                 "warning": r.warning,
+                "data_type": r.data_type,
             }
             for r in rows
         ],
@@ -182,6 +184,7 @@ def extract_variables(
                 "prior": str(r.prior_value) if r.prior_value is not None else None,
                 "pct_change": str(r.pct_change) if r.pct_change is not None else None,
                 "warning": r.warning,
+                "data_type": r.data_type,
             }
             for r in results
         ],
@@ -221,6 +224,13 @@ def execute_dag(
     run.validations_total = result.validations_total
     db.flush()
 
+    comp_var_by_node = {
+        n.id: n.comparison_variable
+        for n in db.query(DagNode).filter(
+            DagNode.id.in_([s.node_id for s in result.steps])
+        ).all()
+    }
+
     return {
         "status": run.status,
         "total_distribution": str(result.distribution_total),
@@ -242,6 +252,7 @@ def execute_dag(
                 "comparison_value": (
                     str(s.comparison_value) if s.comparison_value is not None else None
                 ),
+                "comparison_variable": comp_var_by_node.get(s.node_id),
                 "tolerance": str(s.tolerance) if s.tolerance is not None else None,
                 "tolerance_type": s.tolerance_type,
                 "passed": s.passed,
@@ -292,6 +303,11 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
     executor = DagExecutor(db)
     steps = executor.get_lineage(run_id, node_key)
     if not steps:
+        # Not a real DagNode — may be an injected context variable
+        # (period-date computed values, deal constants, or extracted tape vars).
+        synthetic = _build_synthetic_lineage(db, deal_id, run_id, node_key)
+        if synthetic is not None:
+            return synthetic
         raise HTTPException(404, "Node not found in lineage")
 
     # Build richer response for the lineage drilldown UI
@@ -318,7 +334,7 @@ def get_lineage(deal_id: int, run_id: int, node_key: str, db: Session = Depends(
                 "is_suspect": is_suspect,
                 "suspect_reason": suspect_reason,
                 "upstream_keys": [],
-                "tape_value": str(s.comparison_value) if s.comparison_value is not None else None,
+                "comparison_value": str(s.comparison_value) if s.comparison_value is not None else None,
                 "difference": str(s.difference) if s.difference is not None else None,
                 "tolerance": str(s.tolerance) if s.tolerance is not None else None,
                 "validation_passed": True if s.passed == 1 else (False if s.passed == 0 else None),
@@ -399,6 +415,7 @@ def reextract_variable(
             "prior": str(ev.prior_value) if ev.prior_value is not None else None,
             "pct_change": str(ev.pct_change) if ev.pct_change is not None else None,
             "warning": ev.warning,
+            "data_type": ev.data_type,
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -461,3 +478,229 @@ def clone_deal(
         clone_tranches=body.clone_tranches,
     )
     return {"id": new_deal.id, "name": new_deal.name, "cloned_from_id": deal_id}
+
+
+def _build_synthetic_lineage(
+    db: Session, deal_id: int, run_id: int, node_key: str
+) -> dict | None:
+    """Fallback lineage builder for values that aren't real DagNodes.
+
+    Covers three classes of executor-injected context variables:
+      - Period-computed day counts (period_days_in_period_*)
+      - Deal-level numeric constants (deal_*)
+      - Extracted tape variables (anything with a mapped ExtractedValue)
+    """
+    run = db.query(ProcessingRun).filter(ProcessingRun.id == run_id).first()
+    if run is None or run.deal_id != deal_id:
+        return None
+    deal = db.query(Deal).filter(Deal.id == deal_id).first()
+    if deal is None:
+        return None
+
+    def _envelope(target_name: str, target_type: str, target_result, nodes: list) -> dict:
+        return {
+            "target_node_key": node_key,
+            "target_node_name": target_name,
+            "target_node_type": target_type,
+            "target_result": (str(target_result) if target_result is not None else None),
+            "lineage_count": len(nodes),
+            "nodes": nodes,
+        }
+
+    # 1. Period-computed day counts — show anchor + distribution + formula
+    if node_key in ("period_days_in_period_30_360", "period_days_in_period_actual"):
+        prior_run = (
+            db.query(ProcessingRun)
+            .filter(ProcessingRun.id == run.prior_run_id)
+            .first()
+            if run.prior_run_id
+            else None
+        )
+        anchor_date = (
+            prior_run.distribution_date
+            if prior_run and prior_run.distribution_date
+            else deal.initial_cutoff_date
+        )
+        anchor_source = (
+            "prior_run"
+            if prior_run and prior_run.distribution_date
+            else ("initial_cutoff" if deal.initial_cutoff_date else "none")
+        )
+        is_30_360 = node_key == "period_days_in_period_30_360"
+        result_val = (
+            run.days_in_period_30_360 if is_30_360 else run.days_in_period_actual
+        )
+        display_name = (
+            "Days in period (30/360)" if is_30_360 else "Days in period (actual)"
+        )
+        convention = "30/360" if is_30_360 else "actual/365"
+        formula_str = (
+            f"{convention}({anchor_date} → {run.distribution_date})"
+            if run.distribution_date and anchor_date
+            else "—"
+        )
+
+        anc_nodes = []
+        if anchor_date:
+            anc_nodes.append(
+                {
+                    "node_key": "anchor_date",
+                    "node_name": f"Anchor date ({anchor_source})",
+                    "node_type": "input_value",
+                    "stream": "period",
+                    "execution_order": 1,
+                    "formula": None,
+                    "formula_resolved": None,
+                    "result": anchor_date.isoformat(),
+                    "prior_value": None,
+                    "delta_pct": None,
+                    "is_suspect": False,
+                    "suspect_reason": None,
+                    "upstream_keys": [],
+                    "comparison_value": None,
+                    "difference": None,
+                    "tolerance": None,
+                    "validation_passed": None,
+                    "input_source": anchor_source,
+                    "cell_ref": None,
+                }
+            )
+        if run.distribution_date:
+            anc_nodes.append(
+                {
+                    "node_key": "distribution_date",
+                    "node_name": "Distribution date",
+                    "node_type": "input_value",
+                    "stream": "period",
+                    "execution_order": 2,
+                    "formula": None,
+                    "formula_resolved": None,
+                    "result": run.distribution_date.isoformat(),
+                    "prior_value": None,
+                    "delta_pct": None,
+                    "is_suspect": False,
+                    "suspect_reason": None,
+                    "upstream_keys": [],
+                    "comparison_value": None,
+                    "difference": None,
+                    "tolerance": None,
+                    "validation_passed": None,
+                    "input_source": None,
+                    "cell_ref": None,
+                }
+            )
+        anc_nodes.append(
+            {
+                "node_key": node_key,
+                "node_name": display_name,
+                "node_type": "calculation",
+                "stream": "period",
+                "execution_order": 3,
+                "formula": formula_str,
+                "formula_resolved": f"= {result_val}" if result_val is not None else None,
+                "result": str(result_val) if result_val is not None else None,
+                "prior_value": None,
+                "delta_pct": None,
+                "is_suspect": False,
+                "suspect_reason": (
+                    f"Day-count convention: {convention}. "
+                    f"Anchor is {anchor_source.replace('_', ' ')} "
+                    f"({anchor_date.isoformat() if anchor_date else 'missing'}). "
+                    "Check that the anchor date matches what the servicer used."
+                ),
+                "upstream_keys": [
+                    k for k in ("anchor_date", "distribution_date")
+                    if any(n["node_key"] == k for n in anc_nodes)
+                ],
+                "comparison_value": None,
+                "difference": None,
+                "tolerance": None,
+                "validation_passed": None,
+                "input_source": "period_computation",
+                "cell_ref": None,
+            }
+        )
+        return _envelope(display_name, "calculation", result_val, anc_nodes)
+
+    # 2. Deal-level constants
+    deal_const_map = {
+        "deal_cutoff_pool_balance": ("Cutoff pool balance", deal.cutoff_pool_balance),
+        "deal_distribution_day_of_month": (
+            "Distribution day of month", deal.distribution_day_of_month,
+        ),
+        "deal_determination_days_before": (
+            "Determination days before", deal.determination_business_days_before,
+        ),
+        "deal_servicing_fee_pct": ("Servicing fee %", deal.servicing_fee_pct),
+        "deal_backup_servicing_fee_pct": (
+            "Backup servicing fee %", deal.backup_servicing_fee_pct,
+        ),
+        "deal_trustee_fee_monthly": ("Trustee fee (monthly)", deal.trustee_fee_monthly),
+        "deal_target_oc_pct": ("Target OC %", deal.target_oc_pct),
+        "deal_target_oc_floor_pct": ("Target OC floor %", deal.target_oc_floor_pct),
+        "deal_target_oc_floor_amount": (
+            "Target OC floor $", deal.target_oc_floor_amount,
+        ),
+        "deal_reserve_required_pct": ("Reserve required %", deal.reserve_required_pct),
+    }
+    if node_key in deal_const_map:
+        name, val = deal_const_map[node_key]
+        node = {
+            "node_key": node_key,
+            "node_name": name,
+            "node_type": "input_value",
+            "stream": "deal",
+            "execution_order": 1,
+            "formula": None,
+            "formula_resolved": None,
+            "result": str(val) if val is not None else None,
+            "prior_value": None,
+            "delta_pct": None,
+            "is_suspect": False,
+            "suspect_reason": "Set on the Deal record. Edit via Deal → Info.",
+            "upstream_keys": [],
+            "comparison_value": None,
+            "difference": None,
+            "tolerance": None,
+            "validation_passed": None,
+            "input_source": "deal_record",
+            "cell_ref": None,
+        }
+        return _envelope(name, "input_value", val, [node])
+
+    # 3. Extracted tape variable
+    ev = (
+        db.query(ExtractedValue)
+        .filter(
+            ExtractedValue.run_id == run_id, ExtractedValue.variable_name == node_key
+        )
+        .first()
+    )
+    if ev is not None:
+        node = {
+            "node_key": node_key,
+            "node_name": node_key,
+            "node_type": "input_value",
+            "stream": "tape",
+            "execution_order": 1,
+            "formula": None,
+            "formula_resolved": None,
+            "result": str(ev.parsed_value) if ev.parsed_value is not None else None,
+            "prior_value": str(ev.prior_value) if ev.prior_value is not None else None,
+            "delta_pct": str(ev.pct_change) if ev.pct_change is not None else None,
+            "is_suspect": False,
+            "suspect_reason": (
+                f"Extracted from tape cell {ev.sheet_name}!{ev.cell_ref} "
+                f"(raw: {ev.raw_value!r})."
+            ),
+            "upstream_keys": [],
+            "comparison_value": None,
+            "difference": None,
+            "tolerance": None,
+            "validation_passed": None,
+            "input_source": "tape",
+            "cell_ref": f"{ev.sheet_name}!{ev.cell_ref}",
+        }
+        return _envelope(node_key, "input_value", ev.parsed_value, [node])
+
+    return None

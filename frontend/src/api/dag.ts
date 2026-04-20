@@ -50,6 +50,10 @@ interface DagLoadResponse {
 
 /* ── Queries ───────────────────────────────────────────────── */
 
+export async function fetchDag(dealId: number): Promise<DagLoadResponse> {
+  return api.get<DagLoadResponse>(`/deals/${dealId}/dag`);
+}
+
 export async function fetchNodes(dealId: number): Promise<DagNode[]> {
   const res = await api.get<DagLoadResponse>(`/deals/${dealId}/dag`);
   return res.nodes;

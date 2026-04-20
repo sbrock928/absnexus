@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 
-interface LineageNode { node_key: string; node_name: string; node_type: string; stream: string; execution_order: number | null; formula: string | null; formula_resolved: string | null; result: string | null; prior_value: string | null; delta_pct: string | null; is_suspect: boolean; suspect_reason: string | null; upstream_keys: string[]; tape_value: string | null; difference: string | null; tolerance: string | null; validation_passed: boolean | null; input_source: string | null; cell_ref: string | null; }
+interface LineageNode { node_key: string; node_name: string; node_type: string; stream: string; execution_order: number | null; formula: string | null; formula_resolved: string | null; result: string | null; prior_value: string | null; delta_pct: string | null; is_suspect: boolean; suspect_reason: string | null; upstream_keys: string[]; comparison_value: string | null; difference: string | null; tolerance: string | null; validation_passed: boolean | null; input_source: string | null; cell_ref: string | null; }
 interface LineageResponse { target_node_key: string; target_node_name: string; target_node_type: string; target_result: string | null; lineage_count: number; nodes: LineageNode[]; }
 
 const fmt = (v: string | null) => { if (!v) return "—"; const n = parseFloat(v); return isNaN(n) ? v : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`; };
@@ -52,7 +52,7 @@ export function LineagePage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
               <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Our calculation</div><div style={{ fontSize: 16, fontWeight: 600 }}>{fmt(lineage.nodes[0].result)}</div></div>
-              <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Tape value</div><div style={{ fontSize: 16, fontWeight: 600 }}>{fmt(lineage.nodes[0].tape_value)}</div></div>
+              <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Tape value</div><div style={{ fontSize: 16, fontWeight: 600 }}>{fmt(lineage.nodes[0].comparison_value)}</div></div>
               <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Difference</div><div style={{ fontSize: 16, fontWeight: 600, color: "var(--accent-red)" }}>{fmt(lineage.nodes[0].difference)}</div></div>
               <div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>Tolerance</div><div style={{ fontSize: 16, fontWeight: 600 }}>±{lineage.nodes[0].tolerance ?? "0.01"}</div></div>
             </div>

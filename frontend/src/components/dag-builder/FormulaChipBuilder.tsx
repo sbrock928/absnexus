@@ -36,7 +36,7 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
   const chips = useMemo(() => parseFormula(value, tokenCategory), [value, tokenCategory]);
 
   const setChips = (next: Chip[]) => onChange(serialize(next));
-  const appendChip = (chip: Chip) => setChips([...chips, chip]);
+  const appendChips = (...newChips: Chip[]) => setChips([...chips, ...newChips]);
   const removeAt = (idx: number) => setChips(chips.filter((_, i) => i !== idx));
 
   const [numInput, setNumInput] = useState("");
@@ -44,13 +44,23 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
     const trimmed = numInput.trim();
     if (!trimmed) return;
     if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return;
-    appendChip({ kind: "num", value: trimmed });
+    appendChips({ kind: "num", value: trimmed });
     setNumInput("");
   };
 
-  const vars = tokens.filter((t) => t.category === "variable");
-  const nodes = tokens.filter((t) => t.category === "node");
-  const fns = tokens.filter((t) => t.category === "function");
+  const [paletteSearch, setPaletteSearch] = useState("");
+  const matches = (t: FormulaToken) => {
+    if (!paletteSearch) return true;
+    const q = paletteSearch.toLowerCase();
+    return t.name.toLowerCase().includes(q) || t.label.toLowerCase().includes(q);
+  };
+  const byName = (a: FormulaToken, b: FormulaToken) => a.name.localeCompare(b.name);
+  const vars = tokens.filter((t) => t.category === "variable" && matches(t)).sort(byName);
+  const nodes = tokens.filter((t) => t.category === "node" && matches(t)).sort(byName);
+  const fns = tokens.filter((t) => t.category === "function" && matches(t));
+  const allVarCount = tokens.filter((t) => t.category === "variable").length;
+  const allNodeCount = tokens.filter((t) => t.category === "node").length;
+  const allFnCount = tokens.filter((t) => t.category === "function").length;
 
   return (
     <div>
@@ -101,7 +111,7 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
       <div
         style={{
           marginTop: 6,
-          maxHeight: 220,
+          maxHeight: 480,
           overflowY: "auto",
           border: "1px solid var(--border, var(--border-color))",
           borderRadius: "var(--radius)",
@@ -109,6 +119,43 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
           background: "var(--bg-tertiary, var(--bg-sidebar))",
         }}
       >
+        {/* Global search — filters variables / nodes / functions in one go */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
+          <input
+            type="text"
+            placeholder={`Search ${allVarCount} variables, ${allNodeCount} nodes, ${allFnCount} functions…`}
+            value={paletteSearch}
+            onChange={(e) => setPaletteSearch(e.target.value)}
+            autoFocus
+            style={{
+              flex: 1,
+              fontSize: 12,
+              padding: "5px 10px",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border, var(--border-color))",
+              borderRadius: 4,
+              color: "var(--text-primary)",
+              fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+            }}
+          />
+          {paletteSearch && (
+            <button
+              type="button"
+              onClick={() => setPaletteSearch("")}
+              style={{
+                fontSize: 11,
+                padding: "5px 10px",
+                background: "transparent",
+                border: "1px solid var(--border, var(--border-color))",
+                borderRadius: 4,
+                color: "var(--text-muted)",
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
         {vars.length > 0 && (
           <PaletteSection
             label="Variables"
@@ -116,7 +163,8 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
             bg="rgba(74,222,128,0.1)"
             border="rgba(74,222,128,0.25)"
             items={vars}
-            onPick={(t) => appendChip({ kind: "var", name: t.name })}
+            totalCount={allVarCount}
+            onPick={(t) => appendChips({ kind: "var", name: t.name })}
           />
         )}
         {nodes.length > 0 && (
@@ -126,7 +174,8 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
             bg="rgba(74,158,255,0.1)"
             border="rgba(74,158,255,0.25)"
             items={nodes}
-            onPick={(t) => appendChip({ kind: "node", name: t.name })}
+            totalCount={allNodeCount}
+            onPick={(t) => appendChips({ kind: "node", name: t.name })}
           />
         )}
         {fns.length > 0 && (
@@ -136,11 +185,19 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
             bg="rgba(167,139,250,0.1)"
             border="rgba(167,139,250,0.25)"
             items={fns}
-            onPick={(t) => {
-              appendChip({ kind: "func", name: t.name });
-              appendChip({ kind: "op", value: "(" });
-            }}
+            totalCount={allFnCount}
+            onPick={(t) =>
+              appendChips(
+                { kind: "func", name: t.name },
+                { kind: "op", value: "(" },
+              )
+            }
           />
+        )}
+        {paletteSearch && vars.length === 0 && nodes.length === 0 && fns.length === 0 && (
+          <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", padding: "8px 4px" }}>
+            No matches for &ldquo;{paletteSearch}&rdquo;
+          </div>
         )}
         <div style={{ marginBottom: 8 }}>
           <div style={sectionLabelStyle}>Operators</div>
@@ -149,7 +206,7 @@ export function FormulaChipBuilder({ value, onChange, tokens, placeholder }: Pro
               <button
                 key={op}
                 type="button"
-                onClick={() => appendChip({ kind: "op", value: op })}
+                onClick={() => appendChips({ kind: "op", value: op })}
                 style={{
                   padding: "3px 8px",
                   fontSize: 12,
@@ -287,6 +344,7 @@ function PaletteSection({
   bg,
   border,
   items,
+  totalCount,
   onPick,
 }: {
   label: string;
@@ -294,37 +352,19 @@ function PaletteSection({
   bg: string;
   border: string;
   items: FormulaToken[];
+  totalCount: number;
   onPick: (t: FormulaToken) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const filtered = search
-    ? items.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()) || t.label.toLowerCase().includes(search.toLowerCase()))
-    : items;
+  const filtered = items.length !== totalCount;
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <span style={sectionLabelStyle}>
-          {label} ({items.length})
+          {label} {filtered ? `(${items.length} of ${totalCount})` : `(${totalCount})`}
         </span>
-        {items.length > 10 && (
-          <input
-            placeholder={`Filter ${label.toLowerCase()}...`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              fontSize: 11,
-              padding: "2px 6px",
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--border, var(--border-color))",
-              borderRadius: 3,
-              color: "var(--text-primary)",
-              width: 140,
-            }}
-          />
-        )}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        {filtered.slice(0, 50).map((t) => (
+        {items.map((t) => (
           <button
             key={t.name}
             type="button"
@@ -345,11 +385,6 @@ function PaletteSection({
             {t.name}
           </button>
         ))}
-        {filtered.length > 50 && (
-          <span style={{ fontSize: 11, color: "var(--text-muted)", padding: "3px 4px" }}>
-            +{filtered.length - 50} more
-          </span>
-        )}
       </div>
     </div>
   );

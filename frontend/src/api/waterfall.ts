@@ -8,10 +8,11 @@ export interface WaterfallStep {
   remaining_after: string;
   export_field: string | null;
   payment_type: string | null;
-  tape_value: string | null;
+  comparison_value: string | null;
   difference: string | null;
   matched: boolean | null;
   comparison_variable: string | null;
+  tape_variable: string | null;
 }
 
 export interface WaterfallTrace {

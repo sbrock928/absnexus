@@ -104,7 +104,7 @@ export function DagEditorPage() {
     for (const n of allNodes) {
       tokens.push({ name: n.key, label: n.name, category: "node" });
     }
-    for (const fn of ["MIN", "MAX", "ABS", "IF", "ROUND", "CEILING", "FLOOR", "SUM"]) {
+    for (const fn of ["MIN", "MAX", "ABS", "IF", "ROUND", "CEILING", "FLOOR", "SUM", "PRIOR"]) {
       tokens.push({ name: fn, label: fn, category: "function" });
     }
     return tokens;
@@ -755,6 +755,10 @@ export function DagEditorPage() {
                   tokens={availableTokens}
                   placeholder="e.g. class_a_balance * class_a_note_rate / 12"
                 />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  Tip: <code>PRIOR(x)</code> returns last month's value of a variable or node — e.g.&nbsp;
+                  <code>PRIOR(end_pool_balance_calc)</code> for this month's beginning pool balance.
+                </div>
               </div>
             )}
 

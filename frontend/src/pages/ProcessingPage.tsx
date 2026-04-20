@@ -4,16 +4,25 @@ import { useAuth } from "../auth";
 import { api } from "../api/client";
 import { listTemplates, type GlobalTemplate } from "../api/globalExport";
 import { WaterfallTrace } from "../components/processing/WaterfallTrace";
+import { LineagePanel } from "../components/processing/LineagePanel";
 import { CellMapperModal } from "../components/cell-mapper/CellMapperModal";
 import { reextractVariable } from "../api/mappings";
 import type { Deal, Servicer } from "../types";
 
-interface ExtractedVar { variable_id?: number; variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; }
-interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
+interface ExtractedVar { variable_id?: number; variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; data_type?: string | null; }
+interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; comparison_variable?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
 
 const STEPS = ["Select deal", "Upload tape", "Extract", "Execute", "Waterfall", "Export"];
 const nodeColor: Record<string, string> = { input_value: "var(--accent-green)", calculation: "var(--accent-blue)", distribution: "var(--accent-purple)", validation: "var(--accent-orange)" };
 const fmtMoney = (v: string | null) => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—";
+const fmtByType = (v: string | null, dtype?: string | null) => {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return v;
+  if (dtype === "integer") return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (dtype === "percentage") return `${(n * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+};
 
 /* Map run.status → highest completed step index */
 function statusToStep(status: string): number {
@@ -51,6 +60,7 @@ export function ProcessingPage() {
     variable_name: string;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [lineageNodeKey, setLineageNodeKey] = useState<string | null>(null);
 
   /* Track the furthest step completed so we know which steps are clickable */
   const [maxStep, setMaxStep] = useState(0);
@@ -333,8 +343,8 @@ export function ProcessingPage() {
                   <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
                   <td><code style={{ color: "var(--accent-green)" }}>{v.variable}</code></td>
                   <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{v.sheet} · {v.cell}</td>
-                  <td style={{ fontFamily: "monospace" }}>{fmtMoney(v.parsed)}</td>
-                  <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{fmtMoney(v.prior)}</td>
+                  <td style={{ fontFamily: "monospace" }}>{fmtByType(v.parsed, v.data_type)}</td>
+                  <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{fmtByType(v.prior, v.data_type)}</td>
                   <td style={{ color: v.pct_change && Math.abs(Number(v.pct_change)) > 50 ? "var(--accent-yellow)" : "var(--text-muted)" }}>{v.pct_change ? `${Number(v.pct_change) > 0 ? "+" : ""}${v.pct_change}%` : "—"}</td>
                   <td>{v.warning ? <span style={{ color: "var(--accent-yellow)", fontSize: 12 }}>⚠ Warning</span> : <span style={{ color: "var(--accent-green)", fontSize: 12 }}>● OK</span>}</td>
                   <td>
@@ -366,39 +376,52 @@ export function ProcessingPage() {
 
           {summary?.errors?.length > 0 && <div className="banner" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", color: "var(--accent-red)", marginBottom: 16 }}>{summary.errors.map((e: string, i: number) => <div key={i}>{e}</div>)}</div>}
 
-          {/* Distribution outputs */}
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>Distribution outputs</div>
-          <table className="table" style={{ marginBottom: 24 }}>
-            <thead><tr><th>#</th><th>Node</th><th>Formula → resolved</th><th>Export field</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-            <tbody>
-              {steps.filter((s) => s.type === "distribution").map((s) => (
-                <tr key={s.order}>
-                  <td style={{ color: "var(--text-muted)" }}>{s.order}</td>
-                  <td><span style={{ color: nodeColor.distribution }}>●</span> {s.name}</td>
-                  <td><code style={{ fontSize: 12 }}>{s.formula}</code>{s.resolved && <div style={{ fontSize: 11, color: "var(--accent-green)" }}>{s.resolved}</div>}</td>
-                  <td>{s.export_field ? <code style={{ color: "var(--accent-purple)", fontSize: 12 }}>{s.export_field}</code> : "—"}</td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>{fmtMoney(s.result)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
           {/* Validation results */}
           {steps.some((s) => s.type === "validation") && <>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Validation checks</div>
             <table className="table" style={{ marginBottom: 24 }}>
               <thead><tr><th>Check</th><th>Calculated</th><th>Tape</th><th>Difference</th><th>Tolerance</th><th>Result</th></tr></thead>
               <tbody>
-                {steps.filter((s) => s.type === "validation").map((s) => (
-                  <tr key={s.order} style={s.passed === 0 ? { background: "rgba(248,113,113,0.05)" } : {}}>
-                    <td><span style={{ color: nodeColor.validation }}>●</span> {s.name}</td>
-                    <td style={{ fontFamily: "monospace" }}>{fmtMoney(s.result)}</td>
-                    <td style={{ fontFamily: "monospace" }}>{fmtMoney(s.comparison_value ?? null)}</td>
-                    <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtMoney(s.difference)}</td>
-                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>±{s.tolerance}{s.tolerance_type === "percentage" ? "%" : ""}</td>
-                    <td>{s.passed === 1 ? <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>Pass</span> : <span style={{ color: "var(--accent-red)", fontWeight: 600 }}>Fail</span>}</td>
-                  </tr>
-                ))}
+                {steps.filter((s) => s.type === "validation").map((s) => {
+                  const tapeVar = s.comparison_variable ?? null;
+                  const tapeCell = tapeVar ? vars.find((v) => v.variable === tapeVar) : undefined;
+                  // If the validation's formula is a bare identifier (the
+                  // common pattern — it references a single calc node), drill
+                  // into that calc node's lineage. Otherwise fall back to the
+                  // validation node itself.
+                  const f = (s.formula ?? "").trim();
+                  const isBareIdent = /^[A-Za-z_][A-Za-z0-9_]*$/.test(f);
+                  const drillKey = isBareIdent ? f : s.key;
+                  return (
+                    <tr key={s.order} style={s.passed === 0 ? { background: "rgba(248,113,113,0.05)" } : {}}>
+                      <td><span style={{ color: nodeColor.validation }}>●</span> {s.name}</td>
+                      <td
+                        style={{ fontFamily: "monospace", cursor: "pointer", color: "var(--accent-blue)" }}
+                        title={`Click to inspect lineage for ${drillKey}`}
+                        onClick={() => setLineageNodeKey(drillKey)}
+                      >
+                        <div>{fmtMoney(s.result)}</div>
+                        {isBareIdent && (
+                          <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                            {drillKey}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ fontFamily: "monospace" }}>
+                        <div>{fmtMoney(s.comparison_value ?? null)}</div>
+                        {tapeVar && (
+                          <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 2 }}>
+                            {tapeVar}
+                            {tapeCell && ` · ${tapeCell.sheet}!${tapeCell.cell}`}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtMoney(s.difference)}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>±{s.tolerance}{s.tolerance_type === "percentage" ? "%" : ""}</td>
+                      <td>{s.passed === 1 ? <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>Pass</span> : <span style={{ color: "var(--accent-red)", fontWeight: 600 }}>Fail</span>}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </>}
@@ -514,6 +537,14 @@ export function ProcessingPage() {
               setError(e.message);
             }
           }}
+        />
+      )}
+      {lineageNodeKey && run && selectedDeal && (
+        <LineagePanel
+          dealId={selectedDeal.id}
+          runId={run.id}
+          nodeKey={lineageNodeKey}
+          onClose={() => setLineageNodeKey(null)}
         />
       )}
     </div>

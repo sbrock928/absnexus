@@ -95,17 +95,28 @@ class ProcessingService:
             running = running - amount
 
             # Comparison data (populated by DagExecutor for distribution nodes
-            # with comparison_variable set)
+            # with comparison_variable set). Under the tape-passthrough model,
+            # `amount` is the tape value and `comparison_value` is our
+            # independent recalculation (the target calc node).
             node = nodes_by_id.get(step.node_id)
-            tape_value = str(step.comparison_value) if step.comparison_value is not None else None
+            comp_value = str(step.comparison_value) if step.comparison_value is not None else None
             step_diff = str(step.difference) if step.difference is not None else None
             matched = True if step.passed == 1 else (False if step.passed == 0 else None)
             comp_var = node.comparison_variable if node else None
 
-            if tape_value is not None:
+            if comp_value is not None:
                 comparison_count += 1
                 if matched:
                     comparison_matched += 1
+
+            # Tape variable: if the distribution's formula is a bare
+            # identifier (e.g. "svc_fee_tape"), surface it as the source name
+            # for the Amount column. Otherwise leave null.
+            tape_var = None
+            if step.formula:
+                f = step.formula.strip()
+                if f and all(c.isalnum() or c == "_" for c in f) and not f[0].isdigit():
+                    tape_var = f
 
             steps.append(
                 {
@@ -116,10 +127,11 @@ class ProcessingService:
                     "remaining_after": str(running),
                     "export_field": step.export_field,
                     "payment_type": step.payment_type,
-                    "tape_value": tape_value,
+                    "comparison_value": comp_value,
                     "difference": step_diff,
                     "matched": matched,
                     "comparison_variable": comp_var,
+                    "tape_variable": tape_var,
                 }
             )
 

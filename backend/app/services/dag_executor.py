@@ -69,15 +69,19 @@ class DagExecutor:
             return result
 
         # 2. Assemble context — Source 1: Prior month
+        # Defaults load first as a base layer (bootstrapping first-run
+        # rollforward checks). Then any actual prior-run execution results
+        # override. This means a "stub" prior-run with no ExecutionSteps
+        # (like the day-count anchor stubs seeded per deal) doesn't wipe out
+        # the defaults.
         prior_svc = PriorMonthService(self.db)
         prior_run = prior_svc.find_prior_run(run.deal_id, run.report_period)
         context: dict[str, Decimal] = {}
 
+        context.update(prior_svc.get_default_priors(run.deal_id))
         if prior_run:
             run.prior_run_id = prior_run.id
             context.update(prior_svc.build_prior_context(prior_run.id))
-        else:
-            context.update(prior_svc.get_default_priors(run.deal_id))
 
         # 3. Source 2: Tape values
         extracted = self.db.query(ExtractedValue).filter(ExtractedValue.run_id == run.id).all()
@@ -185,8 +189,13 @@ class DagExecutor:
             )
 
             if node.node_type == "input_value":
-                # Input nodes just read from context
-                step.result = context.get(node.key, Decimal("0"))
+                # Input nodes read from context. By convention, a tape-input
+                # placeholder node keyed "<var>_in" resolves to the tape
+                # variable "<var>" when its own key isn't present.
+                val = context.get(node.key)
+                if val is None and node.key.endswith("_in"):
+                    val = context.get(node.key[:-3])
+                step.result = val if val is not None else Decimal("0")
 
             elif node.node_type in ("calculation", "distribution"):
                 if node.formula:

@@ -10,8 +10,8 @@ def render_waterfall_html(data: dict) -> str:
     """
     steps_html = ""
     for s in data["steps"]:
-        amount = _fmt_money(s["amount"])
-        tape = _fmt_money(s["tape_value"]) if s["tape_value"] else "—"
+        tape = _fmt_money(s["amount"])
+        our_calc = _fmt_money(s["comparison_value"]) if s["comparison_value"] else "—"
         diff = _fmt_money(s["difference"]) if s["difference"] else "—"
 
         if s["matched"] is True:
@@ -28,8 +28,8 @@ def render_waterfall_html(data: dict) -> str:
         <tr{row_bg}>
             <td style="text-align: center;">{s["step"]}</td>
             <td>{s["node_name"]}</td>
-            <td style="font-family: monospace; text-align: right;">{amount}</td>
             <td style="font-family: monospace; text-align: right;">{tape}</td>
+            <td style="font-family: monospace; text-align: right;">{our_calc}</td>
             <td style="font-family: monospace; text-align: right;">{diff}</td>
             <td style="text-align: center;">{status}</td>
         </tr>"""
@@ -101,8 +101,8 @@ def render_waterfall_html(data: dict) -> str:
         <tr>
             <th style="width: 40px; text-align: center;">#</th>
             <th>Distribution</th>
-            <th style="text-align: right;">Our Calculation</th>
             <th style="text-align: right;">Tape Value</th>
+            <th style="text-align: right;">Our Calculation</th>
             <th style="text-align: right;">Difference</th>
             <th style="text-align: center; width: 90px;">Status</th>
         </tr>

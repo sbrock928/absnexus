@@ -59,7 +59,7 @@ export function FormulaEditorModal({
 
   return (
     <div className="dialog-overlay" onClick={onCancel}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ minWidth: 560, maxWidth: 700 }}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ minWidth: 820, maxWidth: "95vw", width: 820 }}>
         <div className="dialog-title">
           Edit {node.node_type === "validation" ? "validation" : node.node_type === "distribution" ? "distribution" : "formula"}
         </div>

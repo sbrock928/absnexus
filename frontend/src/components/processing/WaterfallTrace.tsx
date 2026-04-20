@@ -82,14 +82,14 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>Distribution</th>
-                <th style={{ textAlign: "right" }}>Our Calculation</th>
                 <th style={{ textAlign: "right" }}>Tape Value</th>
+                <th style={{ textAlign: "right" }}>Our Calculation</th>
                 <th style={{ textAlign: "right" }}>Difference</th>
                 <th style={{ textAlign: "center", width: 80 }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {wf.steps.filter((s) => s.tape_value !== null).map((s) => (
+              {wf.steps.filter((s) => s.comparison_value !== null).map((s) => (
                 <tr key={s.step}>
                   <td style={{ color: "var(--text-muted)" }}>{s.step}</td>
                   <td>
@@ -99,10 +99,20 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                     )}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                    {formatMoney(s.amount)}
+                    <div>{formatMoney(s.amount)}</div>
+                    {s.tape_variable && (
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                        {s.tape_variable}
+                      </div>
+                    )}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                    {formatMoney(s.tape_value)}
+                    <div>{formatMoney(s.comparison_value)}</div>
+                    {s.comparison_variable && (
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                        {s.comparison_variable}
+                      </div>
+                    )}
                   </td>
                   <td style={{
                     textAlign: "right",
@@ -133,8 +143,8 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
           <tr>
             <th style={{ width: 40 }}>#</th>
             <th>Distribution</th>
-            <th style={{ textAlign: "right" }}>Amount</th>
-            <th style={{ textAlign: "right" }}>Tape Value</th>
+            <th style={{ textAlign: "right" }}>Amount (Tape)</th>
+            <th style={{ textAlign: "right" }}>Our Calculation</th>
             <th style={{ textAlign: "right" }}>Difference</th>
             <th style={{ textAlign: "right" }}>Remaining</th>
           </tr>
@@ -152,14 +162,23 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
               <td
                 style={{
                   textAlign: "right",
-                  color: "var(--accent-red)",
                   fontFamily: "var(--font-mono)",
                 }}
               >
-                - {formatMoney(s.amount)}
+                <div style={{ color: "var(--accent-red)" }}>- {formatMoney(s.amount)}</div>
+                {s.tape_variable && (
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                    {s.tape_variable}
+                  </div>
+                )}
               </td>
               <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-                {s.tape_value !== null ? formatMoney(s.tape_value) : "—"}
+                <div>{s.comparison_value !== null ? formatMoney(s.comparison_value) : "—"}</div>
+                {s.comparison_variable && (
+                  <div style={{ fontSize: 10, marginTop: 2 }}>
+                    {s.comparison_variable}
+                  </div>
+                )}
               </td>
               <td
                 style={{
@@ -192,12 +211,12 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
               (acc, s) => acc + (parseFloat(s.amount ?? "0") || 0),
               0,
             );
-            const tapeRows = wf.steps.filter((s) => s.tape_value !== null);
-            const sumTape = tapeRows.reduce(
-              (acc, s) => acc + (parseFloat(s.tape_value ?? "0") || 0),
+            const compRows = wf.steps.filter((s) => s.comparison_value !== null);
+            const sumComp = compRows.reduce(
+              (acc, s) => acc + (parseFloat(s.comparison_value ?? "0") || 0),
               0,
             );
-            const sumDiff = sumAmount - sumTape;
+            const sumDiff = sumAmount - sumComp;
             const diffColor =
               Math.abs(sumDiff) < 0.01 ? "var(--accent-green)" : "var(--accent-red)";
             return (
@@ -208,10 +227,10 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                   {formatMoney(sumAmount.toFixed(2))}
                 </td>
                 <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                  {tapeRows.length > 0 ? formatMoney(sumTape.toFixed(2)) : "—"}
+                  {compRows.length > 0 ? formatMoney(sumComp.toFixed(2)) : "—"}
                 </td>
                 <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: diffColor }}>
-                  {tapeRows.length > 0 ? formatMoney(sumDiff.toFixed(2)) : "—"}
+                  {compRows.length > 0 ? formatMoney(sumDiff.toFixed(2)) : "—"}
                 </td>
                 <td></td>
               </tr>
@@ -309,6 +328,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
           </button>
         )}
       </div>
+
     </div>
   );
 }
