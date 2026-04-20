@@ -1,86 +1,10 @@
 {
   "deal_id": 1,
-  "version_number": 6,
+  "version_number": 9,
   "description": "Initial waterfall setup from seed",
   "created_by": "root",
-  "created_at": "2026-04-20T19:56:31.433635",
+  "created_at": "2026-04-20T20:22:41.873354",
   "nodes": [
-    {
-      "key": "total_available_funds_in",
-      "name": "Total Available Funds",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 100.0,
-      "position_y": 50.0
-    },
-    {
-      "key": "svc_fee_tape_in",
-      "name": "Servicing Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 300.0,
-      "position_y": 50.0
-    },
-    {
-      "key": "trustee_fee_tape_in",
-      "name": "Trustee Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 500.0,
-      "position_y": 50.0
-    },
-    {
-      "key": "backup_svc_fee_tape_in",
-      "name": "Backup Svc Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 700.0,
-      "position_y": 50.0
-    },
     {
       "key": "total_fees",
       "name": "Total Fees",
@@ -483,22 +407,6 @@
   ],
   "edges": [
     {
-      "source_key": "svc_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "trustee_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "backup_svc_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "total_available_funds_in",
-      "target_key": "net_available"
-    },
-    {
       "source_key": "total_fees",
       "target_key": "net_available"
     },
@@ -617,10 +525,6 @@
     {
       "source_key": "class_c_prin_pmt",
       "target_key": "class_d_prin_pmt"
-    },
-    {
-      "source_key": "svc_fee_tape_in",
-      "target_key": "svc_fee_pmt"
     }
   ]
 }

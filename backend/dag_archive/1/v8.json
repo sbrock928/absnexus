@@ -3,84 +3,8 @@
   "version_number": 8,
   "description": "Initial waterfall setup from seed",
   "created_by": "root",
-  "created_at": "2026-04-16T23:04:50.279415",
+  "created_at": "2026-04-20T20:22:20.222003",
   "nodes": [
-    {
-      "key": "total_available_funds_in",
-      "name": "Total Available Funds",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 100,
-      "position_y": 50
-    },
-    {
-      "key": "svc_fee_tape_in",
-      "name": "Servicing Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 300,
-      "position_y": 50
-    },
-    {
-      "key": "trustee_fee_tape_in",
-      "name": "Trustee Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 500,
-      "position_y": 50
-    },
-    {
-      "key": "backup_svc_fee_tape_in",
-      "name": "Backup Svc Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 700,
-      "position_y": 50
-    },
     {
       "key": "total_fees",
       "name": "Total Fees",
@@ -97,8 +21,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 180
+      "position_x": 400.0,
+      "position_y": 180.0
     },
     {
       "key": "net_available",
@@ -116,8 +40,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 280
+      "position_x": 400.0,
+      "position_y": 280.0
     },
     {
       "key": "class_a_interest_amount_calc",
@@ -135,8 +59,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 100,
-      "position_y": 400
+      "position_x": 100.0,
+      "position_y": 400.0
     },
     {
       "key": "class_b_interest_amount_calc",
@@ -154,8 +78,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 300,
-      "position_y": 400
+      "position_x": 300.0,
+      "position_y": 400.0
     },
     {
       "key": "class_c_interest_amount_calc",
@@ -173,8 +97,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 500,
-      "position_y": 400
+      "position_x": 500.0,
+      "position_y": 400.0
     },
     {
       "key": "class_d_interest_amount_calc",
@@ -192,8 +116,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 700,
-      "position_y": 400
+      "position_x": 700.0,
+      "position_y": 400.0
     },
     {
       "key": "remaining_after_int",
@@ -211,8 +135,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 520
+      "position_x": 400.0,
+      "position_y": 520.0
     },
     {
       "key": "svc_fee_pmt",
@@ -230,8 +154,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 1,
-      "position_x": 50,
-      "position_y": 640
+      "position_x": 50.0,
+      "position_y": 640.0
     },
     {
       "key": "class_a_int_pmt",
@@ -249,8 +173,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 2,
-      "position_x": 175,
-      "position_y": 640
+      "position_x": 175.0,
+      "position_y": 640.0
     },
     {
       "key": "class_b_int_pmt",
@@ -268,8 +192,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 3,
-      "position_x": 300,
-      "position_y": 640
+      "position_x": 300.0,
+      "position_y": 640.0
     },
     {
       "key": "class_c_int_pmt",
@@ -287,8 +211,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 4,
-      "position_x": 425,
-      "position_y": 640
+      "position_x": 425.0,
+      "position_y": 640.0
     },
     {
       "key": "class_d_int_pmt",
@@ -306,8 +230,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 5,
-      "position_x": 550,
-      "position_y": 640
+      "position_x": 550.0,
+      "position_y": 640.0
     },
     {
       "key": "class_a_prin_pmt",
@@ -325,8 +249,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 6,
-      "position_x": 100,
-      "position_y": 760
+      "position_x": 100.0,
+      "position_y": 760.0
     },
     {
       "key": "class_b_prin_pmt",
@@ -344,8 +268,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 7,
-      "position_x": 300,
-      "position_y": 760
+      "position_x": 300.0,
+      "position_y": 760.0
     },
     {
       "key": "class_c_prin_pmt",
@@ -363,8 +287,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 8,
-      "position_x": 500,
-      "position_y": 760
+      "position_x": 500.0,
+      "position_y": 760.0
     },
     {
       "key": "class_d_prin_pmt",
@@ -382,8 +306,8 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": 9,
-      "position_x": 700,
-      "position_y": 760
+      "position_x": 700.0,
+      "position_y": 760.0
     },
     {
       "key": "total_distribution_check",
@@ -401,8 +325,8 @@
       "comparison_variable": "total_available_funds",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 400,
-      "position_y": 100
+      "position_x": 400.0,
+      "position_y": 100.0
     },
     {
       "key": "class_a_interest_amount_check",
@@ -420,8 +344,8 @@
       "comparison_variable": "class_a_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 50,
-      "position_y": 100
+      "position_x": 50.0,
+      "position_y": 100.0
     },
     {
       "key": "class_b_interest_amount_check",
@@ -439,8 +363,8 @@
       "comparison_variable": "class_b_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 175,
-      "position_y": 100
+      "position_x": 175.0,
+      "position_y": 100.0
     },
     {
       "key": "class_c_interest_amount_check",
@@ -458,8 +382,8 @@
       "comparison_variable": "class_c_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 300,
-      "position_y": 100
+      "position_x": 300.0,
+      "position_y": 100.0
     },
     {
       "key": "class_d_interest_amount_check",
@@ -477,27 +401,11 @@
       "comparison_variable": "class_d_interest_amount",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 525,
-      "position_y": 100
+      "position_x": 525.0,
+      "position_y": 100.0
     }
   ],
   "edges": [
-    {
-      "source_key": "svc_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "trustee_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "backup_svc_fee_tape_in",
-      "target_key": "total_fees"
-    },
-    {
-      "source_key": "total_available_funds_in",
-      "target_key": "net_available"
-    },
     {
       "source_key": "total_fees",
       "target_key": "net_available"
@@ -617,10 +525,6 @@
     {
       "source_key": "class_c_prin_pmt",
       "target_key": "class_d_prin_pmt"
-    },
-    {
-      "source_key": "svc_fee_tape_in",
-      "target_key": "svc_fee_pmt"
     }
   ]
 }

@@ -1,13 +1,13 @@
 {
-  "deal_id": 2,
-  "version_number": 2,
+  "deal_id": 4,
+  "version_number": 8,
   "description": "Initial waterfall setup from seed",
   "created_by": "root",
-  "created_at": "2026-04-20T20:49:50.595480",
+  "created_at": "2026-04-20T20:22:41.897167",
   "nodes": [
     {
-      "key": "total_monthly_principal",
-      "name": "Total Monthly Principal Amounts",
+      "key": "total_monthly_principal_calc",
+      "name": "Total Monthly Principal (calc)",
       "node_type": "calculation",
       "stream": "distribution",
       "formula": "collections_outstanding + collections_paid_off + receivables_liquidated + receivables_purchased + receivables_adjustments",
@@ -21,7 +21,7 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 425.0,
+      "position_x": 350.0,
       "position_y": 180.0
     },
     {
@@ -29,7 +29,7 @@
       "name": "End Pool Balance (calc)",
       "node_type": "calculation",
       "stream": "distribution",
-      "formula": "beg_pool_balance + subsequent_receivables - total_monthly_principal",
+      "formula": "beg_pool_balance + subsequent_receivables - total_monthly_principal_calc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -40,7 +40,7 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 425.0,
+      "position_x": 350.0,
       "position_y": 250.0
     },
     {
@@ -139,30 +139,11 @@
       "position_y": 500.0
     },
     {
-      "key": "class_f_interest_calc",
-      "name": "Class F Interest (30/360 calc)",
-      "node_type": "calculation",
-      "stream": "distribution",
-      "formula": "class_f_note_balance * class_f_note_rate * period_days_in_period_30_360 / 360",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 750.0,
-      "position_y": 500.0
-    },
-    {
       "key": "svc_fee_calc",
       "name": "Servicing Fee (calc)",
       "node_type": "calculation",
       "stream": "distribution",
-      "formula": "deal_servicing_fee_pct * beg_pool_balance * period_days_in_period_30_360 / 360",
+      "formula": "beg_pool_balance * deal_servicing_fee_pct / 12",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -174,6 +155,25 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 50.0,
+      "position_y": 620.0
+    },
+    {
+      "key": "backup_svc_fee_calc",
+      "name": "Backup Servicing Fee (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "beg_pool_balance * deal_backup_servicing_fee_pct / 12",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 200.0,
       "position_y": 620.0
     },
     {
@@ -193,25 +193,6 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 350.0,
-      "position_y": 620.0
-    },
-    {
-      "key": "backup_svc_fee_calc",
-      "name": "Backup Servicing Fee (calc)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": "2500",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
       "position_y": 620.0
     },
     {
@@ -367,25 +348,6 @@
       "position_y": 920.0
     },
     {
-      "key": "class_f_int_pmt",
-      "name": "Class F Interest Pmt",
-      "node_type": "distribution",
-      "stream": "distribution",
-      "formula": "class_f_interest_amount",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": "INT_PMT_F",
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": 9,
-      "position_x": 750.0,
-      "position_y": 920.0
-    },
-    {
       "key": "regular_prin_alloc",
       "name": "Regular Principal Allocation",
       "node_type": "distribution",
@@ -400,8 +362,8 @@
       "tolerance_type": null,
       "comparison_variable": null,
       "default_prior_value": null,
-      "waterfall_order": 10,
-      "position_x": 425.0,
+      "waterfall_order": 9,
+      "position_x": 350.0,
       "position_y": 1020.0
     },
     {
@@ -420,7 +382,7 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 650.0,
+      "position_x": 500.0,
       "position_y": 1120.0
     },
     {
@@ -443,11 +405,11 @@
       "position_y": 1200.0
     },
     {
-      "key": "reserve_fund_deficiency",
-      "name": "Reserve Fund Deficiency",
+      "key": "class_a_end_note_balance_calc",
+      "name": "Class A End Note Balance (calc)",
       "node_type": "calculation",
       "stream": "distribution",
-      "formula": "MAX(reserve_required_amt - reserve_fund_end_calc, 0)",
+      "formula": "class_a_note_balance - regular_prin_alloc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -458,8 +420,103 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 650.0,
-      "position_y": 1200.0
+      "position_x": 50.0,
+      "position_y": 1280.0
+    },
+    {
+      "key": "class_b_end_note_balance_calc",
+      "name": "Class B End Note Balance (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_b_note_balance",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 190.0,
+      "position_y": 1280.0
+    },
+    {
+      "key": "class_c_end_note_balance_calc",
+      "name": "Class C End Note Balance (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_c_note_balance",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 330.0,
+      "position_y": 1280.0
+    },
+    {
+      "key": "class_d_end_note_balance_calc",
+      "name": "Class D End Note Balance (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_d_note_balance",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 470.0,
+      "position_y": 1280.0
+    },
+    {
+      "key": "class_e_end_note_balance_calc",
+      "name": "Class E End Note Balance (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_e_note_balance",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 610.0,
+      "position_y": 1280.0
+    },
+    {
+      "key": "total_end_note_balance_calc",
+      "name": "Total End Note Balance",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_a_end_note_balance_calc + class_b_end_note_balance_calc + class_c_end_note_balance_calc + class_d_end_note_balance_calc + class_e_end_note_balance_calc",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 350.0,
+      "position_y": 1360.0
     },
     {
       "key": "target_oc_amount",
@@ -478,33 +535,14 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 200.0,
-      "position_y": 1300.0
-    },
-    {
-      "key": "total_end_note_balance",
-      "name": "Total End Note Balance",
-      "node_type": "calculation",
-      "stream": "distribution",
-      "formula": "class_a_note_balance + class_b_note_balance + class_c_note_balance + class_d_note_balance + class_e_note_balance + class_f_note_balance - regular_prin_alloc",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 1300.0
+      "position_y": 1360.0
     },
     {
       "key": "oc_amount_calc",
       "name": "OC Amount (calc)",
       "node_type": "calculation",
       "stream": "distribution",
-      "formula": "end_pool_balance_calc + prefund_end_bal - total_end_note_balance",
+      "formula": "end_pool_balance_calc - total_end_note_balance_calc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -516,7 +554,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 500.0,
-      "position_y": 1300.0
+      "position_y": 1360.0
     },
     {
       "key": "days_of_interest_check",
@@ -535,26 +573,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 50.0,
-      "position_y": 1360.0
-    },
-    {
-      "key": "end_pool_balance_check",
-      "name": "End Pool Balance Check",
-      "node_type": "validation",
-      "stream": "validation",
-      "formula": "end_pool_balance_calc",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": "0.50",
-      "tolerance_type": null,
-      "comparison_variable": "cur_pool_bal",
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 1420.0
+      "position_y": 1440.0
     },
     {
       "key": "class_a_interest_check",
@@ -573,7 +592,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 50.0,
-      "position_y": 1480.0
+      "position_y": 1500.0
     },
     {
       "key": "class_b_interest_check",
@@ -592,7 +611,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 170.0,
-      "position_y": 1480.0
+      "position_y": 1500.0
     },
     {
       "key": "class_c_interest_check",
@@ -611,7 +630,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 290.0,
-      "position_y": 1480.0
+      "position_y": 1500.0
     },
     {
       "key": "class_d_interest_check",
@@ -630,7 +649,7 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 410.0,
-      "position_y": 1480.0
+      "position_y": 1500.0
     },
     {
       "key": "class_e_interest_check",
@@ -649,30 +668,11 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 530.0,
-      "position_y": 1480.0
-    },
-    {
-      "key": "class_f_interest_check",
-      "name": "Class F Interest Check",
-      "node_type": "validation",
-      "stream": "validation",
-      "formula": "class_f_interest_calc",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": "0.50",
-      "tolerance_type": null,
-      "comparison_variable": "class_f_interest_amount",
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 650.0,
-      "position_y": 1480.0
+      "position_y": 1500.0
     },
     {
       "key": "svc_fee_check",
-      "name": "Servicing Fee Check (pre-waiver)",
+      "name": "Servicing Fee Check",
       "node_type": "validation",
       "stream": "validation",
       "formula": "svc_fee_calc",
@@ -681,32 +681,13 @@
       "variable_id": null,
       "payment_type": null,
       "export_field": null,
-      "tolerance": "50000",
+      "tolerance": "0.50",
       "tolerance_type": null,
       "comparison_variable": "svc_fee_tape",
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 50.0,
-      "position_y": 1540.0
-    },
-    {
-      "key": "trustee_fee_check",
-      "name": "Trustee Fee Check",
-      "node_type": "validation",
-      "stream": "validation",
-      "formula": "trustee_fee_calc",
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": "0.50",
-      "tolerance_type": null,
-      "comparison_variable": "trustee_fee_tape",
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
-      "position_y": 1540.0
+      "position_y": 1560.0
     },
     {
       "key": "backup_svc_fee_check",
@@ -724,15 +705,15 @@
       "comparison_variable": "backup_svc_fee_tape",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 1540.0
+      "position_x": 200.0,
+      "position_y": 1560.0
     },
     {
-      "key": "regular_prin_alloc_check",
-      "name": "Regular Principal Allocation Check",
+      "key": "trustee_fee_check",
+      "name": "Trustee Fee Check",
       "node_type": "validation",
       "stream": "validation",
-      "formula": "regular_prin_alloc",
+      "formula": "trustee_fee_calc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -740,18 +721,18 @@
       "export_field": null,
       "tolerance": "0.50",
       "tolerance_type": null,
-      "comparison_variable": "regular_principal_alloc_tape",
+      "comparison_variable": "trustee_fee_tape",
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 500.0,
-      "position_y": 1540.0
+      "position_x": 350.0,
+      "position_y": 1560.0
     },
     {
-      "key": "reserve_fund_end_check",
-      "name": "Reserve Fund End Balance Check",
+      "key": "end_pool_balance_check",
+      "name": "End Pool Balance Check",
       "node_type": "validation",
       "stream": "validation",
-      "formula": "reserve_fund_end_calc",
+      "formula": "end_pool_balance_calc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -759,11 +740,11 @@
       "export_field": null,
       "tolerance": "0.50",
       "tolerance_type": null,
-      "comparison_variable": "reserve_fund_end_bal",
+      "comparison_variable": "cur_pool_bal",
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 50.0,
-      "position_y": 1600.0
+      "position_y": 1620.0
     },
     {
       "key": "oc_amount_check",
@@ -782,14 +763,14 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 200.0,
-      "position_y": 1600.0
+      "position_y": 1620.0
     },
     {
       "key": "total_distribution_check",
       "name": "Total Distribution Reconciliation",
       "node_type": "validation",
       "stream": "validation",
-      "formula": "svc_fee_pmt + backup_svc_fee_pmt + trustee_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_e_int_pmt + class_f_int_pmt + regular_prin_alloc",
+      "formula": "svc_fee_pmt + backup_svc_fee_pmt + trustee_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_e_int_pmt + regular_prin_alloc",
       "description": null,
       "input_source": null,
       "variable_id": null,
@@ -801,8 +782,178 @@
       "default_prior_value": null,
       "waterfall_order": null,
       "position_x": 350.0,
-      "position_y": 1600.0
+      "position_y": 1620.0
+    },
+    {
+      "key": "rollforward_pool_balance_check",
+      "name": "Rollforward: Pool Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(end_pool_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "beg_pool_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 50.0,
+      "position_y": 1700.0
+    },
+    {
+      "key": "rollforward_class_a_balance_check",
+      "name": "Rollforward: Class A Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(class_a_end_note_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "class_a_note_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 50.0,
+      "position_y": 1760.0
+    },
+    {
+      "key": "rollforward_class_b_balance_check",
+      "name": "Rollforward: Class B Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(class_b_end_note_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "class_b_note_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 170.0,
+      "position_y": 1760.0
+    },
+    {
+      "key": "rollforward_class_c_balance_check",
+      "name": "Rollforward: Class C Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(class_c_end_note_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "class_c_note_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 290.0,
+      "position_y": 1760.0
+    },
+    {
+      "key": "rollforward_class_d_balance_check",
+      "name": "Rollforward: Class D Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(class_d_end_note_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "class_d_note_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 410.0,
+      "position_y": 1760.0
+    },
+    {
+      "key": "rollforward_class_e_balance_check",
+      "name": "Rollforward: Class E Balance",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(class_e_end_note_balance_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "class_e_note_balance",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 530.0,
+      "position_y": 1760.0
+    },
+    {
+      "key": "rollforward_reserve_check",
+      "name": "Rollforward: Reserve Fund",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "PRIOR(reserve_fund_end_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "1.00",
+      "tolerance_type": null,
+      "comparison_variable": "reserve_fund_begin_bal",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 50.0,
+      "position_y": 1820.0
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "source_key": "regular_prin_alloc",
+      "target_key": "class_a_end_note_balance_calc"
+    },
+    {
+      "source_key": "class_a_end_note_balance_calc",
+      "target_key": "total_end_note_balance_calc"
+    },
+    {
+      "source_key": "class_b_end_note_balance_calc",
+      "target_key": "total_end_note_balance_calc"
+    },
+    {
+      "source_key": "class_c_end_note_balance_calc",
+      "target_key": "total_end_note_balance_calc"
+    },
+    {
+      "source_key": "class_d_end_note_balance_calc",
+      "target_key": "total_end_note_balance_calc"
+    },
+    {
+      "source_key": "class_e_end_note_balance_calc",
+      "target_key": "total_end_note_balance_calc"
+    },
+    {
+      "source_key": "end_pool_balance_calc",
+      "target_key": "target_oc_amount"
+    },
+    {
+      "source_key": "end_pool_balance_calc",
+      "target_key": "oc_amount_calc"
+    },
+    {
+      "source_key": "total_end_note_balance_calc",
+      "target_key": "oc_amount_calc"
+    }
+  ]
 }

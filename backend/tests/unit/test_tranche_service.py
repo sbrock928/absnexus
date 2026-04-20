@@ -25,8 +25,8 @@ def test_build_context_combined(db):
     )
     dao.set_balance(t.id, "2026-04", Decimal("182255600"))
     ctx = TrancheService(db).build_tranche_context(deal.id, "2026-04")
-    assert ctx["tranche_class_a_balance"] == Decimal("182255600")
-    assert ctx["tranche_class_a_note_rate"] == Decimal("0.0425")
+    assert ctx["static_class_a_balance"] == Decimal("182255600")
+    assert ctx["static_class_a_note_rate"] == Decimal("0.0425")
 
 
 def test_build_context_with_split(db):
@@ -41,9 +41,9 @@ def test_build_context_with_split(db):
     dao.set_balance(t144.id, "2026-04", Decimal("100000000"))
     dao.set_balance(tregs.id, "2026-04", Decimal("82255600"))
     ctx = TrancheService(db).build_tranche_context(deal.id, "2026-04")
-    assert ctx["tranche_class_a_balance"] == Decimal("182255600")
-    assert ctx["tranche_class_a_balance_144a"] == Decimal("100000000")
-    assert ctx["tranche_class_a_balance_regs"] == Decimal("82255600")
+    assert ctx["static_class_a_balance"] == Decimal("182255600")
+    assert ctx["static_class_a_balance_144a"] == Decimal("100000000")
+    assert ctx["static_class_a_balance_regs"] == Decimal("82255600")
 
 
 def test_build_context_prior_month(db):
@@ -53,5 +53,5 @@ def test_build_context_prior_month(db):
     dao.set_balance(t.id, "2026-04", Decimal("180000000"))
     dao.set_balance(t.id, "2026-03", Decimal("185000000"))
     ctx = TrancheService(db).build_tranche_context(deal.id, "2026-04", "2026-03")
-    assert ctx["tranche_class_a_balance"] == Decimal("180000000")
-    assert ctx["tranche_class_a_balance_prior"] == Decimal("185000000")
+    assert ctx["static_class_a_balance"] == Decimal("180000000")
+    assert ctx["static_class_a_balance_prior"] == Decimal("185000000")

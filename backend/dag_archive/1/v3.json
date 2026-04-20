@@ -1,18 +1,18 @@
 {
   "deal_id": 1,
   "version_number": 3,
-  "description": "Reverted to v1",
-  "created_by": "testuser",
-  "created_at": "2026-04-20T19:30:00.881399",
+  "description": "Initial waterfall setup from seed",
+  "created_by": "root",
+  "created_at": "2026-04-20T21:07:19.387368",
   "nodes": [
     {
-      "key": "n1",
-      "name": "N1",
-      "node_type": "input_value",
+      "key": "total_fees",
+      "name": "Total Fees",
+      "node_type": "calculation",
       "stream": "distribution",
-      "formula": null,
+      "formula": "svc_fee_tape + trustee_fee_tape + backup_svc_fee_tape",
       "description": null,
-      "input_source": "tape",
+      "input_source": null,
       "variable_id": null,
       "payment_type": null,
       "export_field": null,
@@ -21,9 +21,510 @@
       "comparison_variable": null,
       "default_prior_value": null,
       "waterfall_order": null,
-      "position_x": 0.0,
-      "position_y": 0.0
+      "position_x": 400.0,
+      "position_y": 180.0
+    },
+    {
+      "key": "net_available",
+      "name": "Net Available for Distribution",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "total_available_funds - total_fees",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 400.0,
+      "position_y": 280.0
+    },
+    {
+      "key": "class_a_interest_amount_calc",
+      "name": "Class A Interest (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_a_note_balance * class_a_note_rate / 12",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 100.0,
+      "position_y": 400.0
+    },
+    {
+      "key": "class_b_interest_amount_calc",
+      "name": "Class B Interest (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_b_note_balance * class_b_note_rate / 12",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 300.0,
+      "position_y": 400.0
+    },
+    {
+      "key": "class_c_interest_amount_calc",
+      "name": "Class C Interest (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_c_note_balance * class_c_note_rate / 12",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 500.0,
+      "position_y": 400.0
+    },
+    {
+      "key": "class_d_interest_amount_calc",
+      "name": "Class D Interest (calc)",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "class_d_note_balance * class_d_note_rate / 12",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 700.0,
+      "position_y": 400.0
+    },
+    {
+      "key": "remaining_after_int",
+      "name": "Remaining After Interest",
+      "node_type": "calculation",
+      "stream": "distribution",
+      "formula": "MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc - class_d_interest_amount_calc, 0)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 400.0,
+      "position_y": 520.0
+    },
+    {
+      "key": "svc_fee_pmt",
+      "name": "Servicing Fee Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "svc_fee_tape",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "SVC_FEE",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 1,
+      "position_x": 50.0,
+      "position_y": 640.0
+    },
+    {
+      "key": "class_a_int_pmt",
+      "name": "Class A Interest Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(net_available, class_a_interest_amount_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "INT_PMT_A",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 2,
+      "position_x": 175.0,
+      "position_y": 640.0
+    },
+    {
+      "key": "class_b_int_pmt",
+      "name": "Class B Interest Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(net_available - class_a_interest_amount_calc, 0), class_b_interest_amount_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "INT_PMT_B",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 3,
+      "position_x": 300.0,
+      "position_y": 640.0
+    },
+    {
+      "key": "class_c_int_pmt",
+      "name": "Class C Interest Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc, 0), class_c_interest_amount_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "INT_PMT_C",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 4,
+      "position_x": 425.0,
+      "position_y": 640.0
+    },
+    {
+      "key": "class_d_int_pmt",
+      "name": "Class D Interest Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(net_available - class_a_interest_amount_calc - class_b_interest_amount_calc - class_c_interest_amount_calc, 0), class_d_interest_amount_calc)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "INT_PMT_D",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 5,
+      "position_x": 550.0,
+      "position_y": 640.0
+    },
+    {
+      "key": "class_a_prin_pmt",
+      "name": "Class A Principal Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(remaining_after_int, class_a_note_balance)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "PRIN_PMT_A",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 6,
+      "position_x": 100.0,
+      "position_y": 760.0
+    },
+    {
+      "key": "class_b_prin_pmt",
+      "name": "Class B Principal Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(remaining_after_int - class_a_prin_pmt, 0), class_b_note_balance)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "PRIN_PMT_B",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 7,
+      "position_x": 300.0,
+      "position_y": 760.0
+    },
+    {
+      "key": "class_c_prin_pmt",
+      "name": "Class C Principal Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt, 0), class_c_note_balance)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "PRIN_PMT_C",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 8,
+      "position_x": 500.0,
+      "position_y": 760.0
+    },
+    {
+      "key": "class_d_prin_pmt",
+      "name": "Class D Principal Pmt",
+      "node_type": "distribution",
+      "stream": "distribution",
+      "formula": "MIN(MAX(remaining_after_int - class_a_prin_pmt - class_b_prin_pmt - class_c_prin_pmt, 0), class_d_note_balance)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": "PRIN_PMT_D",
+      "export_field": null,
+      "tolerance": null,
+      "tolerance_type": null,
+      "comparison_variable": null,
+      "default_prior_value": null,
+      "waterfall_order": 9,
+      "position_x": 700.0,
+      "position_y": 760.0
+    },
+    {
+      "key": "total_distribution_check",
+      "name": "Total Distribution Check",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "ABS(svc_fee_pmt + class_a_int_pmt + class_b_int_pmt + class_c_int_pmt + class_d_int_pmt + class_a_prin_pmt + class_b_prin_pmt + class_c_prin_pmt + class_d_prin_pmt)",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "0.01",
+      "tolerance_type": null,
+      "comparison_variable": "total_available_funds",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 400.0,
+      "position_y": 100.0
+    },
+    {
+      "key": "class_a_interest_amount_check",
+      "name": "Class A Interest Amount Check",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "class_a_interest_amount_calc",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "0.01",
+      "tolerance_type": null,
+      "comparison_variable": "class_a_interest_amount",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 50.0,
+      "position_y": 100.0
+    },
+    {
+      "key": "class_b_interest_amount_check",
+      "name": "Class B Interest Amount Check",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "class_b_interest_amount_calc",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "0.01",
+      "tolerance_type": null,
+      "comparison_variable": "class_b_interest_amount",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 175.0,
+      "position_y": 100.0
+    },
+    {
+      "key": "class_c_interest_amount_check",
+      "name": "Class C Interest Amount Check",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "class_c_interest_amount_calc",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "0.01",
+      "tolerance_type": null,
+      "comparison_variable": "class_c_interest_amount",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 300.0,
+      "position_y": 100.0
+    },
+    {
+      "key": "class_d_interest_amount_check",
+      "name": "Class D Interest Amount Check",
+      "node_type": "validation",
+      "stream": "validation",
+      "formula": "class_d_interest_amount_calc",
+      "description": null,
+      "input_source": null,
+      "variable_id": null,
+      "payment_type": null,
+      "export_field": null,
+      "tolerance": "0.01",
+      "tolerance_type": null,
+      "comparison_variable": "class_d_interest_amount",
+      "default_prior_value": null,
+      "waterfall_order": null,
+      "position_x": 525.0,
+      "position_y": 100.0
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "source_key": "total_fees",
+      "target_key": "net_available"
+    },
+    {
+      "source_key": "net_available",
+      "target_key": "class_a_int_pmt"
+    },
+    {
+      "source_key": "net_available",
+      "target_key": "class_b_int_pmt"
+    },
+    {
+      "source_key": "net_available",
+      "target_key": "class_c_int_pmt"
+    },
+    {
+      "source_key": "net_available",
+      "target_key": "class_d_int_pmt"
+    },
+    {
+      "source_key": "class_a_interest_amount_calc",
+      "target_key": "class_a_int_pmt"
+    },
+    {
+      "source_key": "class_b_interest_amount_calc",
+      "target_key": "class_b_int_pmt"
+    },
+    {
+      "source_key": "class_c_interest_amount_calc",
+      "target_key": "class_c_int_pmt"
+    },
+    {
+      "source_key": "class_d_interest_amount_calc",
+      "target_key": "class_d_int_pmt"
+    },
+    {
+      "source_key": "class_a_interest_amount_calc",
+      "target_key": "class_b_int_pmt"
+    },
+    {
+      "source_key": "class_a_interest_amount_calc",
+      "target_key": "class_c_int_pmt"
+    },
+    {
+      "source_key": "class_b_interest_amount_calc",
+      "target_key": "class_c_int_pmt"
+    },
+    {
+      "source_key": "class_a_interest_amount_calc",
+      "target_key": "class_d_int_pmt"
+    },
+    {
+      "source_key": "class_b_interest_amount_calc",
+      "target_key": "class_d_int_pmt"
+    },
+    {
+      "source_key": "class_c_interest_amount_calc",
+      "target_key": "class_d_int_pmt"
+    },
+    {
+      "source_key": "net_available",
+      "target_key": "remaining_after_int"
+    },
+    {
+      "source_key": "class_a_interest_amount_calc",
+      "target_key": "remaining_after_int"
+    },
+    {
+      "source_key": "class_b_interest_amount_calc",
+      "target_key": "remaining_after_int"
+    },
+    {
+      "source_key": "class_c_interest_amount_calc",
+      "target_key": "remaining_after_int"
+    },
+    {
+      "source_key": "class_d_interest_amount_calc",
+      "target_key": "remaining_after_int"
+    },
+    {
+      "source_key": "remaining_after_int",
+      "target_key": "class_a_prin_pmt"
+    },
+    {
+      "source_key": "remaining_after_int",
+      "target_key": "class_b_prin_pmt"
+    },
+    {
+      "source_key": "remaining_after_int",
+      "target_key": "class_c_prin_pmt"
+    },
+    {
+      "source_key": "remaining_after_int",
+      "target_key": "class_d_prin_pmt"
+    },
+    {
+      "source_key": "class_a_prin_pmt",
+      "target_key": "class_b_prin_pmt"
+    },
+    {
+      "source_key": "class_a_prin_pmt",
+      "target_key": "class_c_prin_pmt"
+    },
+    {
+      "source_key": "class_b_prin_pmt",
+      "target_key": "class_c_prin_pmt"
+    },
+    {
+      "source_key": "class_a_prin_pmt",
+      "target_key": "class_d_prin_pmt"
+    },
+    {
+      "source_key": "class_b_prin_pmt",
+      "target_key": "class_d_prin_pmt"
+    },
+    {
+      "source_key": "class_c_prin_pmt",
+      "target_key": "class_d_prin_pmt"
+    }
+  ]
 }

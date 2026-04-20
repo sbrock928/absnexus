@@ -130,11 +130,11 @@ export function DagEditorPage() {
       const slug = classSlug(t.class_label);
       if (seenClasses.has(slug)) continue;
       seenClasses.add(slug);
-      const prefix = `tranche_class_${slug}`;
-      tokens.push({ name: `${prefix}_note_rate`, label: `Class ${t.class_label} Note Rate (tranche)`, category: "variable" });
-      tokens.push({ name: `${prefix}_original_balance`, label: `Class ${t.class_label} Original Balance (tranche)`, category: "variable" });
-      tokens.push({ name: `${prefix}_balance`, label: `Class ${t.class_label} Balance (tranche, current)`, category: "variable" });
-      tokens.push({ name: `${prefix}_balance_prior`, label: `Class ${t.class_label} Balance (tranche, prior)`, category: "variable" });
+      const prefix = `static_class_${slug}`;
+      tokens.push({ name: `${prefix}_note_rate`, label: `Class ${t.class_label} Note Rate (static)`, category: "variable" });
+      tokens.push({ name: `${prefix}_original_balance`, label: `Class ${t.class_label} Original Balance (static)`, category: "variable" });
+      tokens.push({ name: `${prefix}_balance`, label: `Class ${t.class_label} Balance (static, current)`, category: "variable" });
+      tokens.push({ name: `${prefix}_balance_prior`, label: `Class ${t.class_label} Balance (static, prior)`, category: "variable" });
     }
     for (const n of allNodes) {
       tokens.push({ name: n.key, label: n.name, category: "node" });
