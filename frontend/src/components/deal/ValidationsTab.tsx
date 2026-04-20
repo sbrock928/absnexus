@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../Toast";
 import { createNode, updateNode, deleteNode } from "../../api/dag";
 import type { Variable } from "../../types";
@@ -42,8 +43,15 @@ function uniqueKey(base: string, nodes: DagNodeLite[]): string {
 
 export function ValidationsTab({ dag, mappedVariables, isEditable, dealId, onRefreshDag }: Props) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DagNodeLite | null>(null);
+
+  // Any validation mutation triggers the live-preview panel (hosted on DealDetailPage) to refetch.
+  const refreshAll = () => {
+    onRefreshDag();
+    queryClient.invalidateQueries({ queryKey: ["preview", dealId] });
+  };
 
   const validations = dag.nodes.filter((n) => n.node_type === "validation");
   const calcNodes = dag.nodes.filter(
@@ -65,7 +73,7 @@ export function ValidationsTab({ dag, mappedVariables, isEditable, dealId, onRef
     if (!window.confirm(`Delete validation "${node.name}"?`)) return;
     try {
       await deleteNode(node.id);
-      onRefreshDag();
+      refreshAll();
       toast("Validation deleted");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Delete failed", "error");
@@ -172,7 +180,7 @@ export function ValidationsTab({ dag, mappedVariables, isEditable, dealId, onRef
                 toast("Validation created");
               }
               setDialogOpen(false);
-              onRefreshDag();
+              refreshAll();
             } catch (e) {
               toast(e instanceof Error ? e.message : "Save failed", "error");
             }

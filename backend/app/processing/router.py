@@ -191,6 +191,119 @@ def extract_variables(
     }
 
 
+# ── Live preview execution ──
+# Runs the current DAG against a prior run's extracted tape values without
+# persisting anything. Used by the PreviewPanel during authoring so users see
+# the effect of formula / waterfall edits immediately.
+
+
+class PreviewRequest(BaseModel):
+    source_run_id: int
+
+
+@router.post("/{deal_id}/preview-execution")
+def preview_execution(
+    deal_id: int,
+    body: PreviewRequest,
+    db: Session = Depends(get_db),
+):
+    source = (
+        db.query(ProcessingRun)
+        .filter(ProcessingRun.id == body.source_run_id, ProcessingRun.deal_id == deal_id)
+        .first()
+    )
+    if not source:
+        raise HTTPException(404, "Source run not found")
+    extracted_values = (
+        db.query(ExtractedValue).filter(ExtractedValue.run_id == source.id).all()
+    )
+    if not extracted_values:
+        raise HTTPException(
+            400, "Source run has no extracted values to preview against"
+        )
+
+    # Savepoint so everything we write during preview gets rolled back.
+    sp = db.begin_nested()
+    try:
+        preview = ProcessingRun(
+            deal_id=deal_id,
+            report_period=source.report_period,
+            tape_file_path=source.tape_file_path,
+            tape_file_hash=source.tape_file_hash,
+            status="previewing",
+            created_by="preview",
+        )
+        db.add(preview)
+        db.flush()
+
+        for ev in extracted_values:
+            db.add(
+                ExtractedValue(
+                    run_id=preview.id,
+                    variable_id=ev.variable_id,
+                    variable_name=ev.variable_name,
+                    sheet_name=ev.sheet_name,
+                    cell_ref=ev.cell_ref,
+                    raw_value=ev.raw_value,
+                    parsed_value=ev.parsed_value,
+                    data_type=ev.data_type,
+                    prior_value=ev.prior_value,
+                    pct_change=ev.pct_change,
+                    warning=ev.warning,
+                )
+            )
+        db.flush()
+
+        executor = DagExecutor(db)
+        result = executor.execute(preview)
+
+        comp_var_by_node = {
+            n.id: n.comparison_variable
+            for n in db.query(DagNode)
+            .filter(DagNode.id.in_([s.node_id for s in result.steps]))
+            .all()
+        }
+
+        response = {
+            "source_run_id": source.id,
+            "source_period": source.report_period,
+            "validations_passed": result.validations_passed,
+            "validations_total": result.validations_total,
+            "total_distribution": str(result.distribution_total),
+            "errors": result.errors,
+            "steps": [
+                {
+                    "order": s.step_order,
+                    "key": s.node_key,
+                    "name": s.node_name,
+                    "type": s.node_type,
+                    "stream": s.stream,
+                    "formula": s.formula,
+                    "resolved": s.resolved_formula,
+                    "result": str(s.result) if s.result is not None else None,
+                    "export_field": s.export_field,
+                    "payment_type": s.payment_type,
+                    "comparison_value": (
+                        str(s.comparison_value) if s.comparison_value is not None else None
+                    ),
+                    "comparison_variable": comp_var_by_node.get(s.node_id),
+                    "tolerance": str(s.tolerance) if s.tolerance is not None else None,
+                    "tolerance_type": s.tolerance_type,
+                    "passed": s.passed,
+                    "difference": (
+                        str(s.difference) if s.difference is not None else None
+                    ),
+                }
+                for s in result.steps
+            ],
+        }
+    finally:
+        # Always roll back — preview must never persist.
+        sp.rollback()
+
+    return response
+
+
 # ── Step 3: Execute DAG ──
 
 

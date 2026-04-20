@@ -24,6 +24,7 @@ import {
 import { DagGraphView, NODE_TYPE_TIER, type TierKey } from "@/components/dag-builder/DagGraphView";
 import { FormulaEditorModal } from "@/components/dag-builder/FormulaEditorModal";
 import { FormulaChipBuilder } from "@/components/dag-builder/FormulaChipBuilder";
+import { PreviewPanel } from "@/components/preview/PreviewPanel";
 import styles from "./DagEditorPage.module.css";
 
 export function DagEditorPage() {
@@ -31,6 +32,7 @@ export function DagEditorPage() {
   const id = Number(dealId);
   const { isModeler } = useAuth();
   const queryClient = useQueryClient();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data: deal } = useQuery({
     queryKey: ["deal", id],
@@ -263,6 +265,8 @@ export function DagEditorPage() {
     queryClient.invalidateQueries({ queryKey: ["dag-nodes", id] });
     queryClient.invalidateQueries({ queryKey: ["dag-edges", id] });
     queryClient.invalidateQueries({ queryKey: ["dag-versions", id] });
+    // Live preview — re-runs whenever the DAG structure changes.
+    queryClient.invalidateQueries({ queryKey: ["preview", id] });
   };
 
   // Mutations
@@ -548,7 +552,6 @@ export function DagEditorPage() {
               <th>#</th>
               <th>Node</th>
               <th>Type</th>
-              <th>Stream</th>
               <th>Formula</th>
               <th>Export</th>
               <th></th>
@@ -566,15 +569,6 @@ export function DagEditorPage() {
                   <span style={{ fontWeight: 500 }}>{node.name}</span>
                 </td>
                 <td style={{ fontSize: 12 }}>{node.node_type}</td>
-                <td>
-                  <span
-                    className={`badge ${
-                      node.stream === "distribution" ? "badge-green" : "badge-yellow"
-                    }`}
-                  >
-                    {node.stream.toUpperCase()}
-                  </span>
-                </td>
                 <td style={{ maxWidth: 300 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <code style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
@@ -1041,6 +1035,11 @@ export function DagEditorPage() {
           onCancel={() => setEditingFormulaNode(null)}
         />
       )}
+      <PreviewPanel
+        dealId={id}
+        open={previewOpen}
+        onToggle={() => setPreviewOpen((v) => !v)}
+      />
     </div>
   );
 }

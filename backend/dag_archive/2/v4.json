@@ -3,160 +3,8 @@
   "version_number": 4,
   "description": "Initial waterfall setup from seed",
   "created_by": "root",
-  "created_at": "2026-04-20T19:12:55.575660",
+  "created_at": "2026-04-20T21:10:44.385290",
   "nodes": [
-    {
-      "key": "beg_pool_balance_in",
-      "name": "Beginning Pool Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 40.0
-    },
-    {
-      "key": "subsequent_receivables_in",
-      "name": "Subsequent Receivables",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
-      "position_y": 40.0
-    },
-    {
-      "key": "collections_outstanding_in",
-      "name": "Collections Outstanding",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 40.0
-    },
-    {
-      "key": "collections_paid_off_in",
-      "name": "Collections Paid Off",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 500.0,
-      "position_y": 40.0
-    },
-    {
-      "key": "receivables_liquidated_in",
-      "name": "Receivables Liquidated",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 100.0
-    },
-    {
-      "key": "receivables_purchased_in",
-      "name": "Receivables Purchased",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
-      "position_y": 100.0
-    },
-    {
-      "key": "receivables_adjustments_in",
-      "name": "Receivables Adjustments",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 100.0
-    },
-    {
-      "key": "cur_pool_bal_in",
-      "name": "End Pool Balance (reported)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 500.0,
-      "position_y": 100.0
-    },
     {
       "key": "total_monthly_principal",
       "name": "Total Monthly Principal Amounts",
@@ -196,44 +44,6 @@
       "position_y": 250.0
     },
     {
-      "key": "class_a_note_balance_in",
-      "name": "Class A Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_a_note_rate_in",
-      "name": "Class A Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 420.0
-    },
-    {
       "key": "class_a_interest_calc",
       "name": "Class A Interest (30/360 calc)",
       "node_type": "calculation",
@@ -251,44 +61,6 @@
       "waterfall_order": null,
       "position_x": 50.0,
       "position_y": 500.0
-    },
-    {
-      "key": "class_b_note_balance_in",
-      "name": "Class B Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 190.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_b_note_rate_in",
-      "name": "Class B Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 190.0,
-      "position_y": 420.0
     },
     {
       "key": "class_b_interest_calc",
@@ -310,44 +82,6 @@
       "position_y": 500.0
     },
     {
-      "key": "class_c_note_balance_in",
-      "name": "Class C Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 330.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_c_note_rate_in",
-      "name": "Class C Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 330.0,
-      "position_y": 420.0
-    },
-    {
       "key": "class_c_interest_calc",
       "name": "Class C Interest (30/360 calc)",
       "node_type": "calculation",
@@ -365,44 +99,6 @@
       "waterfall_order": null,
       "position_x": 330.0,
       "position_y": 500.0
-    },
-    {
-      "key": "class_d_note_balance_in",
-      "name": "Class D Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 470.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_d_note_rate_in",
-      "name": "Class D Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 470.0,
-      "position_y": 420.0
     },
     {
       "key": "class_d_interest_calc",
@@ -424,44 +120,6 @@
       "position_y": 500.0
     },
     {
-      "key": "class_e_note_balance_in",
-      "name": "Class E Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 610.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_e_note_rate_in",
-      "name": "Class E Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 610.0,
-      "position_y": 420.0
-    },
-    {
       "key": "class_e_interest_calc",
       "name": "Class E Interest (30/360 calc)",
       "node_type": "calculation",
@@ -479,44 +137,6 @@
       "waterfall_order": null,
       "position_x": 610.0,
       "position_y": 500.0
-    },
-    {
-      "key": "class_f_note_balance_in",
-      "name": "Class F Begin Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 750.0,
-      "position_y": 360.0
-    },
-    {
-      "key": "class_f_note_rate_in",
-      "name": "Class F Note Rate",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 750.0,
-      "position_y": 420.0
     },
     {
       "key": "class_f_interest_calc",
@@ -559,7 +179,7 @@
     {
       "key": "trustee_fee_calc",
       "name": "Trustee Fee (calc)",
-      "node_type": "calculation",
+      "node_type": "input_value",
       "stream": "distribution",
       "formula": "deal_trustee_fee_monthly",
       "description": null,
@@ -578,7 +198,7 @@
     {
       "key": "backup_svc_fee_calc",
       "name": "Backup Servicing Fee (calc)",
-      "node_type": "calculation",
+      "node_type": "input_value",
       "stream": "distribution",
       "formula": "2500",
       "description": null,
@@ -593,82 +213,6 @@
       "waterfall_order": null,
       "position_x": 200.0,
       "position_y": 620.0
-    },
-    {
-      "key": "total_available_funds_in",
-      "name": "Total Available Funds",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 425.0,
-      "position_y": 720.0
-    },
-    {
-      "key": "svc_fee_tape_in",
-      "name": "Servicing Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 720.0
-    },
-    {
-      "key": "backup_svc_fee_tape_in",
-      "name": "Backup Servicing Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
-      "position_y": 720.0
-    },
-    {
-      "key": "trustee_fee_tape_in",
-      "name": "Trustee Fee (tape)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 720.0
     },
     {
       "key": "svc_fee_pmt",
@@ -861,82 +405,6 @@
       "position_y": 1020.0
     },
     {
-      "key": "reserve_fund_begin_bal_in",
-      "name": "Reserve Fund Beginning Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 1120.0
-    },
-    {
-      "key": "reserve_fund_deposit_in",
-      "name": "Reserve Fund Deposit",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 200.0,
-      "position_y": 1120.0
-    },
-    {
-      "key": "reserve_fund_withdrawal_in",
-      "name": "Reserve Fund Withdrawal",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 350.0,
-      "position_y": 1120.0
-    },
-    {
-      "key": "inv_earn_reserve_in",
-      "name": "Investment Earnings (Reserve)",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 500.0,
-      "position_y": 1120.0
-    },
-    {
       "key": "reserve_required_amt",
       "name": "Reserve Required Amount",
       "node_type": "calculation",
@@ -992,25 +460,6 @@
       "waterfall_order": null,
       "position_x": 650.0,
       "position_y": 1200.0
-    },
-    {
-      "key": "prefund_end_bal_in",
-      "name": "Prefunding End Balance",
-      "node_type": "input_value",
-      "stream": "distribution",
-      "formula": null,
-      "description": null,
-      "input_source": null,
-      "variable_id": null,
-      "payment_type": null,
-      "export_field": null,
-      "tolerance": null,
-      "tolerance_type": null,
-      "comparison_variable": null,
-      "default_prior_value": null,
-      "waterfall_order": null,
-      "position_x": 50.0,
-      "position_y": 1300.0
     },
     {
       "key": "target_oc_amount",
@@ -1355,142 +804,5 @@
       "position_y": 1600.0
     }
   ],
-  "edges": [
-    {
-      "source_key": "collections_outstanding_in",
-      "target_key": "total_monthly_principal"
-    },
-    {
-      "source_key": "collections_paid_off_in",
-      "target_key": "total_monthly_principal"
-    },
-    {
-      "source_key": "receivables_liquidated_in",
-      "target_key": "total_monthly_principal"
-    },
-    {
-      "source_key": "receivables_purchased_in",
-      "target_key": "total_monthly_principal"
-    },
-    {
-      "source_key": "receivables_adjustments_in",
-      "target_key": "total_monthly_principal"
-    },
-    {
-      "source_key": "beg_pool_balance_in",
-      "target_key": "end_pool_balance_calc"
-    },
-    {
-      "source_key": "subsequent_receivables_in",
-      "target_key": "end_pool_balance_calc"
-    },
-    {
-      "source_key": "total_monthly_principal",
-      "target_key": "end_pool_balance_calc"
-    },
-    {
-      "source_key": "class_a_note_balance_in",
-      "target_key": "class_a_interest_calc"
-    },
-    {
-      "source_key": "class_a_note_rate_in",
-      "target_key": "class_a_interest_calc"
-    },
-    {
-      "source_key": "class_b_note_balance_in",
-      "target_key": "class_b_interest_calc"
-    },
-    {
-      "source_key": "class_b_note_rate_in",
-      "target_key": "class_b_interest_calc"
-    },
-    {
-      "source_key": "class_c_note_balance_in",
-      "target_key": "class_c_interest_calc"
-    },
-    {
-      "source_key": "class_c_note_rate_in",
-      "target_key": "class_c_interest_calc"
-    },
-    {
-      "source_key": "class_d_note_balance_in",
-      "target_key": "class_d_interest_calc"
-    },
-    {
-      "source_key": "class_d_note_rate_in",
-      "target_key": "class_d_interest_calc"
-    },
-    {
-      "source_key": "class_e_note_balance_in",
-      "target_key": "class_e_interest_calc"
-    },
-    {
-      "source_key": "class_e_note_rate_in",
-      "target_key": "class_e_interest_calc"
-    },
-    {
-      "source_key": "class_f_note_balance_in",
-      "target_key": "class_f_interest_calc"
-    },
-    {
-      "source_key": "class_f_note_rate_in",
-      "target_key": "class_f_interest_calc"
-    },
-    {
-      "source_key": "beg_pool_balance_in",
-      "target_key": "svc_fee_calc"
-    },
-    {
-      "source_key": "svc_fee_tape_in",
-      "target_key": "svc_fee_pmt"
-    },
-    {
-      "source_key": "backup_svc_fee_tape_in",
-      "target_key": "backup_svc_fee_pmt"
-    },
-    {
-      "source_key": "trustee_fee_tape_in",
-      "target_key": "trustee_fee_pmt"
-    },
-    {
-      "source_key": "reserve_fund_begin_bal_in",
-      "target_key": "reserve_fund_end_calc"
-    },
-    {
-      "source_key": "reserve_fund_deposit_in",
-      "target_key": "reserve_fund_end_calc"
-    },
-    {
-      "source_key": "reserve_fund_withdrawal_in",
-      "target_key": "reserve_fund_end_calc"
-    },
-    {
-      "source_key": "reserve_required_amt",
-      "target_key": "reserve_fund_deficiency"
-    },
-    {
-      "source_key": "reserve_fund_end_calc",
-      "target_key": "reserve_fund_deficiency"
-    },
-    {
-      "source_key": "end_pool_balance_calc",
-      "target_key": "target_oc_amount"
-    },
-    {
-      "source_key": "end_pool_balance_calc",
-      "target_key": "oc_amount_calc"
-    },
-    {
-      "source_key": "prefund_end_bal_in",
-      "target_key": "oc_amount_calc"
-    },
-    {
-      "source_key": "regular_prin_alloc",
-      "target_key": "total_end_note_balance"
-    },
-    {
-      "source_key": "total_end_note_balance",
-      "target_key": "oc_amount_calc"
-    }
-  ]
+  "edges": []
 }

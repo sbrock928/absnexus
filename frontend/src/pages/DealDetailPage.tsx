@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
 import { api } from "../api/client";
+import { PreviewPanel } from "../components/preview/PreviewPanel";
 import {
   listTemplates,
   getTemplate,
@@ -62,6 +64,8 @@ export function DealDetailPage() {
   const { isModeler, isAnalyst } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [servicer, setServicer] = useState<Servicer | null>(null);
   const [mappings, setMappings] = useState<Mapping[]>([]);
@@ -690,6 +694,17 @@ export function DealDetailPage() {
           onSaved={() => { setShowTrancheDialog(false); setEditingTranche(null); reloadTranches(); }}
         />
       )}
+
+      {/* Live preview — stays docked across tabs so formula / waterfall /
+          validation edits can be verified against a real tape without
+          leaving the page. */}
+      {deal && (
+        <PreviewPanel
+          dealId={deal.id}
+          open={previewOpen}
+          onToggle={() => setPreviewOpen((v) => !v)}
+        />
+      )}
     </div>
   );
 }
@@ -717,6 +732,11 @@ function WaterfallTab({
   onRefreshDag: () => void;
   onDealUpdate: (fields: Partial<Deal>) => void;
 }) {
+  const queryClient = useQueryClient();
+  // Drag-and-drop state for waterfall reordering. Tracks which row is being
+  // dragged and which row the cursor is hovering over (for the insertion hint).
+  const [dragFromId, setDragFromId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
   const viewableRuns = runs.filter((r) => r.status === "executed" || r.status === "completed");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(
     viewableRuns.length > 0 ? viewableRuns[0].id : null,
@@ -745,8 +765,34 @@ function WaterfallTab({
     try {
       await api.patch(`/deals/${deal.id}/dag/nodes/${nodeId}`, fields);
       onRefreshDag();
+      // Preview is hosted on DealDetailPage; live-refresh it on every edit.
+      queryClient.invalidateQueries({ queryKey: ["preview", deal.id] });
     } catch (e) {
       console.error("Failed to update node", e);
+    }
+  };
+
+  // Drag-and-drop: drop row N onto row M → reorder and renumber all rows 1..N.
+  // Issues one PATCH per row in parallel, then refreshes.
+  const handleWaterfallDrop = async (draggedId: number, targetId: number) => {
+    if (draggedId === targetId) return;
+    const ids = distributionSteps.map((s) => s.id);
+    const fromIdx = ids.indexOf(draggedId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const reordered = [...ids];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    try {
+      await Promise.all(
+        reordered.map((nodeId, i) =>
+          api.patch(`/deals/${deal.id}/dag/nodes/${nodeId}`, { waterfall_order: i + 1 }),
+        ),
+      );
+      onRefreshDag();
+      queryClient.invalidateQueries({ queryKey: ["preview", deal.id] });
+    } catch (e) {
+      console.error("Failed to reorder waterfall", e);
     }
   };
 
@@ -809,7 +855,7 @@ function WaterfallTab({
           simple. For each row, pick a <em>calculation</em> node (e.g. <code>svc_fee_calc</code> or
           <code>class_a_interest_calc</code>) to compare against — the tape-paid amount is
           reconciled against our independent recalculation so waivers and off-contract payments
-          surface clearly.
+          surface clearly. <strong>Drag the <code>⋮⋮</code> handle to reorder.</strong>
         </div>
         {distributionSteps.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
@@ -839,8 +885,8 @@ function WaterfallTab({
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: 30 }}></th>
                   <th style={{ width: 40 }}>#</th>
-                  <th style={{ width: 80 }}>Order</th>
                   <th>Distribution</th>
                   <th>Export field</th>
                   <th>Compare against</th>
@@ -849,32 +895,58 @@ function WaterfallTab({
               </thead>
               <tbody>
                 {distributionSteps.map((s, idx) => (
-                  <tr key={s.id}>
-                    <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
-                    <td>
-                      {isEditable ? (
-                        <input
-                          type="number"
-                          value={s.waterfall_order ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value ? Number(e.target.value) : null;
-                            patchNode(s.id, { waterfall_order: val });
-                          }}
-                          style={{
-                            width: 60,
-                            padding: "2px 6px",
-                            background: "var(--bg-input)",
-                            border: "1px solid var(--border-color)",
-                            borderRadius: 4,
-                            color: "var(--text-primary)",
-                            fontFamily: "var(--font-mono)",
-                            fontSize: 12,
-                          }}
-                        />
-                      ) : (
-                        <span style={{ fontFamily: "var(--font-mono)" }}>{s.waterfall_order ?? "—"}</span>
-                      )}
+                  <tr
+                    key={s.id}
+                    onDragOver={(e) => {
+                      if (dragFromId !== null) {
+                        e.preventDefault();
+                        setDragOverId(s.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverId === s.id) setDragOverId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragFromId !== null && dragFromId !== s.id) {
+                        handleWaterfallDrop(dragFromId, s.id);
+                      }
+                      setDragFromId(null);
+                      setDragOverId(null);
+                    }}
+                    style={{
+                      background:
+                        dragOverId === s.id && dragFromId !== s.id
+                          ? "rgba(96,165,250,0.12)"
+                          : dragFromId === s.id
+                            ? "rgba(96,165,250,0.05)"
+                            : undefined,
+                      opacity: dragFromId === s.id ? 0.5 : 1,
+                      transition: "background 0.1s",
+                    }}
+                  >
+                    <td
+                      draggable={isEditable}
+                      onDragStart={() => {
+                        setDragFromId(s.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragFromId(null);
+                        setDragOverId(null);
+                      }}
+                      title={isEditable ? "Drag to reorder" : undefined}
+                      style={{
+                        color: "var(--text-muted)",
+                        cursor: isEditable ? "grab" : "default",
+                        userSelect: "none",
+                        textAlign: "center",
+                        fontSize: 14,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ⋮⋮
                     </td>
+                    <td style={{ color: "var(--text-muted)" }}>{idx + 1}</td>
                     <td style={{ fontWeight: 500 }}>{s.name}</td>
                     <td>
                       {(s.export_field || (s as any).payment_type) ? (
