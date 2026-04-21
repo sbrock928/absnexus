@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { DagNodeData } from "./types";
 import type { FormulaToken } from "./DagGraphView";
 import { FormulaChipBuilder } from "./FormulaChipBuilder";
+import { useConfirm } from "../ConfirmDialog";
 import styles from "./NodePropertiesPanel.module.css";
 
 export interface MappedVariable {
@@ -40,6 +41,7 @@ export function NodePropertiesPanel({
   availableTokens = [],
   mappedVariables = [],
 }: Props) {
+  const confirm = useConfirm();
   const [name, setName] = useState(node.label);
   const [formula, setFormula] = useState(node.formula ?? "");
   const [description, setDescription] = useState(node.description ?? "");
@@ -313,8 +315,8 @@ export function NodePropertiesPanel({
         )}
         <button
           className={styles.deleteBtn}
-          onClick={() => {
-            if (window.confirm(`Delete node "${node.label}"? This removes all connected edges.`)) {
+          onClick={async () => {
+            if (await confirm({ message: `Delete node "${node.label}"? This removes all connected edges.`, confirmLabel: "Delete" })) {
               onDelete();
             }
           }}

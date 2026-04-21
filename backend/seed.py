@@ -23,10 +23,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine, Base
 import app.models  # noqa: F401 — registers all ORM models with Base before create_all
 from app.dag.service import DagService
-from app.export.service import ExportColumnService
 from app.models.dag import DagEdge, DagNode
 from app.models.deal import Deal
-from app.models.export import ExportColumn
 from app.models.variable import VariableDefinition
 from app.models.variable_mapping import VariableMapping
 from app.models.servicer import Servicer
@@ -1844,51 +1842,6 @@ def _seed_deal(
         f"  + {len(node_creates)} nodes + {len(edge_creates)} edges saved as v{version.version_number}"
     )
 
-    # Export columns (System A layout)
-    existing_cols = db.query(ExportColumn).filter(ExportColumn.deal_id == deal.id).count()
-    if existing_cols == 0:
-        export_svc = ExportColumnService(db)
-        saved_nodes = dag_svc.load(deal.id)
-        anchor_node_id = None
-        if saved_nodes:
-            for n in saved_nodes["nodes"]:
-                if n.key == "svc_fee_pmt":
-                    anchor_node_id = n.id
-                    break
-
-        pos = 1
-        export_svc.create_column(
-            deal.id, "DEAL_ID", "deal_meta", meta_field="deal_id", position=pos
-        )
-        pos += 1
-        export_svc.create_column(
-            deal.id, "PAYMENT_DATE", "run_meta", meta_field="payment_date", position=pos
-        )
-        pos += 1
-        export_svc.create_column(
-            deal.id, "PAYMENT_TYPE", "literal", literal_value="DISTRIBUTION", position=pos
-        )
-        pos += 1
-        export_svc.create_column(deal.id, "FIELD_CODE", "literal", literal_value="", position=pos)
-        pos += 1
-        export_svc.create_column(
-            deal.id,
-            "AMOUNT",
-            "distribution_node",
-            node_id=anchor_node_id,
-            format_type="decimal",
-            decimal_places=2,
-            position=pos,
-        )
-        pos += 1
-        export_svc.create_column(
-            deal.id, "RUN_ID", "run_meta", meta_field="run_code", position=pos
-        )
-        db.flush()
-        print(f"  + 6 export columns")
-    else:
-        print(f"  = {existing_cols} export columns already exist")
-
     return deal
 
 
@@ -1905,7 +1858,6 @@ def drop_all_records(db: Session) -> None:
         DealExportRow,
         GlobalExportColumn,
         GlobalExportTemplate,
-        ExportColumn,
         DagEdge,
         DagNode,
         TrancheBalance,

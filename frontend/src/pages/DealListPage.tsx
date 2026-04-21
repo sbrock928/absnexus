@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { api } from "../api/client";
 import type { Deal, Servicer } from "../types";
 
@@ -16,6 +17,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 export function DealListPage() {
   const { isModeler, isAnalyst } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [servicers, setServicers] = useState<Servicer[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -48,7 +50,7 @@ export function DealListPage() {
     : (["all", "active", "draft", "archived"] as const);
 
   const handleDelete = async (deal: Deal) => {
-    if (!confirm(`Delete "${deal.name}"? This cannot be undone.`)) return;
+    if (!(await confirm({ message: `Delete "${deal.name}"? This cannot be undone.`, confirmLabel: "Delete" }))) return;
     try {
       await api.del(`/deals/${deal.id}`);
       toast("Deal deleted");

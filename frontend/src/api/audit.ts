@@ -20,14 +20,3 @@ export function fetchAuditLogs(
   const qs = params.toString();
   return api.get<AuditLogListResponse>(`/audit/${qs ? `?${qs}` : ""}`);
 }
-
-export function fetchEntityAudit(
-  entityType: string,
-  entityId: number,
-  page = 1,
-  pageSize = 50,
-): Promise<AuditLogListResponse> {
-  return api.get<AuditLogListResponse>(
-    `/audit/entity/${entityType}/${entityId}?page=${page}&page_size=${pageSize}`,
-  );
-}

@@ -3,12 +3,8 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
-
-from app.export.service import ExportColumnService
 from app.global_export.service import GlobalExportService
 from app.models.deal import Deal, DealAccount
-from app.models.export import ExportColumn
 from app.models.global_export import GlobalExportColumn, GlobalExportTemplate
 from app.models.processing import ProcessingRun
 from app.models.servicer import Servicer
@@ -34,47 +30,6 @@ def _seed_deal_with_accounts(db) -> Deal:
         )
     db.flush()
     return d
-
-
-# ── ExportColumnService (per-deal) ──
-
-
-def test_export_column_service_resolves_deal_account(db):
-    deal = _seed_deal_with_accounts(db)
-    svc = ExportColumnService(db)
-    col = ExportColumn(
-        deal_id=deal.id,
-        position=1,
-        header_label="MAIN_ACCT",
-        value_type="deal_account",
-        meta_field="Main",
-        format_type="text",
-    )
-    # Resolver is called internally by _resolve_column; exercise directly.
-    result = svc._resolve_column(col, ProcessingRun(id=1, deal_id=deal.id, report_period="2025-12", created_by="t"), deal, None)
-    assert result == "92994800"
-
-
-def test_export_column_service_deal_account_case_insensitive(db):
-    deal = _seed_deal_with_accounts(db)
-    svc = ExportColumnService(db)
-    col = ExportColumn(
-        deal_id=deal.id, position=1, header_label="X",
-        value_type="deal_account", meta_field="coLLEction", format_type="text",
-    )
-    result = svc._resolve_column(col, ProcessingRun(id=1, deal_id=deal.id, report_period="2025-12", created_by="t"), deal, None)
-    assert result == "92994801"
-
-
-def test_export_column_service_deal_account_missing_label_returns_empty(db):
-    deal = _seed_deal_with_accounts(db)
-    svc = ExportColumnService(db)
-    col = ExportColumn(
-        deal_id=deal.id, position=1, header_label="X",
-        value_type="deal_account", meta_field="DoesNotExist", format_type="text",
-    )
-    result = svc._resolve_column(col, ProcessingRun(id=1, deal_id=deal.id, report_period="2025-12", created_by="t"), deal, None)
-    assert result == ""
 
 
 # ── GlobalExportService ──

@@ -28,8 +28,6 @@ class ProcessingRun(Base):
         ForeignKey("batch_run.id"),
         nullable=True,
     )
-    mappings_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
-    tranche_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     export_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     export_file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     total_distribution: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import { api } from "../api/client";
 import { PreviewPanel } from "../components/preview/PreviewPanel";
 import {
@@ -63,6 +64,7 @@ export function DealDetailPage() {
   const { dealId } = useParams<{ dealId: string }>();
   const { isModeler, isAnalyst } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -171,7 +173,7 @@ export function DealDetailPage() {
   }, [deal]);
 
   const handleDeleteMapping = async (m: Mapping) => {
-    if (!confirm(`Delete mapping for ${m.tape_label || `var_${m.variable_id}`}?`)) return;
+    if (!(await confirm({ message: `Delete mapping for ${m.tape_label || `var_${m.variable_id}`}?`, confirmLabel: "Delete" }))) return;
     try {
       await api.del(`/deals/${dealId}/mappings/${m.id}`);
       toast("Mapping deleted");
@@ -180,7 +182,7 @@ export function DealDetailPage() {
   };
 
   const handleDeleteTranche = async (t: Tranche) => {
-    if (!confirm(`Delete tranche Class ${t.class_label}?`)) return;
+    if (!(await confirm({ message: `Delete tranche Class ${t.class_label}?`, confirmLabel: "Delete" }))) return;
     try {
       await api.del(`/deals/${dealId}/tranches/${t.id}`);
       toast("Tranche deleted");

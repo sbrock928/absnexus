@@ -10,18 +10,26 @@ import { reextractVariable } from "../api/mappings";
 import type { Deal, Servicer } from "../types";
 
 interface ExtractedVar { variable_id?: number; variable: string; cell: string; sheet: string; raw: string | null; parsed: string | null; prior: string | null; pct_change: string | null; warning: string | null; data_type?: string | null; }
-interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; comparison_variable?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
+interface ExecStep { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; passed: number | null; difference: string | null; comparison_value?: string | null; comparison_variable?: string | null; comparison_data_type?: string | null; tolerance?: string | null; tolerance_type?: string | null; payment_type?: string | null; }
 
 const STEPS = ["Select deal", "Upload tape", "Extract", "Execute", "Waterfall", "Export"];
 const nodeColor: Record<string, string> = { input_value: "var(--accent-green)", calculation: "var(--accent-blue)", distribution: "var(--accent-purple)", validation: "var(--accent-orange)" };
-const fmtMoney = (v: string | null) => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—";
+const fmtMoney = (v: string | null) => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
 const fmtByType = (v: string | null, dtype?: string | null) => {
   if (v === null || v === undefined || v === "") return "—";
   const n = Number(v);
   if (isNaN(n)) return v;
   if (dtype === "integer") return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
   if (dtype === "percentage") return `${(n * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  // decimal and anything else (money is the default shape in this app)
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+const fmtTolerance = (v: string | null | undefined, tolType: string | null | undefined) => {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return v;
+  const trimmed = n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
+  return `±${trimmed}${tolType === "percentage" ? "%" : ""}`;
 };
 
 /* Map run.status → highest completed step index */
@@ -385,6 +393,7 @@ export function ProcessingPage() {
                 {steps.filter((s) => s.type === "validation").map((s) => {
                   const tapeVar = s.comparison_variable ?? null;
                   const tapeCell = tapeVar ? vars.find((v) => v.variable === tapeVar) : undefined;
+                  const dtype = s.comparison_data_type ?? tapeCell?.data_type ?? null;
                   // If the validation's formula is a bare identifier (the
                   // common pattern — it references a single calc node), drill
                   // into that calc node's lineage. Otherwise fall back to the
@@ -400,7 +409,7 @@ export function ProcessingPage() {
                         title={`Click to inspect lineage for ${drillKey}`}
                         onClick={() => setLineageNodeKey(drillKey)}
                       >
-                        <div>{fmtMoney(s.result)}</div>
+                        <div>{fmtByType(s.result, dtype)}</div>
                         {isBareIdent && (
                           <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
                             {drillKey}
@@ -408,7 +417,7 @@ export function ProcessingPage() {
                         )}
                       </td>
                       <td style={{ fontFamily: "monospace" }}>
-                        <div>{fmtMoney(s.comparison_value ?? null)}</div>
+                        <div>{fmtByType(s.comparison_value ?? null, dtype)}</div>
                         {tapeVar && (
                           <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 2 }}>
                             {tapeVar}
@@ -416,8 +425,8 @@ export function ProcessingPage() {
                           </div>
                         )}
                       </td>
-                      <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtMoney(s.difference)}</td>
-                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>±{s.tolerance}{s.tolerance_type === "percentage" ? "%" : ""}</td>
+                      <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtByType(s.difference, dtype)}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{fmtTolerance(s.tolerance, s.tolerance_type)}</td>
                       <td>{s.passed === 1 ? <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>Pass</span> : <span style={{ color: "var(--accent-red)", fontWeight: 600 }}>Fail</span>}</td>
                     </tr>
                   );

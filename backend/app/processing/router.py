@@ -15,6 +15,7 @@ from app.models.deal import Deal
 from app.models.user import User
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
 from app.models.dag import DagNode
+from app.models.variable import VariableDefinition
 from app.services.tape_extractor import TapeExtractor
 from app.services.dag_executor import DagExecutor
 from app.services.clone_service import CloneService
@@ -22,6 +23,19 @@ from app.processing.service import ProcessingService
 from app.utils.file_manager import FileManager
 
 router = APIRouter()
+
+
+def _variable_types(db: Session, names) -> dict[str, str]:
+    """Return {variable_name: data_type} for the given canonical names."""
+    clean = {n for n in names if n}
+    if not clean:
+        return {}
+    rows = (
+        db.query(VariableDefinition.name, VariableDefinition.data_type)
+        .filter(VariableDefinition.name.in_(clean))
+        .all()
+    )
+    return {name: data_type for name, data_type in rows}
 
 
 # ── Processing Run CRUD ──
@@ -263,6 +277,7 @@ def preview_execution(
             .filter(DagNode.id.in_([s.node_id for s in result.steps]))
             .all()
         }
+        type_by_var = _variable_types(db, comp_var_by_node.values())
 
         response = {
             "source_run_id": source.id,
@@ -287,6 +302,7 @@ def preview_execution(
                         str(s.comparison_value) if s.comparison_value is not None else None
                     ),
                     "comparison_variable": comp_var_by_node.get(s.node_id),
+                    "comparison_data_type": type_by_var.get(comp_var_by_node.get(s.node_id)),
                     "tolerance": str(s.tolerance) if s.tolerance is not None else None,
                     "tolerance_type": s.tolerance_type,
                     "passed": s.passed,
@@ -343,6 +359,7 @@ def execute_dag(
             DagNode.id.in_([s.node_id for s in result.steps])
         ).all()
     }
+    type_by_var = _variable_types(db, comp_var_by_node.values())
 
     return {
         "status": run.status,
@@ -366,6 +383,7 @@ def execute_dag(
                     str(s.comparison_value) if s.comparison_value is not None else None
                 ),
                 "comparison_variable": comp_var_by_node.get(s.node_id),
+                "comparison_data_type": type_by_var.get(comp_var_by_node.get(s.node_id)),
                 "tolerance": str(s.tolerance) if s.tolerance is not None else None,
                 "tolerance_type": s.tolerance_type,
                 "passed": s.passed,
@@ -387,6 +405,13 @@ def get_trace(deal_id: int, run_id: int, db: Session = Depends(get_db)):
         .order_by(ExecutionStep.step_order)
         .all()
     )
+    comp_var_by_node = {
+        n.id: n.comparison_variable
+        for n in db.query(DagNode).filter(
+            DagNode.id.in_([s.node_id for s in steps])
+        ).all()
+    }
+    type_by_var = _variable_types(db, comp_var_by_node.values())
     return [
         {
             "order": s.step_order,
@@ -402,6 +427,8 @@ def get_trace(deal_id: int, run_id: int, db: Session = Depends(get_db)):
             "comparison_value": (
                 str(s.comparison_value) if s.comparison_value is not None else None
             ),
+            "comparison_variable": comp_var_by_node.get(s.node_id),
+            "comparison_data_type": type_by_var.get(comp_var_by_node.get(s.node_id)),
             "tolerance": str(s.tolerance) if s.tolerance is not None else None,
             "tolerance_type": s.tolerance_type,
             "difference": str(s.difference) if s.difference is not None else None,

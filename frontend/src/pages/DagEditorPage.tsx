@@ -25,6 +25,7 @@ import { DagGraphView, NODE_TYPE_TIER, type TierKey } from "@/components/dag-bui
 import { FormulaEditorModal } from "@/components/dag-builder/FormulaEditorModal";
 import { FormulaChipBuilder } from "@/components/dag-builder/FormulaChipBuilder";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
+import { useConfirm } from "@/components/ConfirmDialog";
 import styles from "./DagEditorPage.module.css";
 
 export function DagEditorPage() {
@@ -32,6 +33,7 @@ export function DagEditorPage() {
   const id = Number(dealId);
   const { isModeler } = useAuth();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data: deal } = useQuery({
@@ -634,8 +636,8 @@ export function DagEditorPage() {
                       <button
                         className={styles.actionLink}
                         style={{ color: "var(--accent-red)" }}
-                        onClick={() => {
-                          if (window.confirm(`Delete "${node.name}"?`)) {
+                        onClick={async () => {
+                          if (await confirm({ message: `Delete "${node.name}"?`, confirmLabel: "Delete" })) {
                             deleteNodeMut.mutate(node.id);
                           }
                         }}
@@ -990,8 +992,8 @@ export function DagEditorPage() {
                   <button
                     className={styles.actionLink}
                     style={{ marginTop: 4 }}
-                    onClick={() => {
-                      if (window.confirm(`Revert to v${v.version_number}? This creates a new version.`)) {
+                    onClick={async () => {
+                      if (await confirm({ message: `Revert to v${v.version_number}? This creates a new version.`, confirmLabel: "Revert", destructive: false })) {
                         revertMut.mutate(v.id);
                       }
                     }}

@@ -1,6 +1,5 @@
 """Tape extraction service — reads cells from servicer tape by mapping."""
 
-import json
 from decimal import Decimal, InvalidOperation
 from sqlalchemy.orm import Session
 
@@ -19,18 +18,6 @@ class TapeExtractor:
         mappings = (
             self.db.query(VariableMapping).filter(VariableMapping.deal_id == run.deal_id).all()
         )
-
-        # Snapshot mappings on the run
-        snapshot = [
-            {
-                "variable_id": m.variable_id,
-                "sheet": m.sheet_name,
-                "col": m.column_letter,
-                "row": m.row_number,
-            }
-            for m in mappings
-        ]
-        run.mappings_snapshot = json.dumps(snapshot)
 
         # Find prior run for comparison
         prior_values = self._get_prior_values(run.deal_id, run.report_period)

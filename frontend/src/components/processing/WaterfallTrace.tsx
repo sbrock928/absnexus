@@ -10,7 +10,18 @@ function formatMoney(val: string | null): string {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
+}
+
+function formatByType(val: string | null, dtype?: string | null): string {
+  if (val === null || val === undefined) return "—";
+  const n = parseFloat(val);
+  if (isNaN(n)) return val;
+  if (dtype === "integer") return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (dtype === "percentage")
+    return `${(n * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  return formatMoney(val);
 }
 
 interface Props {
@@ -99,7 +110,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                     )}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                    <div>{formatMoney(s.amount)}</div>
+                    <div>{formatByType(s.amount, s.tape_data_type)}</div>
                     {s.tape_variable && (
                       <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
                         {s.tape_variable}
@@ -107,7 +118,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                     )}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                    <div>{formatMoney(s.comparison_value)}</div>
+                    <div>{formatByType(s.comparison_value, s.comparison_data_type ?? s.tape_data_type)}</div>
                     {s.comparison_variable && (
                       <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
                         {s.comparison_variable}
@@ -119,7 +130,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                     fontFamily: "var(--font-mono)",
                     color: s.matched === false ? "var(--accent-red)" : "var(--text-muted)",
                   }}>
-                    {formatMoney(s.difference)}
+                    {formatByType(s.difference, s.comparison_data_type ?? s.tape_data_type)}
                   </td>
                   <td style={{ textAlign: "center" }}>
                     {s.matched === true && (
@@ -165,7 +176,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                   fontFamily: "var(--font-mono)",
                 }}
               >
-                <div style={{ color: "var(--accent-red)" }}>- {formatMoney(s.amount)}</div>
+                <div style={{ color: "var(--accent-red)" }}>- {formatByType(s.amount, s.tape_data_type)}</div>
                 {s.tape_variable && (
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
                     {s.tape_variable}
@@ -173,7 +184,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                 )}
               </td>
               <td style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-                <div>{s.comparison_value !== null ? formatMoney(s.comparison_value) : "—"}</div>
+                <div>{formatByType(s.comparison_value, s.comparison_data_type ?? s.tape_data_type)}</div>
                 {s.comparison_variable && (
                   <div style={{ fontSize: 10, marginTop: 2 }}>
                     {s.comparison_variable}
@@ -192,7 +203,7 @@ export function WaterfallTrace({ dealId, runId, onContinue, onInvestigate }: Pro
                         : "var(--text-muted)",
                 }}
               >
-                {s.difference !== null ? formatMoney(s.difference) : "—"}
+                {formatByType(s.difference, s.comparison_data_type ?? s.tape_data_type)}
               </td>
               <td
                 style={{

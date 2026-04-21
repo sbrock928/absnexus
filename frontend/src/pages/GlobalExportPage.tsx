@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 import {
   listTemplates,
   getTemplate,
@@ -23,6 +24,7 @@ const VALUE_TYPES = [
 export function GlobalExportPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<GlobalColumn | null>(null);
@@ -167,7 +169,7 @@ export function GlobalExportPage() {
                         <button
                           className="btn btn-ghost btn-sm"
                           style={{ color: "var(--accent-red)" }}
-                          onClick={() => { if (confirm(`Delete "${c.header_label}"?`)) deleteMut.mutate(c.id); }}
+                          onClick={async () => { if (await confirm({ message: `Delete "${c.header_label}"?`, confirmLabel: "Delete" })) deleteMut.mutate(c.id); }}
                         >
                           Del
                         </button>

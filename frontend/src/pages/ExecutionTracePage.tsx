@@ -3,9 +3,17 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 
 interface RunData { id: number; deal_id: number; report_period: string; status: string; total_distribution: string | null; validations_passed: number | null; validations_total: number | null; created_by: string; }
-interface Step { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; payment_type: string | null; comparison_value: string | null; tolerance: string | null; tolerance_type: string | null; difference: string | null; passed: number | null; }
+interface Step { order: number; key: string; name: string; type: string; stream: string; formula: string | null; resolved: string | null; result: string | null; export_field: string | null; payment_type: string | null; comparison_value: string | null; comparison_variable?: string | null; comparison_data_type?: string | null; tolerance: string | null; tolerance_type: string | null; difference: string | null; passed: number | null; }
 
-const fmt = (v: string | null) => { if (!v) return "—"; const n = parseFloat(v); return isNaN(n) ? v : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`; };
+const fmt = (v: string | null) => { if (!v) return "—"; const n = parseFloat(v); return isNaN(n) ? v : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; };
+const fmtByType = (v: string | null, dtype?: string | null): string => {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return v;
+  if (dtype === "integer") return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (dtype === "percentage") return `${(n * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 const dotColor: Record<string, string> = { input_value: "#4ade80", calculation: "#60a5fa", distribution: "#a78bfa", validation: "#fbbf24" };
 
 export function ExecutionTracePage() {
@@ -76,9 +84,9 @@ export function ExecutionTracePage() {
           <tbody>{vals.map((s) => (<tr key={s.order} style={s.passed === 0 ? { background: "rgba(248,113,113,0.05)" } : {}}>
             <td style={{ color: "var(--text-muted)" }}>{s.order}</td>
             <td><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: dotColor[s.type], marginRight: 6, verticalAlign: "middle" }} />{s.name}</td>
-            <td style={{ fontFamily: "monospace" }}>{fmt(s.result)}</td>
-            <td style={{ fontFamily: "monospace" }}>{fmt(s.comparison_value)}</td>
-            <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmt(s.difference)}</td>
+            <td style={{ fontFamily: "monospace" }}>{fmtByType(s.result, s.comparison_data_type)}</td>
+            <td style={{ fontFamily: "monospace" }}>{fmtByType(s.comparison_value, s.comparison_data_type)}</td>
+            <td style={{ fontFamily: "monospace", color: s.passed === 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{fmtByType(s.difference, s.comparison_data_type)}</td>
             <td>{s.passed === 1 ? <span className="badge badge-active">Pass</span> : <span style={{ color: "var(--accent-red)", fontWeight: 600 }}>Fail</span>}</td>
             <td><button onClick={() => navigate(`/deals/${dealId}/runs/${runId}/lineage/${s.key}`)} style={{ fontSize: 12, color: "var(--accent-blue)", background: "none", border: "none", cursor: "pointer" }}>{s.passed === 0 ? "Investigate" : "Trace"}</button></td>
           </tr>))}</tbody></table>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth";
+import { useConfirm } from "../components/ConfirmDialog";
 import type { Variable, Servicer } from "../types";
 
 const DATA_TYPES = ["decimal", "percentage", "integer", "string", "date"];
 
 export function VariableLibraryPage() {
   const { isModeler } = useAuth();
+  const confirm = useConfirm();
   const [vars, setVars] = useState<Variable[]>([]);
   const [servicers, setServicers] = useState<Servicer[]>([]);
   const [scope, setScope] = useState("system");
@@ -31,7 +33,7 @@ export function VariableLibraryPage() {
   useEffect(reload, [scope, servicerFilter]);
 
   const handleDelete = async (v: Variable) => {
-    if (!confirm(`Delete variable "${v.name}"?`)) return;
+    if (!(await confirm({ message: `Delete variable "${v.name}"?`, confirmLabel: "Delete" }))) return;
     await api.del(`/variables/${v.id}`);
     reload();
   };

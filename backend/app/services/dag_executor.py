@@ -1,6 +1,5 @@
 """DAG execution engine — builds context, topo-sort, evaluate, write trace."""
 
-import json
 from decimal import Decimal
 import networkx as nx
 from sqlalchemy.orm import Session
@@ -94,7 +93,6 @@ class DagExecutor:
             run.deal_id, run.report_period, self._prior_period(run.report_period)
         )
         context.update(tranche_ctx)
-        run.tranche_snapshot = json.dumps({k: str(v) for k, v in tranche_ctx.items()})
 
         # 5. Source 4: Deal-level static + period-computed values
         deal = self.db.query(Deal).filter(Deal.id == run.deal_id).first()

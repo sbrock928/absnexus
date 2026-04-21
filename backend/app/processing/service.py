@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.dag.dao import DagDAO
 from app.models.deal import Deal
 from app.models.processing import ProcessingRun, ExtractedValue, ExecutionStep
+from app.models.variable import VariableDefinition
 
 
 class ProcessingService:
@@ -90,6 +91,27 @@ class ProcessingService:
         comparison_count = 0
         comparison_matched = 0
 
+        # Pre-compute variable name → data_type lookup for all variables
+        # referenced by either comparison_variable (on the DagNode) or a
+        # bare-identifier formula (the tape-passthrough pattern).
+        var_names_needed: set[str] = set()
+        for step in distributions:
+            node = nodes_by_id.get(step.node_id)
+            if node and node.comparison_variable:
+                var_names_needed.add(node.comparison_variable)
+            if step.formula:
+                f = step.formula.strip()
+                if f and all(c.isalnum() or c == "_" for c in f) and not f[0].isdigit():
+                    var_names_needed.add(f)
+        type_by_var: dict[str, str] = {}
+        if var_names_needed:
+            type_by_var = {
+                name: data_type
+                for name, data_type in self.db.query(
+                    VariableDefinition.name, VariableDefinition.data_type
+                ).filter(VariableDefinition.name.in_(var_names_needed)).all()
+            }
+
         for idx, step in enumerate(distributions, start=1):
             amount = step.result or Decimal("0")
             running = running - amount
@@ -131,7 +153,9 @@ class ProcessingService:
                     "difference": step_diff,
                     "matched": matched,
                     "comparison_variable": comp_var,
+                    "comparison_data_type": type_by_var.get(comp_var) if comp_var else None,
                     "tape_variable": tape_var,
+                    "tape_data_type": type_by_var.get(tape_var) if tape_var else None,
                 }
             )
 

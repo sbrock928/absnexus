@@ -12,7 +12,9 @@ export interface WaterfallStep {
   difference: string | null;
   matched: boolean | null;
   comparison_variable: string | null;
+  comparison_data_type: string | null;
   tape_variable: string | null;
+  tape_data_type: string | null;
 }
 
 export interface WaterfallTrace {
@@ -45,24 +47,4 @@ export function getWaterfall(
 
 export function getWaterfallPdfUrl(dealId: number, runId: number): string {
   return `/api/deals/${dealId}/runs/${runId}/waterfall/pdf`;
-}
-
-export interface WaterfallConfig {
-  starting_var: string;
-  ending_var: string;
-  tolerance: string;
-}
-
-export function updateWaterfallConfig(
-  dealId: number,
-  payload: {
-    waterfall_starting_var?: string;
-    waterfall_ending_var?: string;
-    waterfall_tolerance?: string;
-  },
-): Promise<WaterfallConfig> {
-  return api.patch<WaterfallConfig>(
-    `/deals/${dealId}/waterfall-config`,
-    payload,
-  );
 }

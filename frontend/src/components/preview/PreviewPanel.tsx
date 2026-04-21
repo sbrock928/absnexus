@@ -24,6 +24,7 @@ interface PreviewStep {
   export_field: string | null;
   comparison_value: string | null;
   comparison_variable: string | null;
+  comparison_data_type: string | null;
   tolerance: string | null;
   tolerance_type: string | null;
   passed: number | null;
@@ -68,15 +69,13 @@ function fmtMoney(v: string | null): string {
   });
 }
 
-function fmtByType(v: string | null, type: string): string {
+function fmtByType(v: string | null, dtype?: string | null): string {
   if (v === null || v === undefined) return "—";
   const n = Number(v);
   if (isNaN(n)) return v;
-  // Validations comparing days/percentages are rare — default money for results.
-  if (type === "validation" && Math.abs(n) < 1000 && Math.abs(n - Math.round(n)) < 1e-9) {
-    return String(Math.round(n));
-  }
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  if (dtype === "integer") return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (dtype === "percentage") return `${(n * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function PreviewPanel({ dealId, open, onToggle }: Props) {
@@ -388,7 +387,7 @@ export function PreviewPanel({ dealId, open, onToggle }: Props) {
                           </div>
                         </td>
                         <td style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
-                          {fmtByType(s.result, "validation")}
+                          {fmtByType(s.result, s.comparison_data_type)}
                         </td>
                         <td
                           style={{
@@ -397,7 +396,7 @@ export function PreviewPanel({ dealId, open, onToggle }: Props) {
                             color: "var(--text-muted)",
                           }}
                         >
-                          {fmtByType(s.comparison_value, "validation")}
+                          {fmtByType(s.comparison_value, s.comparison_data_type)}
                         </td>
                         <td style={{ textAlign: "center" }}>
                           {s.passed === 1 && (

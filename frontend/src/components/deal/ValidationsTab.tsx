@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../Toast";
+import { useConfirm } from "../ConfirmDialog";
 import { createNode, updateNode, deleteNode } from "../../api/dag";
 import type { Variable } from "../../types";
 
@@ -43,6 +44,7 @@ function uniqueKey(base: string, nodes: DagNodeLite[]): string {
 
 export function ValidationsTab({ dag, mappedVariables, isEditable, dealId, onRefreshDag }: Props) {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DagNodeLite | null>(null);
@@ -70,7 +72,7 @@ export function ValidationsTab({ dag, mappedVariables, isEditable, dealId, onRef
   };
 
   const handleDelete = async (node: DagNodeLite) => {
-    if (!window.confirm(`Delete validation "${node.name}"?`)) return;
+    if (!(await confirm({ message: `Delete validation "${node.name}"?`, confirmLabel: "Delete" }))) return;
     try {
       await deleteNode(node.id);
       refreshAll();
